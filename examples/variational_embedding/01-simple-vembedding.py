@@ -8,6 +8,18 @@ import numpy as np
 
 
 def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype": "dmet"}):
+    '''Run Vayesta on an natom hydrogen rings in a minimal basis, with bond_length r.
+    Note that since this is a minimal basis, the fragmentation is completely spanning.
+
+    Optional args:
+        n_per_frag: atoms per fragment (i.e. fragment size, since minimal basis)
+        bath_options: default is DMET bath only
+
+    Returns:
+        Vayesta embedding object
+        Mean-field object
+    '''
+
     if abs(natom / n_per_frag - natom // n_per_frag) > 1e-6:
         raise ValueError(f"Atoms per fragment ({n_per_frag}) doesn't exactly divide natoms ({natom})")
 
@@ -35,7 +47,13 @@ def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype": "dmet"}):
 
 
 def get_wf_composite(emb, inc_mf=False):
-    """Compute energy resulting from generalised eigenproblem between all local cluster wavefunctions."""
+    """Compute energy resulting from generalised eigenproblem between all local cluster wavefunctions.
+    This does not relax the individual amplitudes of the cluster wavefunction -- just their relative
+    contributions, and then returns the variational energy resulting from this. This is equivalent
+    to minimizing the energy in the many-body basis of contracted cluster states. Note that this is
+    not size extensive. No projectors are applied."""
+
+    # This calculates the Hamiltonian between all the cluster wave functions
     h, s, dm = variational_params.get_wf_couplings(emb, inc_mf=inc_mf)
     w_bare, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     # Return lowest eigenvalue.
@@ -43,20 +61,40 @@ def get_wf_composite(emb, inc_mf=False):
 
 
 def get_density_projected(emb, inc_mf=False):
+    """ Construct the one-body fragment density projectors for each cluster, and apply them
+    to their respective cluster solutions. Then, optimize their relative weights
+    in a variational fashion, as above."""
+
+    # Construct the density projector over all wave functions
     p_frags = [x.get_fragment_projector(x.cluster.c_active) / emb.mf.mol.nelectron for x in emb.fragments]
     barewfs = [x.results.wf for x in emb.fragments]
+
+    # Apply the (one-body) projector directly to the wave functions (their x.ci attribute)
     wfs = [x.project(y) for x, y in zip(barewfs, p_frags)]
+    # Now, optimize their relative weights as above.
     h, s, dm = variational_params.get_wf_couplings(emb, emb.fragments, wfs, inc_mf=inc_mf)
+    # Also compute the sum of all the contributions (including the off-diagonal ones??)
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
 
 
 def get_occ_projected(emb):
+    """ Construct the N-body fragment hole projectors for each cluster, and apply them
+    to their respective cluster solutions. Then, optimize their relative weights
+    in a variational fashion, as above."""
+
+    # Construct the occupied-fluctuation projector
     p_frags = [x.get_overlap("frag|cluster-occ") for x in emb.fragments]
     p_frags = [np.dot(x.T, x) for x in p_frags]
+    # Since this is formally an N-body operator, it requires a specific function
+    # (project_occ) to apply it to the cluster states.
     wfs = [x.results.wf.project_occ(y) for x, y in zip(emb.fragments, p_frags)]
+    # Now, variationally optimize relative weights of the projected cluster solutions as above.
+    # Note that inc_mf is True, meaning that the Hartree--Fock is explicitly included to the
+    # list of states considered, and its relative weight also variationally optimized.
     h, s, dm = variational_params.get_wf_couplings(emb, wfs=wfs, inc_mf=True)
+    # Also compute the sum of all the contributions (including the off-diagonal ones??)
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
@@ -106,6 +144,13 @@ def plot_results(fname="results.txt", vsfci=False, ax=None, nodmenergy=True):
         "NO-oproj-CAS-CI",
         "var-NO-FCI",
     ]
+    # NO-CAS-CI = No projectors. Optimize relative contributions variationally.
+    # NO-dproj = Density projector. Just sum of (all) wave function contributions (inc. off-diagonal?)
+    # NO-dproj-CAS-CI = Density projector. Optimize relative contributions of all variationally
+    # NO-oproj = Occupied hole projector. Just sum of (all) wave function contributions (inc. off-diagonal?)
+    # NO-oproj-CAS-CI = Occupied hole projector. Variationally optimize relative cluster contributions.
+    # var-NO-FCI = Full variational optimization over clusters. No projectors.
+
 
     def remove_ind(results, labels, i):
         labels = labels[:i] + labels[i + 1 :]
@@ -141,10 +186,12 @@ if __name__ == "__main__":
     for r in list(np.arange(0.6, 2.0, 0.1)) + list(np.arange(2.5, 10.0, 0.5)):
         emb, mf = run_ewf(nat, r, n_per_frag)
         # These calculate the standard EWF energy estimators.
-        eewf_wf = emb.get_wf_energy()
-        eewf_dm = emb.get_dm_energy()
-        # This calculates the energy of the variationally optimal combination of the local wavefunctions in each case.
-        # This uses the bare local wavefunctions...
+        eewf_wf = emb.get_wf_energy()   # Linear estimator, occupied-fluctuation projector
+        eewf_dm = emb.get_dm_energy()   # Convert to CCSD wavefunction, and compute approximate global CCSD density matrix contribution,
+                                        # where each CCSD is projected with the occupied-fluctuation projector.
+
+        # This calculates the energy of the variationally optimal combination of each cluster wavefunctions in each case.
+        # This uses the bare local wavefunctions with no projectors
         e_barewf = get_wf_composite(emb)
         # This uses the density projected local wavefunctions, and also returns the energy of a sum of these
         # wavefunctions.
@@ -173,3 +220,5 @@ if __name__ == "__main__":
 
         with open("results.txt", "a") as f:
             f.write((f" {r:4.2f} ") + ("   {:12.8f}  " * len(res)).format(*res) + "\n")
+
+    gen_comp_graph("results.txt")
