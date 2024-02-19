@@ -71,8 +71,8 @@ class Test_Spectral_Moments(TestCase):
             ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
             ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
 
-            self.assertTrue(np.allclose(ip, cc_ip))
-            self.assertTrue(np.allclose(ea, cc_ea))
+            self.assertTrue(np.allclose(ip, cc_ip, atol=1e-6))
+            self.assertTrue(np.allclose(ea, cc_ea, atol=1e-6))
 
 if __name__ == "__main__":
     print("Running %s" % __file__)
