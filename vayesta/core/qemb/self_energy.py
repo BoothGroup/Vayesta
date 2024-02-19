@@ -102,9 +102,9 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
         if use_sym:
             for child in f.get_symmetry_children():
                 static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
-                mc_child = child.get_overlap('mo|frag')
+                mc_child = child.get_overlap('mo|cluster')
                 static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
-                couplings.append(mc_child @ couplings_cf.T)
+                couplings.append(mc_child @ couplings_cf)
                 energies.append(energies_cf)
 
     couplings = np.hstack(couplings)
