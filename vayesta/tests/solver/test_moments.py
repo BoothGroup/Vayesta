@@ -56,7 +56,7 @@ class Test_Spectral_Moments(TestCase):
 
         cc = CCSD["1h"](mf)
         cc_ip = cc.build_gf_moments(4)
-
+     f     
         cc = CCSD["1p"](mf)
         cc_ea = cc.build_gf_moments(4)
 
@@ -71,6 +71,9 @@ class Test_Spectral_Moments(TestCase):
             ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
             ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
 
+            print("CCSD norms IP, EA:")
+            print(np.linalg.norm(ip - cc_ip))
+            print(np.linalg.norm(ea - cc_ea))
             self.assertTrue(np.allclose(ip, cc_ip, atol=1e-6))
             self.assertTrue(np.allclose(ea, cc_ea, atol=1e-6))
 
