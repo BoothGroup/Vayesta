@@ -5,9 +5,114 @@ import numpy as np
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger
 
+
+def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
+    """
+    Construct full system self-energy moments from cluster spectral moments
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    n_se_mom : int
+        Number of self-energy moments
+    use_sym : bool
+        Use symmetry to reconstruct self-energy
+    proj : int
+        Number of projectors to use (1 or 2)
+    eta : float
+        Broadening factor for static potential
+
+    Returns
+    -------
+    self_energy_moms : ndarry (n_se_mom, nmo, nmo)
+        Full system self-energy moments (MO basis)
+    static_self_energy : ndarray (nmo,nmo)
+        Static part of self-energy (MO basis)
+    static_potential : ndarray (nao,nao)
+        Static potential (AO basis)
+    """
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    self_energy_moms = np.zeros((n_se_mom, fock.shape[1], fock.shape[1]))
+
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+        # Calculate self energy from cluster moments
+        th, tp = f.results.moms
+
+        solverh = MBLGF(th, log=NullLogger())
+        solverp = MBLGF(tp, log=NullLogger())
+        solver = MixedMBLGF(solverh, solverp)
+        solver.kernel()
+
+        se = solver.get_self_energy()
+        se_moms_clus = [se.moment(i) for i in range(n_se_mom)]
+
+        ovlp = emb.get_ovlp()
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+        
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ ovlp @ fock @ ovlp @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        if proj == 1:
+            # Static potential
+            v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+            v_frag = cfc @ v_cls  
+            v_frag = 0.5 * (v_frag + v_frag.T)
+            static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+
+            # Static self-energy
+            static_se_cls = th[1] + tp[1] - fock_cls
+            static_self_energy_frag = cfc @ static_se_cls
+            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+            static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+            # Self-energy moments
+            se_moms_frag = [0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus]
+            self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
+                    mc_child = child.get_overlap('mo|cluster')
+                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
+                    self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
+            
+        elif proj == 2:
+            # Static potential 
+            v_cls = se.as_static_potential(e_cls, eta=eta) 
+            v_frag = fc @ v_cls @ fc.T
+            static_potential += f.c_frag @ v_frag @ f.c_frag.T
+
+            # Static self-energy
+            static_se_cls = th[1] + tp[1] - fock_cls
+            static_se_frag = fc @ static_se_cls @ fc.T
+            static_self_energy += mf @ static_se_frag @ mf.T
+
+            # Self-energy moments
+            se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
+            self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.c_frag @ v_frag @ child.c_frag.T
+                    mf_child = child.get_overlap('mo|frag')
+                    fc_child = child.get_overlap('frag|cluster')
+                    static_self_energy += mf_child @ static_se_frag, mf_child.T
+                    self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
+
+    return self_energy_moms, static_self_energy, static_potential
+
 def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False):
     """
-    Reconstruct self energy from cluster spectral moments using 1 projector
+    Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
     TODO: MPI, SVD
 
@@ -35,6 +140,7 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
     static_potential : ndarray (nao,nao)
         Static potential (AO basis)
     """
+
     fock = emb.get_fock()
     static_self_energy = np.zeros_like(fock)
     static_potential = np.zeros_like(fock)
@@ -45,7 +151,6 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        vth, vtp = th.copy(), tp.copy()
         solverh = MBLGF(th, log=NullLogger())
         solverp = MBLGF(tp, log=NullLogger())
         solver = MixedMBLGF(solverh, solverp)
@@ -118,7 +223,7 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
 
 def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
     """
-    Reconstruct self energy from cluster spectral moments using 2 projectors
+    Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
     TODO: MPI, SVD
 
@@ -151,7 +256,6 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        vth, vtp = th.copy(), tp.copy()
         solverh = MBLGF(th, log=NullLogger())
         solverp = MBLGF(tp, log=NullLogger())
         solver = MixedMBLGF(solverh, solverp)
