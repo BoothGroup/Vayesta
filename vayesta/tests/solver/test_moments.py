@@ -56,7 +56,7 @@ class Test_Spectral_Moments(TestCase):
 
         cc = CCSD["1h"](mf)
         cc_ip = cc.build_gf_moments(4)
-     f     
+          
         cc = CCSD["1p"](mf)
         cc_ea = cc.build_gf_moments(4)
 
