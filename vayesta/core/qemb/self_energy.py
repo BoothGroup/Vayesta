@@ -47,7 +47,6 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         solverp = MBLGF(tp, log=NullLogger())
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
-
         se = solver.get_self_energy()
         se_moms_clus = [se.moment(i) for i in range(n_se_mom)]
 
@@ -110,7 +109,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
     return self_energy_moms, static_self_energy, static_potential
 
-def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, use_sym=True, use_svd=False, eta=1e-2, se_degen_tol=1e-6, se_eval_tol=1e-12, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -122,6 +121,8 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
         Embedding object
     use_sym : bool
         Use symmetry to reconstruct self-energy
+    use_svd : bool
+        Use SVD to decompose the self-energy as outer product
     eta : float
         Broadening factor for static potential
     se_degen_tol : float
@@ -144,8 +145,11 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
     fock = emb.get_fock()
     static_self_energy = np.zeros_like(fock)
     static_potential = np.zeros_like(fock)
-    couplings, energies = [], []
-
+    energies = []
+    if use_svd:
+        couplings_l, couplings_r = [], []
+    else:
+        couplings = []
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
         # Calculate self energy from cluster moments
@@ -155,15 +159,10 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
         solverp = MBLGF(tp, log=NullLogger())
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
-
         se = solver.get_self_energy()
-
-        energies_f = se.energies
-        couplings_f = se.couplings
 
         ovlp = emb.get_ovlp()
         mc = f.get_overlap('mo|cluster')
-        mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
@@ -186,34 +185,57 @@ def make_self_energy_1proj(emb, use_sym=True, eta=1e-2, se_degen_tol=1e-6, se_ev
         # Dynamic self-energy
         sym_coup = einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
         sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
-        
-        rank = 2 # rank / multiplicity 
-        tol = 1e-12
-        couplings_cf, energies_cf = [], []
-        for a in range(sym_coup.shape[0]):
-            m = sym_coup[a]
-            val, vec = np.linalg.eigh(m)
-            idx = np.abs(val) > tol
-            assert (np.abs(val) > tol).sum() <= rank
-            w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-            couplings_cf.append(w)
-            energies_cf += [se.energies[a] for e in range(idx.sum())]
 
-        couplings_cf = np.hstack(couplings_cf)
+        if use_svd:
+            couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
+            for a in range(sym_coup.shape[0]):
+                m = sym_coup[a]
+                U, s, Vt = np.linalg.svd(m)
+                idx = np.abs(s) > se_eval_tol
+                assert idx.sum() <= 2
+                u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
+                v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
+                couplings_l_frag.append(u)
+                couplings_r_frag.append(v)
+                energies_frag += [se.energies[a] for e in range(idx.sum())]
+            
+            couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+            couplings_l.append(mc @ couplings_l_frag)
+            couplings_r.append(mc @ couplings_r_frag)
+            energies.append(energies_frag)
+        else:
+            couplings_frag, energies_frag = [], []
+            for a in range(sym_coup.shape[0]):
+                m = sym_coup[a]
+                val, vec = np.linalg.eigh(m)
+                idx = np.abs(val) > se_eval_tol
+                assert idx.sum() <= 2
+                w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+                couplings_frag.append(w)
+                energies_frag += [se.energies[a] for e in range(idx.sum())]
 
-        couplings.append(mc @ couplings_cf)
-        energies.append(energies_cf)
+            couplings_frag = np.hstack(couplings_frag)
+
+            couplings.append(mc @ couplings_frag)
+            energies.append(energies_frag)
 
         if use_sym:
             for child in f.get_symmetry_children():
                 static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
                 mc_child = child.get_overlap('mo|cluster')
                 static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
-                couplings.append(mc_child @ couplings_cf)
-                energies.append(energies_cf)
+                energies.append(energies_frag)
+                if use_svd:
+                    couplings_l.append(mc_child @ couplings_l_frag)
+                    couplings_r.append(mc_child @ couplings_r_frag)
+                else:
+                    couplings.append(mc_child @ couplings_frag)
 
-    couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
+    if use_svd:
+        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+    else:
+        couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
     self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
@@ -260,17 +282,11 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         solverp = MBLGF(tp, log=NullLogger())
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
-
         se = solver.get_self_energy()
 
-        energies_f = se.energies
-        couplings_f = se.couplings
-
         ovlp = emb.get_ovlp()
-        mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
-        cfc = fc.T @ fc
         
         # Fock matrix in cluster basis
         fock_cls = f.cluster.c_active.T @ ovlp @ fock @ ovlp @ f.cluster.c_active
@@ -307,27 +323,31 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
 
 def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
 
-    emb.log.info("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
-    e, v = se.energies, se.couplings
+    emb.log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    e = se.energies
+    couplings_l, couplings_r = se._unpack_couplings()
     e_new, slices = get_unique(e, atol=dtol)#
-    emb.log.info("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    emb.log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
     energies, couplings = [], []
+    warn_non_causal = False
     for i, s in enumerate(slices):
-        mat = einsum('pa,qa->pq', v[:,s], v[:,s]).real
+        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s]).real
         val, vec = np.linalg.eigh(mat)
         if  drop_non_causal:
             idx = val > etol
         else:
             idx = np.abs(val) > etol
         if np.sum(val[idx] < -etol) > 0:
-            emb.log.warning("Large negative eigenvalues - non-causal self-energy")
+            warn_non_causal = True
         w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
         couplings.append(w)
         energies += [e_new[i] for _ in range(idx.sum())]
 
-        emb.log.info("    | E = %e << %s"%(e_new[i],e[s]))
-        emb.log.info("       evals: %s"%val)
-        emb.log.info("       kept:  %s"%(val[idx]))
+        emb.log.debug("    | E = %e << %s"%(e_new[i],e[s]))
+        emb.log.debug("       evals: %s"%val)
+        emb.log.debug("       kept:  %s"%(val[idx]))
+    if warn_non_causal:
+        emb.log.warning("Non-causal poles found in self-energy")
     couplings = np.hstack(couplings).real
     return Lehmann(np.array(energies), np.array(couplings))
 
