@@ -43,13 +43,13 @@ print('CCSD total energy: {}'.format(cc.e_tot))
 use_sym = True
 nfrag = 1 # When using symmetry, we have to specify the number of atoms in the fragment in this case.
 #bath_opts = dict(bathtype="full")  # This is a complete bath space (should be exact)
-bath_opts = dict(bathtype="dmet")   # This is the smallest bath size
+bath_opts = dict(bathtype="full")   # This is the smallest bath size
 # bath_opts = dict(bathtype='mp2', threshold=1.e-6)
 
 # Run vayesta for comparison with FCI solver
-emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=bath_opts, solver_options=dict(conv_tol=1.e-14)
+emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=bath_opts, solver_options=dict(conv_tol=1.e-14))
 # Set up fragments
-with emb.iao_fragmentation() as f:
+with emb.iaopao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
         # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
@@ -64,7 +64,7 @@ emb.kernel()
 # Run vayesta again, but just dump clusters, rather than solve them
 emb_dump = vayesta.ewf.EWF(mf, solver="DUMP", bath_options=bath_opts, solver_options=dict(dumpfile="clusters-rhf.h5"))
 # Set up fragments
-with emb_dump.iao_fragmentation() as f:
+with emb_dump.iaopao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
         # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
@@ -130,8 +130,24 @@ for ind, cluster in enumerate(clusters):
 if use_sym:
     e_corr *= natom // nfrag
 
-print("Full system mean-field energy = %f" % mf.e_tot)
-print("Full system CCSD correlation energy = %f" % cc.e_corr)
-print("Full system FCI correlation energy: {}".format(ci.e_tot-mf.e_tot))
-print("Vayesta correlation energy = %f" % emb.e_corr)
+
+def get_vayesta_dmet_energy(emb, part_cumulant=True, approx_cumulant=True):
+    # Get democratically patitioned energy from vayesta
+
+    e_nuc = emb.mf.mol.energy_nuc()
+    hcore = emb.get_hcore()
+    eris = pyscf.ao2mo.kernel(emb.mf.mol, emb.mf.mo_coeff, compact=False).reshape([mol.nao]*4)
+    dm1 = emb.make_rdm1_demo(ao_basis=False)
+    dm2 = emb.make_rdm2_demo(ao_basis=False, part_cumulant=part_cumulant, approx_cumulant=approx_cumulant)
+    #dm1, dm2 = ci.make_rdm12()
+    return e_nuc + np.sum(hcore*dm1) + np.sum(eris*dm2)/2
+
+print("Full system mean-field energy               = %f" % mf.e_tot)
+print("Full system CCSD correlation energy         = %f" % cc.e_tot)
+print("Full system FCI correlation energy          = %f" %(ci.e_tot))
+print("Vayesta correlation energy                  = %f" % emb.e_corr)
+print("Vayesta partitioned cumulant energy         = %f" % emb.get_dmet_energy(part_cumulant=True))
+print("Vayesta partitioned cumulant energy         = %f" % get_vayesta_dmet_energy(emb, part_cumulant=True, approx_cumulant=False))
+print("Vayesta partitioned approx cumulant energy  = %f" % emb.get_dmet_energy(part_cumulant=False))
+print("Vayesta partitioned approx cumulant energy  = %f" % get_vayesta_dmet_energy(emb, part_cumulant=True, approx_cumulant=True))
 print("Correlation energy from external FCI solver = %f" % e_corr)
