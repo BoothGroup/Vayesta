@@ -109,7 +109,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
     return self_energy_moms, static_self_energy, static_potential
 
-def make_self_energy_1proj(emb, use_sym=True, use_svd=False, eta=1e-2, se_degen_tol=1e-6, se_eval_tol=1e-12, drop_non_causal=False):
+def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -183,8 +183,8 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=False, eta=1e-2, se_degen_
         static_self_energy += mc @ static_self_energy_frag @ mc.T
 
         # Dynamic self-energy
-        sym_coup = einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
-        sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
+        coup_l, coup_r = se._unpack_couplings()
+        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r) + einsum('pa,qa->apq', coup_l , cfc @ coup_r))
 
         if use_svd:
             couplings_l_frag, couplings_r_frag, energies_frag = [], [], []

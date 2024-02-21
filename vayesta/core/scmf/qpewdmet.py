@@ -1,15 +1,15 @@
 import numpy as np
 import scipy.linalg
 
+import pyscf.scf
+
 import vayesta
 from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 
-
-from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
-import pyscf.scf
+from dyson import Lehmann, AuxiliaryShift
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
