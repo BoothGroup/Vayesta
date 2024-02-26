@@ -39,7 +39,7 @@ bath_opts = dict(bathtype="dmet")   # This is the smallest bath size
 # Run vayesta for comparison with FCI solver
 emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=bath_opts, solver_options=dict(conv_tol=1.e-14))
 # Set up fragments
-with emb.iaopao_fragmentation() as f:
+with emb.iao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
         # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
@@ -54,7 +54,7 @@ emb.kernel()
 # Run vayesta again, but just dump clusters, rather than solve them
 emb_dump = vayesta.ewf.EWF(mf, solver="DUMP", bath_options=bath_opts, solver_options=dict(dumpfile="clusters-rhf.h5"))
 # Set up fragments
-with emb_dump.iaopao_fragmentation() as f:
+with emb_dump.iao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
         # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
