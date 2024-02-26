@@ -1,7 +1,7 @@
 '''Use the cluster dump functionality (see 20-dump-clusters.py) to dump the clusters,
 read them back in, solve them with pyscf's FCI solver, and show that the same result
-is achieved as Vayesta's internal functionality. Note that this just computes the
-'projected' energy estimator over the clusters, from the C2 amplitudes.'''
+is achieved as Vayesta's internal functionality. This computes various the energy via
+paritioning and a partitioned cumulant.'''
 import numpy as np
 import pyscf
 import pyscf.gto
@@ -14,7 +14,7 @@ from vayesta.core.types import Orbitals, FCI_WaveFunction, CISD_WaveFunction
 import h5py
 
 # Create natom ring of minimal basis hydrogen atoms
-natom = 6
+natom = 10
 mol = pyscf.gto.Mole()
 mol.atom = ring("H", natom, 1.5)
 mol.basis = "sto-3g"
@@ -28,8 +28,6 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 print('Mean-Field (Hartree--Fock) energy = {}'.format(mf.e_tot))
 assert mf.converged
-
-
 
 # Vayesta options
 use_sym = True
@@ -88,12 +86,10 @@ class Cluster(object):
 # Load clusters from file
 with h5py.File("clusters-rhf.h5", "r") as f:
     clusters = [Cluster(key, cluster) for key, cluster in f.items()]
-print(clusters)
 print("Clusters loaded: %d" % len(clusters))
 
 # To complete the info we need the AO overlap matrix (also get the MO coefficients)
 mo_coeff, ovlp = mf.mo_coeff, mf.get_ovlp()
-
 
 def split_dm2(nocc, dm1, dm2, ao_repr=False):
     dm2_2 = dm2.copy()             # Approx cumulant
@@ -114,35 +110,20 @@ def split_dm2(nocc, dm1, dm2, ao_repr=False):
     dm2_2 -= dm2_0 + dm2_1
     return dm2_0, dm2_1, dm2_2
 
-
 # Full system Hamiltonian (AO basis)
 h1e_ao = mf.get_hcore()
 h2e_ao = mol.intor("int2e")
 
-print("\nHartree-Fock\n------------")
-dm1_ao_hf = mf.make_rdm1()
-dm2_ao_hf = mf.make_rdm2()
-e1_hf = np.einsum('pq,pq->', h1e_ao, dm1_ao_hf)
-e2_hf = 0.5 * np.einsum('pqrs,pqrs->', h2e_ao, dm2_ao_hf)
-print("E = %f" % (e1_hf+e2_hf+mol.energy_nuc()))
-print("E1 = %f" % e1_hf)
-print("E2 = %f" % e2_hf)
 # Full-system FCI for comparison
-
-print("\nFCI\n------------")
 fci = pyscf.fci.FCI(mf)
 e_ci, c_ci = fci.kernel()
-dm1_mo_fci, dm2_mo_fci = fci.make_rdm12(c_ci, dm1_ao_hf.shape[0], mol.nelec)
+dm1_mo_fci, dm2_mo_fci = fci.make_rdm12(c_ci, h1e_ao.shape[0], mol.nelec)
 dm1_ao_fci = mf.mo_coeff @ dm1_mo_fci @ mf.mo_coeff.T
 dm2_ao_fci = np.einsum('pqrs,ip,jq,kr,ls->ijkl', dm2_mo_fci, mf.mo_coeff, mf.mo_coeff, mf.mo_coeff, mf.mo_coeff)
 e1_fci = np.einsum('pq,pq->', h1e_ao, dm1_ao_fci)
 e2_fci = 0.5 * np.einsum('pqrs,pqrs->', h2e_ao, dm2_ao_fci)
-print("E = %f" % (e1_fci+e2_fci+mol.energy_nuc()-mf.e_tot))
-print("E1 = %f" % e1_fci)
-print("E2 = %f" % e2_fci)
 
-
-print("\nDemocratic Partitioning\n------------")
+# Democratic Partitioning
 # Go through each cluster, and solve it with pyscf's FCI module. Find its energy contribution by passing in the hamiltonian.
 # Calculate democratically partitioned energy and 1DM
 e1_dpart, e2_dpart = 0, 0
@@ -150,12 +131,11 @@ for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
     
+    # Build cluster denisty matrices
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
     wf = FCI_WaveFunction(orbs, ci_vec)#.as_cisd(c0=1.0)
     dm1_cls, dm2_cls = wf.make_rdm1(), wf.make_rdm2()
-    nocc = cluster.nocc
 
-    
     # Project DMs
     proj = cluster.c_frag.T @ ovlp @ cluster.c_cluster
     proj = proj.T @ proj
@@ -166,6 +146,7 @@ for ind, cluster in enumerate(clusters):
     dm2_cls = np.einsum('Ijkl,iI->ijkl', dm2_cls, proj)
     
     # Calculate effective 1 body Hamiltonian and subtract cluster contribution to Veff
+    nocc = cluster.nocc
     heff = cluster.c_cluster.T @  (mf.get_hcore() + mf.get_veff()/2) @ cluster.c_cluster
     heff -= np.einsum("iipq->pq", cluster.h2e[:nocc, :nocc, :, :]) - np.einsum("iqpi->pq", cluster.h2e[:nocc, :, :, :nocc]) / 2
 
@@ -177,11 +158,7 @@ if use_sym:
     e1_dpart *= natom // nfrag
     e2_dpart *= natom // nfrag
 
-print("E = %f" % (e1_dpart+e2_dpart+mol.energy_nuc()-mf.e_tot))
-print("E1 = %f" % e1_dpart)
-print("E2 = %f" % e2_dpart)   
-
-print("\nPartitioned FCI\n------------")
+# Partitioned FCI
 e1_pf, e22_pf = 0, 0
 nocc = int(mf.mo_occ.sum()//2)
 dm1_mo_fci[np.diag_indices(nocc)] -= 2 # Subtract HF contribtuion
@@ -190,28 +167,25 @@ dm2_0, dm2_1, dm2_2 = split_dm2(nocc, dm1_mo_fci, dm2_mo_fci)
 e22_pf = 0.5 * np.einsum('pqrs,pqrs->', h2e_mo, dm2_2)
 fock_mo = mf.mo_coeff.T @ mf.get_fock() @ mf.mo_coeff
 e1_pf = np.einsum('pq,pq->', fock_mo, dm1_mo_fci)
-print("E = %f" % (e1_pf+e22_pf))
-print("E1 = %f" % e1_pf)
-print("E2_2 = %f" % e22_pf)
 
-print("\nPartitioned Cumulant\n------------")
+
+# Partitioned Cumulant
 # Calculate 1DM energy contribution over full system from previously obtained democratically partitioned 1DM
-
 e22_pc =  0
 dm1_ao_pc = np.zeros_like(dm1_ao_fci)
 for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
     
+    # Build cluster denisty matrices and split into seperate contributions
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
-    wf = FCI_WaveFunction(orbs, ci_vec)#.as_cisd(c0=1.0)
+    wf = FCI_WaveFunction(orbs, ci_vec)
     dm1_cls, dm2_cls = wf.make_rdm1(), wf.make_rdm2()
     nocc = cluster.nocc
-
     dm1_cls[np.diag_indices(cluster.nocc)] -= 2 # Subtract HF contribtuion
     dm2_0, dm2_1, dm2_2 = split_dm2(cluster.nocc, dm1_cls, dm2_cls) # Split into HF, correlated non-cumulant and cumulant contributions
 
-    # Project and rotate to AO basis
+    # Project 1DM and rotate to AO basis
     proj = cluster.c_frag.T @ ovlp @ cluster.c_cluster
     proj = proj.T @ proj
     dm1_cls = proj @ dm1_cls
@@ -227,6 +201,12 @@ e1_pc = np.einsum('pq,pq->', mf.get_fock(), dm1_ao_pc)
 if use_sym:
     e1_pc *= natom // nfrag
     e22_pc *= natom // nfrag
-print("E = %f" % (e1_pc+e22_pc))
-print("E1 = %f" % e1_pc)
-print("E2_2 = %f" % e22_pc)
+
+print("Correlation Energies\n--------------------")
+print("FCI energy from density matrix  = %f" % (e1_fci+e2_fci+mol.energy_nuc()-mf.e_tot))
+print("External democratic paritioning = %f" % (e1_dpart+e2_dpart+mol.energy_nuc()-mf.e_tot))
+print("Vayesta  democratic paritioning = %f" % (emb.get_dmet_energy(part_cumulant=False)-mf.e_tot))
+print("FCI energy from cumulant        = %f" % (e1_pf+e22_pf))
+print("External partitioned cumulant   = %f" % (e1_pc+e22_pc))
+print("Vayesta  partitioned cumulant   = %f" % (emb.get_dmet_energy(part_cumulant=True)-mf.e_tot))
+
