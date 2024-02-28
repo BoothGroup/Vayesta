@@ -1735,7 +1735,7 @@ class Embedding:
     def qpewdmet_scmf(self, *args, **kwargs):
         """Decorator for QP-EWDMET."""
         try:
-            from vayesta.core.scmf QPEWDMET
+            from vayesta.core.scmf import QPEWDMET
         except ImportError:
             self.log.error("QP-EWDMET requires Dyson installed")
             return
