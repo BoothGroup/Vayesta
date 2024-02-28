@@ -7,7 +7,7 @@ import vayesta
 from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
-
+from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
 from dyson import Lehmann, AuxiliaryShift
 
 class QPEWDMET_RHF(SCMF):
@@ -113,11 +113,6 @@ class QPEWDMET_RHF(SCMF):
         energies = []
         self.static_potential = np.zeros_like(self.fock)
         self.static_self_energy = np.zeros_like(self.fock)
-
-        try:
-            from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
-        except ImportError:
-            raise ImportError("Dyson required for QPEWDMET")
 
         if self.proj == 1:
             self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)

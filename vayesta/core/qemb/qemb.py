@@ -33,7 +33,7 @@ from vayesta.core.util import (
     with_doc,
 )
 from vayesta.core import spinalg, eris
-from vayesta.core.scmf import PDMET, Brueckner, QPEWDMET
+from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.screening.screening_moment import build_screened_eris
 from vayesta.mpi import mpi
 from vayesta.core.qemb.register import FragmentRegister
@@ -1734,6 +1734,11 @@ class Embedding:
         self.kernel = self.with_scmf.kernel
     def qpewdmet_scmf(self, *args, **kwargs):
         """Decorator for QP-EWDMET."""
+        try:
+            from vayesta.core.scmf QPEWDMET
+        except ImportError:
+            self.log.error("QP-EWDMET requires Dyson installed")
+            return
         self.with_scmf = QPEWDMET(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
     def check_solver(self, solver):
