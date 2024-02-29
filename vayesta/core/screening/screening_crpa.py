@@ -181,14 +181,29 @@ def get_crpa(orig_mf, f, log):
             rv = (rv, rv)
 
         rot_ova = einsum("Ij,Ab->IAjb", ro[0], rv[0])
-        rot_ova = rot_ova.reshape((rot_ova.shape[0] * rot_ova.shape[1], -1))
+        if rot_ova.size == 0:
+            rot_ova = np.empty((0, ro[0].shape[1]*rv[0].shape[1]))
+        else:
+            rot_ova = rot_ova.reshape((rot_ova.shape[0] * rot_ova.shape[1], -1))
 
         rot_ovb = einsum("Ij,Ab->IAjb", ro[1], rv[1])
-        rot_ovb = rot_ovb.reshape((rot_ovb.shape[0] * rot_ovb.shape[1], -1))
+        if rot_ovb.size == 0:
+            rot_ovb = np.empty((0, ro[1].shape[1]*rv[1].shape[1]))
+        else:
+            rot_ovb = rot_ovb.reshape((rot_ovb.shape[0] * rot_ovb.shape[1], -1))
+
         return rot_ova, rot_ovb
 
     rot_loc = construct_loc_rot(f)
-    rot_ov = scipy.linalg.null_space(rot_loc[0]).T, scipy.linalg.null_space(rot_loc[1]).T
+    if rot_loc[0].size > 0:
+        rot_ov_a = scipy.linalg.null_space(rot_loc[0]).T
+    else:
+        rot_ov_a = np.eye(rot_loc[0].shape[1])
+    if rot_loc[1].size > 0:
+        rot_ov_b = scipy.linalg.null_space(rot_loc[1]).T
+    else:
+        rot_ov_b = np.eye(rot_loc[1].shape[1])
+    rot_ov = (rot_ov_a, rot_ov_b)
     if rot_ov[0].shape[0] == 0 and rot_ov[1].shape[0] == 0:
         log.warning("cRPA space contains no excitations! Interactions will be unscreened.")
         raise cRPAError("cRPA space contains no excitations!")

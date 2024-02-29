@@ -51,9 +51,10 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
     r_virs = [f.get_overlap("mo[vir]|cluster[vir]") for f in fragments]
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
+    # target_rots is a list of transformations to the local ph space, with alpha and beta blocked in the same matrix
     local_moments = calc_moms_RIRPA(emb.mf, target_rots, ovs_active, log, cderi_ov, npoints)
     # Could generate moments using N^6 moments instead, but just for debugging.
-    # local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
+    # local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, npoints)
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
     no = np.array(sum(emb.mf.mo_occ.T > 0))
@@ -135,7 +136,7 @@ def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, npoints):
     return local_moments
 
 
-def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
+def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, npoints):
     rpa = ssRPA(mf, log=log)
     erpa = rpa.kernel()
     mom0 = rpa.gen_moms(0)[0]
@@ -244,7 +245,10 @@ def _get_target_rot(r_active_occs, r_active_virs):
         no = ro.shape[1]
         nv = rv.shape[1]
         ov_active = no * nv
-        rot = einsum("iJ,aB->JBia", ro, rv).reshape((ov_active, -1))
+        if ov_active == 0:
+            rot = np.empty((0,ro.shape[0]*rv.shape[0]))
+        else:
+            rot = einsum("iJ,aB->JBia", ro, rv).reshape((ov_active, -1))
         return rot, ov_active
 
     nfrag = len(r_active_occs)

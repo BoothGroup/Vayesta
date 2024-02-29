@@ -15,7 +15,7 @@ Installation
 To install, clone the repository
 
 ```
-git clone git@github.com:BoothGroup/Vayesta.git
+git clone https://github.com/BoothGroup/Vayesta.git
 ```
 
 Install the package using `pip` from the top-level directory, which requires CMake
