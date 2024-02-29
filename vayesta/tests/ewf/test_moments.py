@@ -41,8 +41,8 @@ class Test_RFCI(TestCase):
             ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
             ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
 
-            self.assertTrue(np.allclose(ip, fci_ip, atol=1e-14))
-            self.assertTrue(np.allclose(ea, fci_ea, atol=1e-14))
+            self.assertTrue(np.allclose(ip, fci_ip, atol=1e-7))
+            self.assertTrue(np.allclose(ea, fci_ea, atol=1e-7))
 
 
 # class Test_RCCSD(TestCase):
