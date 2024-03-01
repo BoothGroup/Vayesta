@@ -373,7 +373,7 @@ class LatticeSCF:
 
 
 class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
-    def get_init_guess(self, mol=None, key=None):
+    def get_init_guess(self, mol=None, key=None, s1e=None):
         e, c = np.linalg.eigh(self.get_hcore())
         nocc = self.mol.nelectron // 2
         dm = 2 * np.dot(c[:, :nocc], c[:, :nocc].T)
