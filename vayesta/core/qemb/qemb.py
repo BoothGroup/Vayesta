@@ -157,8 +157,11 @@ class Options(OptionsBase):
         store_as_ccsd=None,
         # Dump
         dumpfile="clusters.h5",
+        # Callback
+        callback = None,
         # MP2
         compress_cderi=False,
+
     )
     # --- Other
     symmetry_tol: float = 1e-6  # Tolerance (in Bohr) for atomic positions

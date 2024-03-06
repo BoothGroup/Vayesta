@@ -1068,7 +1068,10 @@ class Fragment:
         eris = hamil.get_eris_bare()
 
         if dm2 is None:
-            dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
+            try:
+                dm2 = self.results.dm2
+            except AttributeError:    
+                dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
 
         # Get effective core potential
         if h1e_eff is None:
