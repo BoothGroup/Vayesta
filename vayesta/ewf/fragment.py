@@ -74,16 +74,9 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         moms: tuple = None
+        dm1: np.ndarray = None
+        dm2: np.ndarray = None
 
-        @property
-        def dm1(self):
-            """Cluster 1DM"""
-            return self.wf.make_rdm1()
-
-        @property
-        def dm2(self):
-            """Cluster 2DM"""
-            return self.wf.make_rdm2()
 
     def __init__(self, *args, **kwargs):
         """
@@ -233,7 +226,15 @@ class Fragment(BaseFragment):
         # Normal solver
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-                cluster_solver.kernel()
+                if solver.upper() == 'CALLBACK':
+                    cluster_solver.kernel()
+                    results = self.Results()
+                    for key, value in cluster_solver.results.items():
+                        print(results)
+                        setattr(results, key, value)    
+                    self._results = results                
+                    return results
+            
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == "random":
@@ -275,6 +276,8 @@ class Fragment(BaseFragment):
             pwf=pwf,
             moms=moms,
             e_corr_rpa=e_corr_rpa,
+            dm1 = wf.make_rdm1(),
+            dm2 = wf.make_rdm2()
         )
 
         self.hamil = cluster_solver.hamil
@@ -323,6 +326,8 @@ class Fragment(BaseFragment):
                 solver_opts["tcc_fci_opts"] = self.opts.tcc_fci_opts
         elif solver.upper() == "DUMP":
             solver_opts["filename"] = self.opts.solver_options["dumpfile"]
+        if solver.upper() == 'CALLBACK':
+            solver_opts["callback"] = self.opts.solver_options["callback"]
         solver_opts["external_corrections"] = self.flags.external_corrections
         solver_opts["test_extcorr"] = self.flags.test_extcorr
         return solver_opts
