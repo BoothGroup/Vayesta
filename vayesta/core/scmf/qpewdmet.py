@@ -14,7 +14,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -56,6 +56,8 @@ class QPEWDMET_RHF(SCMF):
         self.se_degen_tol = se_degen_tol
         self.se_eval_tol = se_eval_tol
         self.drop_non_causal = drop_non_causal
+        self.aux_shift = aux_shift
+        self.aux_shift_frag = aux_shift_frag
         
         super().__init__(emb, *args, **kwargs)
 
@@ -115,12 +117,24 @@ class QPEWDMET_RHF(SCMF):
         self.static_self_energy = np.zeros_like(self.fock)
 
         if self.proj == 1:
-            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
         elif self.proj == 2:
             self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
         else:
             return NotImpementedError()
-
+        phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy
+        gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
+        dm = gf.occupied().moment(0) * 2.0
+        nelec_gf = np.trace(dm)
+        self.emb.log.info('Number of electrons in GF: %f'%nelec_gf)
+        if self.aux_shift:
+            aux = AuxiliaryShift(self.fock+self.static_self_energy, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
+            aux.kernel()
+            self.static_self_energy = aux.get_self_energy()
+            gf = aux.get_greens_function()
+            dm = gf.occupied().moment(0) * 2.0
+            nelec_gf = np.trace(dm)
+            self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
         gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
         dynamic_gap = gap(self.self_energy.energies)
 

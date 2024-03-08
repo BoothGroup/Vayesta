@@ -3,7 +3,7 @@
 import numpy as np
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
-from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger
+from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
 
 
 def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
@@ -109,7 +109,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
     return self_energy_moms, static_self_energy, static_potential
 
-def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -155,11 +155,23 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, se_degen_t
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        solverh = MBLGF(th, log=NullLogger())
-        solverp = MBLGF(tp, log=NullLogger())
+        solverh = MBLGF(th, log=emb.log)
+        solverp = MBLGF(tp, log=emb.log)
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
         se = solver.get_self_energy()
+        gf = solver.get_greens_function()
+        dm = gf.occupied().moment(0) * 2
+        nelec = np.trace(dm)
+        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        if aux_shift_frag:
+            aux = AuxiliaryShift(th[0]+tp[0], se, f.nelectron, occupancy=2, log=emb.log)
+            aux.kernel()
+            se = aux.get_self_energy()
+            gf = aux.get_greens_function()
+            dm = gf.occupied().moment(0) * 2
+            nelec = np.trace(dm)
+            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
 
         ovlp = emb.get_ovlp()
         mc = f.get_overlap('mo|cluster')
