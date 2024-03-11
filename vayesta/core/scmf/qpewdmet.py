@@ -130,13 +130,13 @@ class QPEWDMET_RHF(SCMF):
         if self.aux_shift:
             aux = AuxiliaryShift(self.fock+self.static_self_energy, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
             aux.kernel()
-            self.static_self_energy = aux.get_self_energy()
+            self.self_energy = aux.get_self_energy()
             gf = aux.get_greens_function()
             dm = gf.occupied().moment(0) * 2.0
             nelec_gf = np.trace(dm)
             self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
-        gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
-        dynamic_gap = gap(self.self_energy.energies)
+        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
+        dynamic_gap = gap(gf)
 
         v_old = self.static_potential.copy()
         if diis is not None:
@@ -151,7 +151,9 @@ class QPEWDMET_RHF(SCMF):
             e, mo_coeff = self.fock_scf(self.static_potential)
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
-        static_gap = gap(e)
+        
+        gf_static = Lehmann(e, mo_coeff, chempot=gf.chempot)
+        static_gap = gap(gf_static)
         if self.store_hist:        
             #self.static_potential_frag_hist.append(v_frag.copy())
             self.static_potential_hist.append(self.static_potential.copy())
@@ -242,7 +244,7 @@ class QPEWDMET_RHF(SCMF):
         # Shift final auxiliaries to ensure right particle number
         fock = self.fock + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(fock, self.self_energy, nelec, occupancy=2, log=NullLogger())
+        shift = AuxiliaryShift(fock, self.self_energy, nelec, occupancy=2, log=self.emb.log)
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
