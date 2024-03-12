@@ -110,7 +110,7 @@ class QPEWDMET_RHF(SCMF):
         if self.static_potential is not None:
             self.static_potential_last = self.static_potential.copy()
 
-        self.fock = self.emb.get_fock()
+        self.fock = self.emb.mf.get_fock()
         couplings = []
         energies = []
         self.static_potential = np.zeros_like(self.fock)
@@ -122,7 +122,7 @@ class QPEWDMET_RHF(SCMF):
             self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
         else:
             return NotImpementedError()
-        phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy
+        phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy 
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
@@ -142,10 +142,10 @@ class QPEWDMET_RHF(SCMF):
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
 
-        new_fock = self.fock + self.static_potential
+        new_fock = self.fock #+ self.emb.mo_coeff @ (self.static_self_energy + self.static_potential) @ self.emb.mo_coeff.T
         self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
-
+        self.gf = gf
 
         if self.sc:
             e, mo_coeff = self.fock_scf(self.static_potential)
@@ -242,16 +242,16 @@ class QPEWDMET_RHF(SCMF):
 
 
         # Shift final auxiliaries to ensure right particle number
-        fock = self.fock + self.static_self_energy
+        phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(fock, self.self_energy, nelec, occupancy=2, log=self.emb.log)
+        shift = AuxiliaryShift(phys, self.self_energy, nelec, occupancy=2, log=self.emb.log)
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
 
-        gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(fock), chempot=se_shifted.chempot)
+        gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(phys), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         if not np.isclose(nelec_gf, gf.occupied().weights(occupancy=2).sum()):
@@ -263,7 +263,7 @@ class QPEWDMET_RHF(SCMF):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
 
         #qp_ham = self.emb.get_fock() + self.static_potential
-        qp_ham = self.fock + self.static_self_energy + self.static_potential
+        qp_ham = self.fock + self.mf.mo_coeff @ (self.static_self_energy + self.static_potential) @ self.mf.mo_coeff.T
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
