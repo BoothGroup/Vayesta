@@ -154,13 +154,6 @@ class QPEWDMET_RHF(SCMF):
         self.gf2 = gf
         self.gf, self.gf_qp = self.get_greens_function()
 
-        # m2 = np.array([self.gf2.moment(i) for i in range(2)])
-        # m = np.array([self.gf.moment(i) for i in range(2)])
-        # print(m)
-        # print(m2)
-        # print("GF moms equal: %s"%np.allclose(m2,m))
-        # print("GF moms norm :%s"%np.linalg.norm(m2-m))
-
         if self.sc:
             e, mo_coeff = self.fock_scf(self.static_potential)
         else:
