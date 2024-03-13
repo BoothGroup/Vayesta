@@ -104,7 +104,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
                     static_potential += child.c_frag @ v_frag @ child.c_frag.T
                     mf_child = child.get_overlap('mo|frag')
                     fc_child = child.get_overlap('frag|cluster')
-                    static_self_energy += mf_child @ static_se_frag, mf_child.T
+                    static_self_energy += mf_child @ static_se_frag @ mf_child.T
                     self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
     return self_energy_moms, static_self_energy, static_potential
@@ -323,8 +323,14 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
                 static_potential += child.c_frag @ v_frag @ child.c_frag.T
                 mf_child = child.get_overlap('mo|frag')
                 fc_child = child.get_overlap('frag|cluster')
-                static_self_energy += mf_child @ static_se_frag, mf_child.T
-                couplings.append(mf_child @ fc_child @ se.couplings)
+                print(type(mf_child), type(fc_child), type(se.couplings))
+                print(type(static_self_energy))
+                print(mf_child.shape, fc_child.shape, se.couplings.shape)
+                print(type)
+                static_self_energy += mf_child @ static_se_frag @ mf_child.T
+                x = mf_child @ fc_child @ se.couplings
+                print('hu')
+                couplings.append(x)
                 energies.append(se.energies)
 
     couplings = np.hstack(couplings)
