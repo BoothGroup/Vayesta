@@ -94,6 +94,8 @@ class QPEWDMET_RHF(SCMF):
         """
         Get new MO coefficients for a SCMF iteration.
 
+        TODO: Should GF and SE be stored in AO basis since the MO basis may change between iterations?
+
         Parameters
         ----------
         mf : PySCF compatible SCF object
@@ -136,16 +138,24 @@ class QPEWDMET_RHF(SCMF):
             nelec_gf = np.trace(dm)
             self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
         gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
-        dynamic_gap = gap(gf)
+        
 
         v_old = self.static_potential.copy()
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
 
-        new_fock = self.fock #+ self.emb.mo_coeff @ (self.static_self_energy + self.static_potential) @ self.emb.mo_coeff.T
+        new_fock = self.fock + self.emb.mo_coeff @ self.static_self_energy @ self.emb.mo_coeff.T + self.static_potential
         self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
-        self.gf = gf
+        self.gf2 = gf
+        self.gf, self.gf_qp = self.get_greens_function()
+
+        # m2 = np.array([self.gf2.moment(i) for i in range(2)])
+        # m = np.array([self.gf.moment(i) for i in range(2)])
+        # print(m)
+        # print(m2)
+        # print("GF moms equal: %s"%np.allclose(m2,m))
+        # print("GF moms norm :%s"%np.linalg.norm(m2-m))
 
         if self.sc:
             e, mo_coeff = self.fock_scf(self.static_potential)
@@ -153,7 +163,8 @@ class QPEWDMET_RHF(SCMF):
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
         
         gf_static = Lehmann(e, mo_coeff, chempot=gf.chempot)
-        static_gap = gap(gf_static)
+        dynamic_gap = gap(self.gf)
+        static_gap = gap(self.gf_qp)
         if self.store_hist:        
             #self.static_potential_frag_hist.append(v_frag.copy())
             self.static_potential_hist.append(self.static_potential.copy())
