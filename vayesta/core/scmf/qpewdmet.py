@@ -278,7 +278,7 @@ class QPEWDMET_RHF(SCMF):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
 
         #qp_ham = self.emb.get_fock() + self.static_potential
-        qp_ham = self.fock + self.mf.mo_coeff @ (self.static_self_energy + self.static_potential) @ self.mf.mo_coeff.T
+        qp_ham = self.fock + self.mf.mo_coeff @ self.static_self_energy @ self.mf.mo_coeff.T + self.static_potential
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
