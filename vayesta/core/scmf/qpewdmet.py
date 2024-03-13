@@ -14,7 +14,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -58,6 +58,7 @@ class QPEWDMET_RHF(SCMF):
         self.drop_non_causal = drop_non_causal
         self.aux_shift = aux_shift
         self.aux_shift_frag = aux_shift_frag
+        self.global_static_potential = global_static_potential
         
         super().__init__(emb, *args, **kwargs)
 
@@ -141,6 +142,9 @@ class QPEWDMET_RHF(SCMF):
         
 
         v_old = self.static_potential.copy()
+
+        if self.global_static_potential:
+            self.static_potential = self.emb.mo_coeff @ self.self_energy.as_static_potential(self.emb.mf.mo_energy, eta=self.eta)  @ self.emb.mo_coeff.T
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
 
