@@ -323,13 +323,8 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
                 static_potential += child.c_frag @ v_frag @ child.c_frag.T
                 mf_child = child.get_overlap('mo|frag')
                 fc_child = child.get_overlap('frag|cluster')
-                print(type(mf_child), type(fc_child), type(se.couplings))
-                print(type(static_self_energy))
-                print(mf_child.shape, fc_child.shape, se.couplings.shape)
-                print(type)
                 static_self_energy += mf_child @ static_se_frag @ mf_child.T
                 x = mf_child @ fc_child @ se.couplings
-                print('hu')
                 couplings.append(x)
                 energies.append(se.energies)
 
