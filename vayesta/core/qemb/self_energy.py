@@ -50,14 +50,13 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         se = solver.get_self_energy()
         se_moms_clus = [se.moment(i) for i in range(n_se_mom)]
 
-        ovlp = emb.get_ovlp()
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
         # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T @ ovlp @ fock @ ovlp @ f.cluster.c_active
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
         
         if proj == 1:
@@ -107,6 +106,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
                     static_self_energy += mf_child @ static_se_frag @ mf_child.T
                     self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
+    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
     return self_energy_moms, static_self_energy, static_potential
 
 def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
@@ -173,13 +173,12 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
             nelec = np.trace(dm)
             emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
 
-        ovlp = emb.get_ovlp()
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
         # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T @ ovlp @ fock @ ovlp @ f.cluster.c_active
+        fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
         
         # Static potential
@@ -252,6 +251,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
 
     self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
 
+    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
     return self_energy, static_self_energy, static_potential
 
 
@@ -296,12 +296,11 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         solver.kernel()
         se = solver.get_self_energy()
 
-        ovlp = emb.get_ovlp()
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         
         # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T @ ovlp @ fock @ ovlp @ f.cluster.c_active
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
         
         # Static potential 
@@ -331,7 +330,7 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
     couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
-
+    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
     return self_energy, static_self_energy, static_potential
 
 def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
