@@ -124,14 +124,14 @@ class QPEWDMET_RHF(SCMF):
         elif self.proj == 2:
             self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
         else:
-            return NotImpementedError()
+            return NotImplementedError()
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy 
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         self.emb.log.info('Number of electrons in GF: %f'%nelec_gf)
         if self.aux_shift:
-            aux = AuxiliaryShift(self.fock+self.static_self_energy, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
+            aux = AuxiliaryShift(phys, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
             aux.kernel()
             self.self_energy = aux.get_self_energy()
             gf = aux.get_greens_function()
@@ -142,13 +142,14 @@ class QPEWDMET_RHF(SCMF):
         
 
         v_old = self.static_potential.copy()
-
+        sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
         if self.global_static_potential:
             self.static_potential = self.emb.mo_coeff @ self.self_energy.as_static_potential(self.emb.mf.mo_energy, eta=self.eta)  @ self.emb.mo_coeff.T
+        self.static_potential = self.emb.mf.get_ovlp() @ self.static_potential @ self.emb.mf.get_ovlp()
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
-
-        new_fock = self.fock + self.emb.mo_coeff @ self.static_self_energy @ self.emb.mo_coeff.T + self.static_potential
+        
+        new_fock = self.fock + sc @ self.static_self_energy @ sc + self.static_potential
         self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
         self.gf2 = gf
@@ -159,7 +160,6 @@ class QPEWDMET_RHF(SCMF):
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
         
-        gf_static = Lehmann(e, mo_coeff, chempot=gf.chempot)
         dynamic_gap = gap(self.gf)
         static_gap = gap(self.gf_qp)
         if self.store_hist:        
@@ -271,7 +271,8 @@ class QPEWDMET_RHF(SCMF):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
 
         #qp_ham = self.emb.get_fock() + self.static_potential
-        qp_ham = self.fock + self.mf.mo_coeff @ self.static_self_energy @ self.mf.mo_coeff.T + self.static_potential
+        sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
+        qp_ham = self.fock + sc @ self.static_self_energy @ sc.T + self.static_potential
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2

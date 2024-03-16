@@ -106,7 +106,6 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
                     static_self_energy += mf_child @ static_se_frag @ mf_child.T
                     self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
-    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
     return self_energy_moms, static_self_energy, static_potential
 
 def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
@@ -251,7 +250,6 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
 
     self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
 
-    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
     return self_energy, static_self_energy, static_potential
 
 
@@ -330,7 +328,7 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
     couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
-    static_potential = emb.mf.get_ovlp() @ static_potential @ emb.mf.get_ovlp().T
+
     return self_energy, static_self_energy, static_potential
 
 def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
