@@ -149,7 +149,7 @@ class QPEWDMET_RHF(SCMF):
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
         
-        new_fock = self.fock + sc @ self.static_self_energy @ sc + self.static_potential
+        new_fock = self.fock + sc @ self.static_self_energy @ sc.T + self.static_potential
         self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
         self.gf2 = gf
@@ -274,9 +274,10 @@ class QPEWDMET_RHF(SCMF):
         sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
         qp_ham = self.fock + sc @ self.static_self_energy @ sc.T + self.static_potential
         qp_e, qp_c = np.linalg.eigh(qp_ham)
+        
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
         self.qpmu = qp_mu
-        gf_qp = Lehmann(qp_e, qp_c, chempot=qp_mu)
+        gf_qp = Lehmann(qp_e, np.eye(len(qp_e)), chempot=qp_mu)
 
         return gf, gf_qp
