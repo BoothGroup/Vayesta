@@ -401,4 +401,101 @@ def get_unique(array, atol=1e-15):
     return new_array, slices
 
 
+def fit_hermitian(se):
+    """
+    Fit a causal self-energy
 
+    Parameters
+    ----------
+    se : Lehmann
+        Self-energy in Lehmann representation
+    
+    Returns
+    -------
+    se : Lehmann
+        Fitted causal self-energy
+    """
+
+    energies = se.energies.copy()
+    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = couplings_l.copy(), couplings_r.copy()
+    def f(w):
+        denom = 1 / (1j*w - energies + 1j * eta)
+        return np.einsum('pa,qa,a->pq', couplings_l, couplings_r, denom)
+
+    def obj(x):
+        x = x.reshape(shape)
+        V, e = x[:-1], x[-1]
+        def integrand(w):
+            denom = 1 / (1j*w - energies)
+            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, denom)
+
+            denom = 1 / (1j*w - e)
+            b = np.einsum('pa,qa,a->pq', V, V, denom)
+            c = (np.abs(a - b) ** 2).sum()
+            #print(c)
+            return c
+        lim = np.inf
+        val, err = scipy.integrate.quad(integrand, -lim, lim)
+        print("obj: %s err: %s"%(val, err))
+        return val
+    
+    def grad(x):
+        x = x.reshape(shape)
+        V, e = x[:-1], x[-1]
+        def integrand_V(w):
+            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, 1 / (1j*w - energies))
+            b = np.einsum('pa,qa,a->pq', V, V, 1 / (1j*w - e))
+            d = b - a
+            omegaRe = e/(w**2 + e**2)
+            omegaIm = w/(w**2 + e**2)
+
+            ret  = np.einsum('rq,qb,b->rb', d.real, V, omegaRe)
+            ret += np.einsum('pr,pb,b->rb', d.real, V, omegaRe)
+            ret += np.einsum('rq,qb,b->rb', d.imag, V, omegaIm)
+            ret += np.einsum('pr,pb,b->rb', d.imag, V, omegaIm)
+            return -2 * ret
+        
+        def integrand_e(w):
+            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, 1 / (1j*w - energies))
+            b = np.einsum('pa,qa,a->pq', V, V, 1 / (1j*w - e))
+            d = b - a
+            omegaRe = (e**2 - w**2)/(w**2 + e**2)**2
+            omegaIm = 2*e*w/(w**2 + e**2)**2
+
+            #print(omegaIm)
+
+            ret = 2*np.einsum('pq,pb,qb,b->b', d.real, V, V, omegaRe)
+            ret += 2*np.einsum('pq,pb,qb,b->b', d.imag, V, V, omegaIm)
+            return ret
+
+
+        integrand = lambda w: np.hstack([integrand_V(w).flatten(), integrand_e(w)])
+        lim = np.inf
+        jac, err_V = scipy.integrate.quad_vec(lambda x: integrand(x), -lim, lim)
+        print('grad norm: %s err: %s'%(np.linalg.norm(jac),err_V))
+        #print(grad)
+        return jac
+        
+
+    x0 = np.vstack([couplings_l, energies])
+    shape = x0.shape
+    x0 = x0.flatten()
+
+    xgrad = grad(x0)
+    print(shape)
+    print("obj(x0) = %s"%obj(x0))
+    print('grad(x0)')
+    print(xgrad)
+    #x0 = np.random.randn(*x0.shape)  #* 1e-2
+
+    #x = xgrad.reshape(x0.shape)
+
+    #return xgrad
+    print(shape)
+    res = scipy.optimize.minimize(obj, x0, jac=grad, method='BFGS')
+    #res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method='BFGS'))
+    print("Sucess %s, Integral = %s"%(res.success, res.x))
+
+    x = res.x.reshape(shape)
+    return Lehmann(x[-1], x[:-1])
