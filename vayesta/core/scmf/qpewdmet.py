@@ -273,7 +273,7 @@ class QPEWDMET_RHF(SCMF):
         #qp_ham = self.emb.get_fock() + self.static_potential
         sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
         qp_ham = self.fock + sc @ self.static_self_energy @ sc.T + self.static_potential
-        qp_e, qp_c = np.linalg.eigh(qp_ham)
+        qp_e, qp_c = scipy.linalg.eigh(qp_ham, self.emb.mf.get_ovlp())
         
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
