@@ -312,7 +312,13 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         static_self_energy += mf @ static_se_frag @ mf.T
 
         # Dynamic self-energy
-        couplings.append(mf @ fc @ se.couplings)
+        if type(se.couplings) is tuple:
+            couplings_l, couplings_r = se.couplings
+            couplings_l = mf @ fc @ couplings_l
+            couplings_r = mf @ fc @ couplings_r
+            couplings.append((couplings_l, couplings_r))
+        else:
+            couplings.append(mf @ fc @ se.couplings)
         energies.append(se.energies)
 
         if use_sym:
@@ -321,13 +327,24 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
                 mf_child = child.get_overlap('mo|frag')
                 fc_child = child.get_overlap('frag|cluster')
                 static_self_energy += mf_child @ static_se_frag @ mf_child.T
-                x = mf_child @ fc_child @ se.couplings
-                couplings.append(x)
+                if type(se.couplings) is tuple:
+                    couplings_l, couplings_r = se.couplings
+                    couplings_l = mf_child @ fc_child @ couplings_l
+                    couplings_r = mf_child @ fc_child @ couplings_r
+                    couplings.append((couplings_l, couplings_r))
+                else:
+                    couplings.append(mf_child @ fc_child @ se.couplings)
+
                 energies.append(se.energies)
 
-    couplings = np.hstack(couplings)
+    if type(couplings[0]) is tuple:
+        couplings_l, couplings_r = zip(*couplings)
+        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+    else:
+        couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
+    #self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
 
     return self_energy, static_self_energy, static_potential
 
@@ -382,3 +399,6 @@ def get_unique(array, atol=1e-15):
         slices.append(np.s_[idxs[0]:idxs[-1]+1])
     new_array = np.array([array[s].mean() for s in slices])
     return new_array, slices
+
+
+
