@@ -3,8 +3,11 @@
 import numpy as np
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
-from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
-
+try:
+    from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
+except ImportError as e:
+    print(e)
+    print("Dyson required for self-energy calculations")
 
 def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
     """
