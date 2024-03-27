@@ -101,6 +101,9 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# IPython notebooks
+*.ipynb
+
 # Environments
 .env
 .venv
@@ -146,6 +149,11 @@ f*_pyscf.txt
 f*.out
 *.h5
 
-# PySCF temp files
+# HDF5 files
+*.h5
+
+# PySCF files
 tmp*
 !tmp*.*
+pyscf_out.txt
+*_pyscf.out
