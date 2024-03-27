@@ -339,7 +339,7 @@ class Embedding:
         mf = copy.copy(mf)
         self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
-        if getattr(mf, "kpts", None) is not None:
+        if isinstance(mf, pyscf.pbc.scf.khf.KSCF):
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
