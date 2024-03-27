@@ -28,6 +28,7 @@ from vayesta.ewf.rdm import make_rdm1_ccsd_global_wf
 from vayesta.ewf.rdm import make_rdm2_ccsd_global_wf
 from vayesta.ewf.rdm import make_rdm1_ccsd_proj_lambda
 from vayesta.ewf.rdm import make_rdm2_ccsd_proj_lambda
+from vayesta.ewf.rdm import make_rdm1_ccsd_global_wf_btensor
 from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_rhf
 
 
@@ -267,6 +268,15 @@ class EWF(Embedding):
     @log_method()
     def _make_rdm1_ccsd_global_wf(self, *args, ao_basis=False, with_mf=True, **kwargs):
         dm1 = self._make_rdm1_ccsd_global_wf_cached(*args, **kwargs)
+        if with_mf:
+            dm1[np.diag_indices(self.nocc)] += 2
+        if ao_basis:
+            dm1 = dot(self.mo_coeff, dm1, self.mo_coeff.T)
+        return dm1
+
+    @log_method()
+    def _make_rdm1_ccsd_global_wf_btensor(self, *args, ao_basis=False, with_mf=True, **kwargs):
+        dm1 = make_rdm1_ccsd_global_wf_btensor(self, *args, **kwargs)
         if with_mf:
             dm1[np.diag_indices(self.nocc)] += 2
         if ao_basis:
