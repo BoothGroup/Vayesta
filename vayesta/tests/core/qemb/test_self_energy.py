@@ -2,7 +2,6 @@ import unittest
 
 import numpy as np
 
-import pyscf
 import pyscf.ao2mo
 import pyscf.pbc
 import vayesta
@@ -11,7 +10,6 @@ from vayesta.core.util import cache
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
-import dyson
 
 
 class Test_SelfEnergy(TestCase):
