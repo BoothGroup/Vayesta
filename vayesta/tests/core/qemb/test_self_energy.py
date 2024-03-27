@@ -1,4 +1,5 @@
 import unittest
+import pytest
 
 import numpy as np
 
@@ -69,7 +70,7 @@ class Test_SelfEnergy(TestCase):
             from dyson.expressions import FCI
         except ImportError:
             pytest.skip("Requires dyson")
-            
+
         spectral_moment_order = (4,5)
 
         fci = FCI["1h"](mf)
