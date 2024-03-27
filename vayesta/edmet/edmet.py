@@ -66,7 +66,7 @@ class EDMET(RDMET):
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         is_eb = True
-        check_solver_config(is_uhf, is_eb, solver, self.log)
+        check_solver_config(solver, is_uhf, is_eb, self.log)
 
     def kernel(self):
         t_start = timer()
