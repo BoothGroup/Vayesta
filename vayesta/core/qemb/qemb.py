@@ -10,6 +10,7 @@ from typing import Optional
 import numpy as np
 
 import pyscf
+import pyscf.scf
 import pyscf.mp
 import pyscf.ci
 import pyscf.cc
@@ -338,6 +339,10 @@ class Embedding:
         # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
         mf = copy.copy(mf)
         self.log.debugv("type(mf)= %r", type(mf))
+        if isinstance(mf, pyscf.scf.rohf.ROHF):
+            raise NotImplementedError("Spin-restricted open-shell mean-field objects are not supported; please convert"
+                                      "to spin-unrestricted mean-field (e.g. by using the `to_uhf` method)")
+
         # If the mean-field has k-points, automatically fold to the supercell:
         if getattr(mf, "kpts", None) is not None:
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
