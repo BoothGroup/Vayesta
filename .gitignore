@@ -145,6 +145,9 @@ pyscf.out
 # Vayesta log files
 vlog.txt
 verr.txt
+f*_pyscf.txt
+f*.out
+*.h5
 
 # HDF5 files
 *.h5
