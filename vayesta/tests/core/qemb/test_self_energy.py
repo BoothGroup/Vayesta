@@ -64,10 +64,12 @@ class Test_SelfEnergy(TestCase):
     def test_fci_H6_full_bath(self):
         # RHF
         mf = testsystems.h6_sto6g.rhf()
-
-        from dyson import MBLGF, MixedMBLGF, NullLogger
-        from dyson.expressions import FCI
-
+        try:
+            from dyson import MBLGF, MixedMBLGF, NullLogger
+            from dyson.expressions import FCI
+        except ImportError:
+            pytest.skip("Requires dyson")
+            
         spectral_moment_order = (4,5)
 
         fci = FCI["1h"](mf)
@@ -110,9 +112,11 @@ class Test_SelfEnergy(TestCase):
     def test_fci_hubbard_full_bath(self):
         # RHF
         mf = testsystems.hubb_10_u2.rhf()
-
-        from dyson import MBLGF, MixedMBLGF, NullLogger
-        from dyson.expressions import FCI
+        try:
+            from dyson import MBLGF, MixedMBLGF, NullLogger
+            from dyson.expressions import FCI
+        except ImportError:
+            pytest.skip("Requires dyson")
 
         spectral_moment_order = (4,5)
 
