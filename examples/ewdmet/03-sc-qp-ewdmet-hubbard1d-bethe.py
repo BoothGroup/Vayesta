@@ -6,24 +6,24 @@ from vayesta.lattmod.bethe import hubbard1d_bethe_gap
 from dyson import Lehmann, FCI, CCSD
 
 u = 3
-natom = 128
-nelec = natom
+nsite = 128
+nelec = nsite
 nfrag = 2
 nmom_max_bath = 1
 nmom_max_fci = (4,4)
 solv = 'FCI'
 EXPR = FCI if solv=='FCI' else CCSD
-hubbard = Hubbard1D(nsite=natom, nelectron=nelec, hubbard_u=u, verbose=0)
+hubbard = Hubbard1D(nsite=nsite, nelectron=nelec, hubbard_u=u, verbose=0)
 mf = LatticeRHF(hubbard)
 mf.kernel()
 
-chempot = (mf.mo_energy[natom//2-1] + mf.mo_energy[natom//2] ) / 2
+chempot = (mf.mo_energy[nsite//2-1] + mf.mo_energy[nsite//2] ) / 2
 gf_hf = Lehmann(mf.mo_energy, np.eye(mf.mo_coeff.shape[0]), chempot=chempot)
 
 
 emb = vayesta.ewf.EWF(mf, solver=solv, bath_options=dict(bathtype='ewdmet', max_order=nmom_max_bath, order=nmom_max_bath, dmet_threshold=1e-12), solver_options=dict(conv_tol=1e-12, n_moments=nmom_max_fci))
 emb.qpewdmet_scmf(proj=2, maxiter=10)
-nimages = [natom//nfrag, 1, 1]
+nimages = [nsite//nfrag, 1, 1]
 emb.symmetry.set_translations(nimages)
 with emb.site_fragmentation() as f:
     f.add_atomic_fragment(list(range(nfrag)))

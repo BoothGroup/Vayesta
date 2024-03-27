@@ -32,7 +32,7 @@ solverp = MBLGF(tp, log=NullLogger())
 solver = MixedMBLGF(solverh, solverp)
 solver.kernel()
 se = solver.get_self_energy()
-solver = AuxiliaryShift(th[1]+tp[1], se, natom, log=NullLogger())
+solver = AuxiliaryShift(th[1]+tp[1], se, nelec, log=NullLogger())
 solver.kernel()
 static_potential = se.as_static_potential(mf.mo_energy, eta=1e-2)
 gf = solver.get_greens_function()
@@ -43,7 +43,7 @@ print("Exact GF nelec: %s"%nelec_gf)
 sc = mf.get_ovlp() @ mf.mo_coeff
 new_fock = sc @ (th[1] + tp[1] + static_potential) @ sc.T
 e, mo_coeff = np.linalg.eigh(new_fock) 
-chempot = (e[natom//2-1] + e[natom//2] ) / 2
+chempot = (e[nelec//2-1] + e[nelec//2] ) / 2
 gf_static = Lehmann(e, mo_coeff, chempot=chempot)
 
 gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
@@ -53,7 +53,9 @@ static_gap = gap(gf_static)
 # QP-EwDMET GF
 opts = dict(sc=False, store_hist=True, aux_shift=True, store_scfs=True, diis=True, damping=0, static_potential_conv_tol=1e-6, use_sym=False, eta=1e-2)
 emb = vayesta.ewf.EWF(mf, solver='FCI', bath_options=dict(bathtype='full', dmet_threshold=1e-12), solver_options=dict(conv_tol=1e-15, n_moments=nmom_max_fci))
-emb.qpewdmet_scmf(proj=1, maxiter=1000, **opts)
+emb.qpewdmet_scmf(proj=1, maxiter=10, **opts)
+nimages = [nsite//nfrag, 1, 1]
+emb.symmetry.set_translations(nimages)
 with emb.site_fragmentation() as f:
     f.add_atomic_fragment(range(nfrag))
 emb.kernel()
