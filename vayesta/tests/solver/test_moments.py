@@ -2,7 +2,6 @@ import unittest
 import pytest
 import numpy as np
 
-import pyscf
 import pyscf.cc
 
 import vayesta

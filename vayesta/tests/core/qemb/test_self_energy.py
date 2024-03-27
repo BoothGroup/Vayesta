@@ -83,8 +83,7 @@ class Test_SelfEnergy(TestCase):
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
         se_fci = solver.get_self_energy()
-        SC = mf.get_ovlp() @ mf.mo_coeff
-        se_static_fci = th[1] + tp[1] - SC.T @ mf.get_fock() @ SC
+        se_static_fci = th[1] + tp[1] - mf.mo_coeff.T @ mf.get_fock() @ mf.mo_coeff
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
