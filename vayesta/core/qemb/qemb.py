@@ -1735,7 +1735,15 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
-
+    def qpewdmet_scmf(self, *args, **kwargs):
+        """Decorator for QP-EWDMET."""
+        try:
+            from vayesta.core.scmf import QPEWDMET
+        except ImportError:
+            self.log.error("QP-EWDMET requires Dyson installed")
+            return
+        self.with_scmf = QPEWDMET(self, *args, **kwargs)
+        self.kernel = self.with_scmf.kernel
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         if self.opts.screening:

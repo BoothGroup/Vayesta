@@ -4,7 +4,7 @@ import numpy as np
 import pyscf.cc
 
 from vayesta.core.types import CCSD_WaveFunction
-from vayesta.core.util import dot, log_method, einsum
+from vayesta.core.util import dot, log_method, log_time, einsum
 from vayesta.solver._uccsd_eris import uao2mo
 from vayesta.solver.cisd import CISD_Solver
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
@@ -53,8 +53,8 @@ class RCCSD_Solver(ClusterSolver):
             t1, t2 = self.generate_init_guess()
 
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
-
-        mycc.kernel(t1=t1, t2=t2)
+        with log_time(self.log.timing, "Time for T amplitudes: %s"):
+            mycc.kernel(t1=t1, t2=t2)
         self.converged = mycc.converged
 
         if t_diagnostic:
@@ -63,7 +63,8 @@ class RCCSD_Solver(ClusterSolver):
         self.print_extra_info(mycc)
 
         if self.opts.solve_lambda:
-            l1, l2 = mycc.solve_lambda(l1=l1, l2=l2)
+            with log_time(self.log.timing, "Time for lambda amplitudes: %s"):
+                l1, l2 = mycc.solve_lambda(l1=l1, l2=l2)
             self.converged = self.converged and mycc.converged_lambda
         else:
             self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
@@ -81,24 +82,26 @@ class RCCSD_Solver(ClusterSolver):
                 self.log.info("Skipping in-cluster moment calculations")
                 return
             self.log.info("Calculating in-cluster CCSD moments %s" % str(nmom))
-            # expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
-            # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
-            # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
-            # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
-            # self.ip_moment_amplitudes = (amps_bra, amps_ket)
+            with log_time(self.log.timing, "Time for hole moments: %s"):
+                expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+                self.hole_moments = expr.build_gf_moments(nmom[0])
+            
+                # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+                # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+                # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+                # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+                # self.ip_moment_amplitudes = (amps_bra, amps_ket)
+            
+            with log_time(self.log.timing, "Time for hole moments: %s"):
+                expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+                self.particle_moments = expr.build_gf_moments(nmom[1])
+                
+                # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+                # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+                # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+                # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+                # self.ea_moment_amplitudes = (amps_bra, amps_ket)
 
-            # expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
-            # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
-            # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
-            # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
-            # self.ea_moment_amplitudes = (amps_bra, amps_ket)
-
-            expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.hole_moments = expr.build_gf_moments(nmom[0])
-            expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.particle_moments = expr.build_gf_moments(nmom[1])
 
     def get_solver_class(self, mf):
         if hasattr(mf, "with_df") and mf.with_df is not None:

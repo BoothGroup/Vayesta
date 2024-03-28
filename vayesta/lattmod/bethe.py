@@ -71,3 +71,19 @@ if __name__ == "__main__":
         e = hubbard1d_bethe_energy(t, u)
         d = hubbard1d_bethe_docc(t, u)
         print("U= %6.3f:  Energy= %.8f  Double occupancy= %.8f" % (u, e, d))
+
+
+def hubbard1d_bethe_gap(t, u, interval=(1, 100), **kwargs):
+    """Exact band gap for the 1D Hubbard model at half filling in the thermodynamic limit.
+
+    from DOI: 10.1103/PhysRevB.106.045123"""
+
+    #kwargs['limit'] = kwargs.get('limit', 100)
+
+    def func(x):
+        return np.sqrt(x**2 - 1) / np.sinh(2*np.pi*t*x/u)
+
+    eg, *res = scipy.integrate.quad(func, *interval, **kwargs)
+    eg = 16*t**2/u * eg
+
+    return eg

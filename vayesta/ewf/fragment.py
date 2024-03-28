@@ -285,6 +285,7 @@ class Fragment(BaseFragment):
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
             ci = wf.as_cisd(c0=1.0)
+
             ci = ci.project(proj)
             es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, hamil=self.hamil)
             self.log.debug(

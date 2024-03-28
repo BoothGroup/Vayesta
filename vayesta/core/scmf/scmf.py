@@ -9,13 +9,15 @@ from vayesta.core.util import AbstractMethodError, SymmetryError, energy_string
 class SCMF:
     name = "SCMF"
 
-    def __init__(self, emb, etol=1e-8, dtol=1e-6, maxiter=100, damping=0.0, diis=True):
+    def __init__(self, emb, etol=1e-8, dtol=1e-6, maxiter=100, damping=0.0, diis=True, diis_space=6, diis_min_space=1):
         self.emb = emb
         self.etol = etol if etol is not None else np.inf
         self.dtol = dtol if dtol is not None else np.inf
         self.maxiter = maxiter
         self.damping = damping
         self.diis = diis
+        self.diis_space = diis_space
+        self.diis_min_space = diis_min_space
         self.iteration = 0
         # Save original kernel
         self._kernel_orig = self.emb.kernel
@@ -76,7 +78,19 @@ class SCMF:
         return False, de, ddm
 
     def kernel(self, *args, **kwargs):
-        diis = self.get_diis() if self.diis else None
+        
+        if self.diis:
+            diis = self.get_diis()
+            if type(diis) is tuple:
+                # Unrestricted
+                diis[0].space, diis[1].space = self.diis_space, self.diis_space
+                diis[0].min_space, diis[1].min_space = self.diis_min_space, self.diis_min_space
+            else:
+                # Restricted
+                diis.space = self.diis_space
+                diis.min_space = self.diis_min_space
+        else:
+            diis = None
 
         e_last = dm1_last = None
         for self.iteration in range(1, self.maxiter + 1):

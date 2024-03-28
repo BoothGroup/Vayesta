@@ -12,7 +12,7 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = "cc-pVDZ"
+mol.basis = "sto-6g"
 mol.output = "pyscf.txt"
 mol.build()
 
@@ -20,8 +20,8 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-# Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6), solver_options=dict(n_moments=(5, 4), solve_lambda=True))
+# Embedded FCI
+emb = vayesta.ewf.EWF(mf, solver='FCI', bath_options=dict(threshold=1e-6), solver_options=dict(n_moments=(5, 4)))
 emb.kernel()
 
 # Reference full system CCSD:
