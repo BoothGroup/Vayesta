@@ -1068,23 +1068,7 @@ class Fragment:
         eris = hamil.get_eris_bare()
 
         if dm2 is None:
-            #try:
-                #raise AttributeError
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
-            # except AttributeError:    
-            #     dm2 = self.results.dm2.copy()
-            #     if part_cumulant:
-            #         # Remove non-cumulant contribution to 2-DM
-            #         if not approx_cumulant:
-            #             dm2 -= einsum("ij,kl->ijkl", dm1, dm1) - einsum("ij,kl->iklj", dm1, dm1) / 2
-            #         elif approx_cumulant in (1,True):
-            #             dm1[np.diag_indices(self.cluster.nocc_active)] -= 1
-            #             for i in range(self.cluster.nocc_active):
-            #                 dm2[i, i, :, :] -= dm1 * 2
-            #                 dm2[:, :, i, i] -= dm1 * 2
-            #                 dm2[:, i, i, :] += dm1
-            #                 dm2[i, :, :, i] += dm1.T
-            #             dm1[np.diag_indices(self.cluster.nocc_active)] += 1
         # Get effective core potential
         if h1e_eff is None:
             if part_cumulant:
