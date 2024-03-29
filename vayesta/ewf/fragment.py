@@ -15,7 +15,7 @@ import vayesta
 from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_recursive, hstack, log_method, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction, RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction
 from vayesta.core.bath import DMET_Bath
 from vayesta.mpi import mpi
 
@@ -261,6 +261,9 @@ class Fragment(BaseFragment):
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()
+        if isinstance(wf, RRDM_Wavefunction, URDM_Wavefunction):
+            proj = self.get_overlap("cluster|frag")
+            proj = proj @ proj.T
         proj = self.get_overlap("proj|cluster-occ")
         pwf = pwf.project(proj, inplace=False)
 
