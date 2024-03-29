@@ -74,8 +74,16 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         moms: tuple = None
-        dm1: np.ndarray = None
-        dm2: np.ndarray = None
+        
+        @property
+        def dm1(self):
+            """Cluster 1DM"""
+            return self.wf.make_rdm1()
+
+        @property
+        def dm2(self):
+            """Cluster 2DM"""
+            return self.wf.make_rdm2()
 
 
     def __init__(self, *args, **kwargs):
@@ -228,13 +236,14 @@ class Fragment(BaseFragment):
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
                 cluster_solver.kernel()
 
-            # Callback solver - skip energy calculation and return user defined results
-            if solver.lower() == 'callback':
-                results = self.Results()
-                for key, value in cluster_solver.results.items():
-                    setattr(results, key, value)    
-                self._results = results         
-                return results
+            # # Callback solver - skip energy calculation and return user defined results
+            # if solver.lower() == 'callback':
+            #     results = self.Results()
+            #     for key, value in cluster_solver.results.items():
+            #         if key not in ['dm1', 'dm2']:
+            #             setattr(results, key, value)    
+            #     self._results = results         
+            #     return results
             
         # Special debug "solver"
         else:
@@ -261,10 +270,11 @@ class Fragment(BaseFragment):
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()
-        if isinstance(wf, RRDM_Wavefunction, URDM_Wavefunction):
+        if isinstance(wf, (RRDM_WaveFunction, URDM_WaveFunction)):
             proj = self.get_overlap("cluster|frag")
             proj = proj @ proj.T
-        proj = self.get_overlap("proj|cluster-occ")
+        else:
+            proj = self.get_overlap("proj|cluster-occ")
         pwf = pwf.project(proj, inplace=False)
 
         # Moments
@@ -280,14 +290,12 @@ class Fragment(BaseFragment):
             pwf=pwf,
             moms=moms,
             e_corr_rpa=e_corr_rpa,
-            dm1 = wf.make_rdm1(),
-            dm2 = wf.make_rdm2()
         )
 
         self.hamil = cluster_solver.hamil
 
         # --- Correlation energy contributions
-        if self.opts.calc_e_wf_corr:
+        if self.opts.calc_e_wf_corr and not isinstance(wf, (RRDM_WaveFunction, URDM_WaveFunction)):
             ci = wf.as_cisd(c0=1.0)
 
             ci = ci.project(proj)

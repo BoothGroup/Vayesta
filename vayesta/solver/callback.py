@@ -24,8 +24,10 @@ class CallbackSolver(ClusterSolver):
         #print(self.opts.callback)
         results = self.opts.callback(mf_clus)
         if 'civec' in results:
+            self.log.info("FCI WaveFunction found in callback results.")
             wf = FCI_WaveFunction(self.hamil.mo, results['civec'])
         elif 't1' in results and 't2' in results:
+            self.log.info("CCSD WaveFunction found in callback results.")
             t1, t2 = results['t1'], results['t2']
             if 'l1' in results and 'l2' in results:
                 l1, l2 = results['l1'], results['l2']
@@ -33,12 +35,15 @@ class CallbackSolver(ClusterSolver):
                 l1, l2 = None, None
             wf = CCSD_WaveFunction(self.hamil.mo, t1, t2, l1=l1, l2=l2)
         elif 'c0' in results and 'c1' in results and 'c2' in results:
+            self.log.info("CISD WaveFunction found in callback results.")
             c0, c1, c2 = results['c0'], results['c1'], results['c2']
             wf = CISD_WaveFunction(self.hamil.mo, c0, c1, c2)
         elif 'dm1' in results and 'dm2' in results:
+            self.log.info("RDM WaveFunction found in callback results.")
             dm1, dm2 = results['dm1'], results['dm2']
             wf = RDM_WaveFunction(self.hamil.mo, dm1, dm2)
         else:
-            vayesta.log.warn("No wavefunction results returned by callback!")
+            self.log.warn("No wavefunction results returned by callback!")
         results['wf'] = wf
+        self.wf = wf
         self.results = results
