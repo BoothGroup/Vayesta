@@ -20,5 +20,5 @@ class CallbackSolver(ClusterSolver):
 
     def kernel(self, *args, **kwargs):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-        print(self.opts.callback)
+        #print(self.opts.callback)
         self.results = self.opts.callback(mf_clus)

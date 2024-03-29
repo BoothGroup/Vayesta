@@ -232,7 +232,6 @@ class Fragment(BaseFragment):
             if solver.lower() == 'callback':
                 results = self.Results()
                 for key, value in cluster_solver.results.items():
-                    print(results)
                     setattr(results, key, value)    
                 self._results = results         
                 return results

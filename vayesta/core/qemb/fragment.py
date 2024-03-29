@@ -1055,7 +1055,7 @@ class Fragment:
         """
         assert mpi.rank == self.mpi_rank
         if dm1 is None:
-            dm1 = self.results.dm1
+            dm1 = self.results.dm1.copy()
         if dm1 is None:
             raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
@@ -1069,24 +1069,22 @@ class Fragment:
 
         if dm2 is None:
             try:
+                #raise AttributeError
                 dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
             except AttributeError:    
-                dm1 = self.results.dm1.copy()
-                dm1[np.diag_indices(self.cluster.nocc_active)] -= 2
-                dm2 = self.results.dm2
+                dm2 = self.results.dm2.copy()
                 if part_cumulant:
                     # Remove non-cumulant contribution to 2-DM
-                    for i in range(self.cluster.nocc_active):
-                        dm2[i, i, :, :] -= dm1 * 2
-                        dm2[:, :, i, i] -= dm1 * 2
-                        dm2[:, i, i, :] += dm1
-                        dm2[i, :, :, i] += dm1.T
-                
-                    for i in range(self.cluster.nocc_active):
-                        for j in range(self.cluster.nocc_active):
-                            dm2[i, i, j, j] -= 4
-                            dm2[i, j, j, i] += 2
-
+                    if not approx_cumulant:
+                        dm2 -= einsum("ij,kl->ijkl", dm1, dm1) - einsum("ij,kl->iklj", dm1, dm1) / 2
+                    elif approx_cumulant in (1,True):
+                        dm1[np.diag_indices(self.cluster.nocc_active)] -= 1
+                        for i in range(self.cluster.nocc_active):
+                            dm2[i, i, :, :] -= dm1 * 2
+                            dm2[:, :, i, i] -= dm1 * 2
+                            dm2[:, i, i, :] += dm1
+                            dm2[i, :, :, i] += dm1.T
+                        dm1[np.diag_indices(self.cluster.nocc_active)] += 1
         # Get effective core potential
         if h1e_eff is None:
             if part_cumulant:
