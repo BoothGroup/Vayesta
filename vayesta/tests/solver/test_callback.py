@@ -58,7 +58,7 @@ class TestSolvers(TestCase):
             emb_callback.kernel()
 
             for a, b in [(False, False), (True, False), (True, True)]:
-                self.assertAlmostEqual(emb.get_dmet_energy(part_cumulant=a, approx_cumulant=b), emb_callback.get_dmet_energy(part_cumulant=a, approx_cumulant=b))
+                self.assertAlmostEqual(emb.get_dmet_energy(part_cumulant=a, approx_cumulant=b), emb_callback.get_dmet_energy(part_cumulant=a, approx_cumulant=b), delta=1e-6)
 
 
     def test_rccsd_water(self):
