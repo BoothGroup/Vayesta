@@ -74,6 +74,7 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         moms: tuple = None
+        callback_results: dict = None
         
         @property
         def dm1(self):
@@ -236,15 +237,6 @@ class Fragment(BaseFragment):
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
                 cluster_solver.kernel()
 
-            # # Callback solver - skip energy calculation and return user defined results
-            # if solver.lower() == 'callback':
-            #     results = self.Results()
-            #     for key, value in cluster_solver.results.items():
-            #         if key not in ['dm1', 'dm2']:
-            #             setattr(results, key, value)    
-            #     self._results = results         
-            #     return results
-            
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == "random":
@@ -281,6 +273,7 @@ class Fragment(BaseFragment):
 
         moms = cluster_solver.hole_moments, cluster_solver.particle_moments
 
+        callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None
         # --- Add to results data class
         self._results = results = self.Results(
             fid=self.id,
@@ -290,6 +283,7 @@ class Fragment(BaseFragment):
             pwf=pwf,
             moms=moms,
             e_corr_rpa=e_corr_rpa,
+            callback_results=callback_results,
         )
 
         self.hamil = cluster_solver.hamil
