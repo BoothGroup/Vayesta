@@ -1069,9 +1069,23 @@ class Fragment:
 
         if dm2 is None:
             try:
-                dm2 = self.results.dm2
-            except AttributeError:    
                 dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
+            except AttributeError:    
+                dm1 = self.results.dm1.copy()
+                dm1[np.diag_indices(self.cluster.nocc_active)] -= 2
+                dm2 = self.results.dm2
+                if part_cumulant:
+                    # Remove non-cumulant contribution to 2-DM
+                    for i in range(self.cluster.nocc_active):
+                        dm2[i, i, :, :] -= dm1 * 2
+                        dm2[:, :, i, i] -= dm1 * 2
+                        dm2[:, i, i, :] += dm1
+                        dm2[i, :, :, i] += dm1.T
+                
+                    for i in range(self.cluster.nocc_active):
+                        for j in range(self.cluster.nocc_active):
+                            dm2[i, i, j, j] -= 4
+                            dm2[i, j, j, i] += 2
 
         # Get effective core potential
         if h1e_eff is None:
