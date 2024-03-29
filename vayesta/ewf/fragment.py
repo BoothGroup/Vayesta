@@ -226,14 +226,16 @@ class Fragment(BaseFragment):
         # Normal solver
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-                if solver.upper() == 'CALLBACK':
-                    cluster_solver.kernel()
-                    results = self.Results()
-                    for key, value in cluster_solver.results.items():
-                        print(results)
-                        setattr(results, key, value)    
-                    self._results = results                
-                    return results
+                cluster_solver.kernel()
+
+            # Callback solver - skip energy calculation and return user defined results
+            if solver.lower() == 'callback':
+                results = self.Results()
+                for key, value in cluster_solver.results.items():
+                    print(results)
+                    setattr(results, key, value)    
+                self._results = results         
+                return results
             
         # Special debug "solver"
         else:

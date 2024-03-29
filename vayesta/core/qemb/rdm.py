@@ -36,7 +36,10 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
         dm1[np.diag_indices(emb.nocc)] = 2
     for x in _get_fragments(emb):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
-        dm1x = x.results.wf.make_rdm1(with_mf=False)
+        try:
+            dm1x = x.results.wf.make_rdm1(with_mf=False)
+        except AttributeError:
+            dm1x = x.results.dm1
         rx = x.get_overlap("mo|cluster")
         px = x.get_overlap("cluster|frag|cluster")
         dm1 += einsum("xi,ij,px,qj->pq", px, dm1x, rx, rx)
