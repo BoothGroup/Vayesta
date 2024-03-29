@@ -37,6 +37,14 @@ class CallbackSolver(ClusterSolver):
             wf = RDM_WaveFunction(self.hamil.mo, dm1, dm2)
         else:
             self.log.warn("No wavefunction results returned by callback!")
+
+        if 'hole_moments' in results:
+            self.log.info("Hole moments found in callback results.")
+            self.hole_moments = results['hole_moments']
+        if 'particle_moments' in results:
+            self.log.info("Particle moments found in callback results.")
+            self.particle_moments = results['particle_moments']
+            
         results['wf'] = wf
         self.wf = wf
         self.callback_results = results
