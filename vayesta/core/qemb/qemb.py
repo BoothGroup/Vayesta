@@ -570,8 +570,9 @@ class Embedding:
         """
         h1e = self.get_hcore_for_energy()
         vhf = self.get_veff_for_energy()
-        e_mf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
-        return e_mf / self.ncells
+        e_elec = self.mf.energy_elec(h1e=h1e, vhf=vhf)[0]
+        e_nuc = self.mf.energy_nuc() 
+        return e_elec / self.ncells + e_nuc #* self.ncells
 
     @property
     def e_nuc(self):
