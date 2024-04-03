@@ -102,7 +102,7 @@ class EWF(Embedding):
     def kernel(self):
         """Run EWF."""
         t_start = timer()
-
+        print("EWF opts \n%s\n"%str(self.opts.solver_options))
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
@@ -180,8 +180,13 @@ class EWF(Embedding):
             self.log.error("Some fragments did not converge!")
         self.converged = conv
 
+        if self.solver.lower() == "callback":
+            self.log.info("Total wall time:  %s", time_string(timer() - t_start))
+            return
         # --- Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
+
+
         self.log.output("E(MF)=   %s", energy_string(self.e_mf))
         self.log.output("E(corr)= %s", energy_string(self.e_corr))
         self.log.output("E(tot)=  %s", energy_string(self.e_tot))
