@@ -102,7 +102,6 @@ class EWF(Embedding):
     def kernel(self):
         """Run EWF."""
         t_start = timer()
-        print("EWF opts \n%s\n"%str(self.opts.solver_options))
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
