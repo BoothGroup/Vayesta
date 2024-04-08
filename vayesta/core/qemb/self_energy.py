@@ -1,6 +1,7 @@
 """Routines to reconstruct the full system self-energy from cluster spectral moments"""
 
 import numpy as np
+import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
@@ -51,7 +52,9 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         solver = MixedMBLGF(solverh, solverp)
         solver.kernel()
         se = solver.get_self_energy()
-        se_moms_clus = [se.moment(i) for i in range(n_se_mom)]
+        se_moms_clus = np.array([se.moment(i) for i in range(n_se_mom)])
+        assert np.allclose(se_moms_clus.imag, 0)
+        se_moms_clus = se_moms_clus.real
 
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
@@ -76,7 +79,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
             static_self_energy += mc @ static_self_energy_frag @ mc.T
 
             # Self-energy moments
-            se_moms_frag = [0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus]
+            se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
             self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
 
             if use_sym:
