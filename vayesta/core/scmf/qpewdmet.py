@@ -1,20 +1,21 @@
 import numpy as np
 import scipy.linalg
 
+from dyson.solvers.mblse import MBLSE
 import pyscf.scf
 
 import vayesta
 from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
-from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
-from dyson import Lehmann, AuxiliaryShift
+from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj, make_self_energy_moments
+from dyson import Lehmann, AuxiliaryShift, MBLSE
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, n_se_mom=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -24,6 +25,9 @@ class QPEWDMET_RHF(SCMF):
             Embedding object on which self consitency is based
         proj : int 
             Number of fragment projectors applied to cluster self-energy
+        n_se_mom : int
+            Number of cluster self energy moments used for global self energy reconstruction
+            Default: np.inf (Use Lehmann representation of self-energy)
         static_potential_conv_tol : float
             Convergence threshold for static potential
         eta : float
@@ -59,6 +63,7 @@ class QPEWDMET_RHF(SCMF):
         self.aux_shift = aux_shift
         self.aux_shift_frag = aux_shift_frag
         self.global_static_potential = global_static_potential
+        self.n_se_mom = n_se_mom
         
         super().__init__(emb, *args, **kwargs)
 
@@ -119,12 +124,19 @@ class QPEWDMET_RHF(SCMF):
         self.static_potential = np.zeros_like(self.fock)
         self.static_self_energy = np.zeros_like(self.fock)
 
-        if self.proj == 1:
-            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
-        elif self.proj == 2:
-            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
+        if self.n_se_mom == np.inf:
+            if self.proj == 1:
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+            elif self.proj == 2:
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
+            else:
+                return NotImplementedError()
         else:
-            return NotImplementedError()
+            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.n_se_mom, proj=self.proj, use_sym=self.use_sym, eta=self.eta)
+            solver = MBLSE(self.static_self_energy, self.self_energy_moments, log=self.log)
+            solver.kernel()
+            self.self_energy = solver.get_self_energy()
+
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy 
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0
