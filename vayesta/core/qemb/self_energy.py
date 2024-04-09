@@ -114,6 +114,46 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
     return self_energy_moms, static_self_energy, static_potential
 
+def remove_fragments_from_full_moments(emb, se_moms, proj=2):
+    """
+    Remove the embedding contribution from a set of full system self-energy moments.
+    Useful to combine embedding with full system GW or CCSD calculations and avoid double counting.
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    se_moms : ndarray (n_se_mom, nmo, nmo)
+        Full system self-energy moments (MO basis)
+    proj : int
+        Number of projectors used to construct the self-energy moments.
+        Should be consistent with the number of projectors used in the embedding.
+    
+    Returns
+    -------
+    corrected_moms : ndarray (n_se_mom, nmo, nmo)
+        Self-energy moments with the embedding contributions removed. (MO basis)
+    """
+    corrected_moms = se_moms.copy() if proj == 2 else np.zeros_like(se_moms)
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+        mc = f.get_overlap('mo|cluster')
+        fc = f.get_overlap('frag|cluster')
+        fm = f.get_overlap('frag|mo')
+        mfm = fm.T @ fm
+        mcm = mc @ mc.T
+        if proj == 1:
+            for i2, f2 in enumerate(fragments):
+                if i2 == i:
+                    continue
+                mc2 = f2.get_overlap('mo|cluster')
+                fm2 = f2.get_overlap('frag|mo')
+                mcm2 = mc2 @ (mc2.T) - mcm   
+                corrected_moms += np.array([mfm @ mom @ mcm2 for mom in se_moms])
+        elif proj == 2:
+            corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
+    return corrected_moms
+
 def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
