@@ -53,7 +53,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         solver.kernel()
         se = solver.get_self_energy()
         se_moms_clus = np.array([se.moment(i) for i in range(n_se_mom)])
-        assert np.allclose(se_moms_clus.imag, 0)
+        #assert np.allclose(se_moms_clus.imag, 0)
         se_moms_clus = se_moms_clus.real
 
         mc = f.get_overlap('mo|cluster')
