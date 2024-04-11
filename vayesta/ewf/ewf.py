@@ -315,6 +315,8 @@ class EWF(Embedding):
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
         if functional == "dm":
             return self.get_dm_corr_energy(**kwargs)
+        if functional == 'dmet':
+            return self.get_dmet_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()
