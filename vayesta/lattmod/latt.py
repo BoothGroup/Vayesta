@@ -332,6 +332,9 @@ class HubbardDF:
             raise NotImplementedError()
         self.mol = mol
         self.blockdim = self.get_naoaux()
+        # MomenGW compatibility 
+        self.verbose = 0
+        self.stdout = 0
 
     def ao2mo(self, *args, **kwargs):
         return self.mol.ao2mo(*args, **kwargs)
@@ -347,6 +350,10 @@ class HubbardDF:
         # Pack (Q|ab) -> (Q|A)
         j3c = pyscf.lib.pack_tril(j3c)
         yield j3c
+
+    def prange(self, start, end, step):
+        for i in range(start, end, step):
+            yield i, min(i+step, end)
 
 
 class LatticeSCF:
