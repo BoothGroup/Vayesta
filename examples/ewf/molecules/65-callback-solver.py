@@ -9,7 +9,7 @@ from vayesta.misc.molecules import ring
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
 # The mf argment contains the hamiltonain in the orthonormal cluster basis
-# Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CIID amplitudes or CCSD amplitudes
+# Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CISD amplitudes or CCSD amplitudes
 def solver(mf):
     h1e = mf.get_hcore()
     h2e = mf._eri
