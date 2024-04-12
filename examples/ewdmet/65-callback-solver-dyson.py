@@ -11,7 +11,8 @@ from dyson import FCI
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
 # The mf argment contains the hamiltonain in the orthonormal cluster basis
-# Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CIID amplitudes or CCSD amplitudes
+# Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CISD amplitudes or CCSD amplitudes
+# Green's function moments are also supported, and in are calculated via Dyson in this example.
 def solver(mf):
     fci_1h = FCI["1h"](mf)
     fci_1p = FCI["1p"](mf)
