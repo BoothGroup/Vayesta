@@ -16,9 +16,9 @@ log = logging.getLogger(__name__)
 
 def EWF(mf, *args, **kwargs):
     """Determine restricted or unrestricted by inspection of mean-field object"""
-    if isinstance(mf, pyscf.scf.uhf.UHF) or isinstance(mf, pyscf.pbc.scf.uhf.UHF) or isinstance(mf, pyscf.pbc.scf.kuhf.KUHF):
+    if isinstance(mf, (pyscf.scf.uhf.UHF, pyscf.pbc.scf.uhf.UHF, pyscf.pbc.scf.kuhf.KUHF)):
         return UEWF(mf, *args, **kwargs)
-    elif isinstance(mf, pyscf.scf.rohf.ROHF) or isinstance(mf, pyscf.pbc.scf.rohf.ROHF) or isinstance(mf, pyscf.pbc.scf.krohf.KROHF):
+    elif isinstance(mf, (pyscf.scf.rohf.ROHF, pyscf.pbc.scf.rohf.ROHF, pyscf.pbc.scf.krohf.KROHF)):
         log.warning("Converting ROHF reference to UHF")
         return UEWF(mf.to_uhf(), *args, **kwargs)
     return REWF(mf, *args, **kwargs)
