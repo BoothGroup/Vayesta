@@ -310,11 +310,17 @@ class EWF(Embedding):
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = "wf"
         if functional == "wf":
+            # CCSD projected energy expression 
             return self.get_wf_corr_energy(**kwargs)
         if functional == "dm-t2only":
+            # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
         if functional == "dm":
+            # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
+        if functional == 'dmet':
+            # Uses projected denisty matrices
+            return self.get_dmet_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()
