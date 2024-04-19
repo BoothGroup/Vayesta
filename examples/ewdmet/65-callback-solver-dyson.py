@@ -6,18 +6,27 @@ import pyscf.fci
 import vayesta
 import vayesta.ewf
 from vayesta.misc.molecules import ring
+from dyson import FCI
+
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
 # The mf argment contains the hamiltonain in the orthonormal cluster basis
 # Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CISD amplitudes or CCSD amplitudes
+# Returning the cluster Green's function moments is also supported. They are calculated with Dyson in this example.
 def solver(mf):
-    h1e = mf.get_hcore()
-    h2e = mf._eri
+    fci_1h = FCI["1h"](mf)
+    fci_1p = FCI["1p"](mf)
+
+    # Use MBLGF
+    nmom_max = 4
+    th = fci_1h.build_gf_moments(nmom_max)
+    tp = fci_1p.build_gf_moments(nmom_max)
+
     norb = mf.mo_coeff.shape[-1]
     nelec = mf.mol.nelec
-    energy, civec = pyscf.fci.direct_spin0.kernel(h1e, h2e, norb, nelec, conv_tol=1.e-14)
+    civec= fci_1h.c_ci
     dm1, dm2 = pyscf.fci.direct_spin0.make_rdm12(civec, norb, nelec)
-    results = dict(dm1=dm1, dm2=dm2, converged=True)
+    results = dict(dm1=dm1, dm2=dm2, hole_moments=th, particle_moments=tp, converged=True)
     return results
 
 natom = 10
@@ -36,10 +45,11 @@ mf.kernel()
 # Vayesta options
 use_sym = True
 nfrag = 1 
-bath_opts = dict(bathtype="dmet")   
+bath_opts = dict(bathtype="ewdmet", order=1, max_order=1)   
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb.qpewdmet_scmf(proj=2, maxiter=10)
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:
