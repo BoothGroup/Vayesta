@@ -38,8 +38,6 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
     ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
     dm1 = np.zeros((emb.nmo, emb.nmo))
-    if with_mf is True:
-        dm1[np.diag_indices(emb.nocc)] = 2
     for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1x = x.results.wf.make_rdm1(with_mf=False)
@@ -49,6 +47,8 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
     # --- MPI
     if mpi:
         dm1 = mpi.nreduce(dm1, target=mpi_target, logfunc=emb.log.timingv)
+    if with_mf is True:
+        dm1[np.diag_indices(emb.nocc)] = 2
     if symmetrize:
         dm1 = (dm1 + dm1.T) / 2
     if ao_basis:
