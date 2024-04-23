@@ -107,8 +107,8 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
 
 
 def make_rdm2_demo_rhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True
-):
+    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
+    ):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -180,7 +180,7 @@ def make_rdm2_demo_rhf(
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         rx = x.get_overlap("mo|cluster")
         px = x.get_overlap("cluster|frag|cluster")
 
@@ -230,7 +230,8 @@ def make_rdm2_demo_rhf(
                 dm2[:, i, i, :] -= pdm1x
 
         dm2 += einsum("xi,ijkl,px,qj,rk,sl->pqrs", px, dm2x, rx, rx, rx, rx)
-
+    if mpi:
+        dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
     # Add non-cumulant contribution (unless added above, for part_cumulant=False)
     if with_dm1 and part_cumulant:
         if approx_cumulant:
