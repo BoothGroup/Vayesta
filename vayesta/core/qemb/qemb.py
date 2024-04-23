@@ -1263,7 +1263,7 @@ class Embedding:
     def make_rdm2_demo(self, *args, **kwargs):
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
-    def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
+    def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True, mpi_target=None):
         """Calculate electronic DMET energy via democratically partitioned density-matrices.
 
         Parameters
@@ -1286,7 +1286,8 @@ class Embedding:
             wx = x.symmetry_factor
             e_dmet += wx * x.get_fragment_dmet_energy(part_cumulant=part_cumulant, approx_cumulant=approx_cumulant)
         if mpi:
-            mpi.world.allreduce(e_dmet)
+            e_dmet = mpi.nreduce(e_dmet, target=mpi_target, logfunc=self.log.timingv)
+
         if part_cumulant:
             dm1 = self.make_rdm1_demo(ao_basis=True)
             if not approx_cumulant:
