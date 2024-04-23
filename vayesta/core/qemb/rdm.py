@@ -4,11 +4,6 @@ import numpy as np
 from vayesta.core.util import dot, einsum, with_doc
 from vayesta.mpi import mpi
 
-
-def _get_fragments(emb):
-    return emb.get_fragments(contributes=True)
-
-
 def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_target=None):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
