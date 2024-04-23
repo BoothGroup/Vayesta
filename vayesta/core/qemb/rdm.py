@@ -44,11 +44,10 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
         rx = x.get_overlap("mo|cluster")
         px = x.get_overlap("cluster|frag|cluster")
         dm1 += einsum("xi,ij,px,qj->pq", px, dm1x, rx, rx)
-    # --- MPI
     if mpi:
         dm1 = mpi.nreduce(dm1, target=mpi_target, logfunc=emb.log.timingv)
     if with_mf is True:
-        dm1[np.diag_indices(emb.nocc)] = 2
+        dm1[np.diag_indices(emb.nocc)] += 2
     if symmetrize:
         dm1 = (dm1 + dm1.T) / 2
     if ao_basis:
@@ -56,7 +55,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
     return dm1
 
 
-def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
+def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_target=None):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -81,16 +80,19 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     mo_coeff = emb.mo_coeff
     dm1a = np.zeros((emb.nmo[0], emb.nmo[0]))
     dm1b = np.zeros((emb.nmo[1], emb.nmo[1]))
-    if with_mf is True:
-        dm1a[np.diag_indices(emb.nocc[0])] = 1
-        dm1b[np.diag_indices(emb.nocc[1])] = 1
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1xa, dm1xb = x.results.wf.make_rdm1(with_mf=False)
         rxa, rxb = x.get_overlap("mo|cluster")
         pxa, pxb = x.get_overlap("cluster|frag|cluster")
         dm1a += einsum("xi,ij,px,qj->pq", pxa, dm1xa, rxa, rxa)
         dm1b += einsum("xi,ij,px,qj->pq", pxb, dm1xb, rxb, rxb)
+    if mpi:
+        dm1a = mpi.nreduce(dm1a, target=mpi_target, logfunc=emb.log.timingv)
+        dm1b = mpi.nreduce(dm1b, target=mpi_target, logfunc=emb.log.timingv)
+    if with_mf is True:
+        dm1a[np.diag_indices(emb.nocc[0])] += 1
+        dm1b[np.diag_indices(emb.nocc[1])] += 1
     if symmetrize:
         dm1a = (dm1a + dm1a.T) / 2
         dm1b = (dm1b + dm1b.T) / 2
