@@ -255,7 +255,7 @@ def make_rdm2_demo_rhf(
 
 @with_doc(make_rdm2_demo_rhf)
 def make_rdm2_demo_uhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True
+    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
 ):
     na, nb = emb.nmo
     dm2aa = np.zeros((na, na, na, na))
@@ -264,7 +264,7 @@ def make_rdm2_demo_uhf(
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         rxa, rxb = x.get_overlap("mo|cluster")
         pxa, pxb = x.get_overlap("cluster|frag|cluster")
 
@@ -314,7 +314,10 @@ def make_rdm2_demo_uhf(
             einsum("xi,ijkl,px,qj,rk,sl->pqrs", pxa, dm2xab, rxa, rxa, rxb, rxb)
             + einsum("xk,ijkl,pi,qj,rx,sl->pqrs", pxb, dm2xab, rxa, rxa, rxb, rxb)
         ) / 2
-
+    if mpi:
+        dm2aa = mpi.nreduce(dm2aa, target=mpi_target, logfunc=emb.log.timingv)
+        dm2bb = mpi.nreduce(dm2bb, target=mpi_target, logfunc=emb.log.timingv)
+        dm2ab = mpi.nreduce(dm2ab, target=mpi_target, logfunc=emb.log.timingv)
     if with_dm1 and part_cumulant:
         if approx_cumulant:
             ddm1a, ddm1b = make_rdm1_demo_uhf(emb, with_mf=False)
