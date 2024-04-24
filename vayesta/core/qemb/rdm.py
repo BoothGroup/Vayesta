@@ -165,6 +165,10 @@ def make_rdm2_demo_rhf(
         Default: True.
     symmetrize: bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
+    mpi_target: int or None, optional
+        If set to an integer, the result will only be available at the specified MPI rank.
+        If set to None, an MPI allreduce will be performed and the result will be available
+        at all MPI ranks. Default: None. 
 
     Returns
     -------
