@@ -165,7 +165,7 @@ class QPEWDMET_RHF(SCMF):
                     sep = solverp.get_self_energy()
                     non_local_se_static = th[1] + tp[1]
                     non_local_se = seh + sep
-                elif self.non_local_se == 'FCI'
+                elif self.non_local_se == 'FCI':
                     expr = FCI["1h"](mf)
                     th = expr.build_gf_moments(nmom_max)
                     expr = CCSD["1p"](mf)
