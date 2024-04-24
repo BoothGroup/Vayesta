@@ -1275,6 +1275,10 @@ class Embedding:
         approx_cumulant: bool, optional
             If True, the approximate cumulant, containing (delta 1-DM)-squared terms, is partitioned,
             instead of the true cumulant, if `part_cumulant=True`. Default: True.
+        mpi_target: int or None, optional
+            If set to an integer, the result will only be available at the specified MPI rank.
+            If set to None, an MPI allreduce will be performed and the result will be available
+            at all MPI ranks. Default: None. 
 
         Returns
         -------
