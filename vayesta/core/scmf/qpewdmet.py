@@ -2,7 +2,6 @@ import numpy as np
 import scipy.linalg
 from sympy import N
 
-from dyson.solvers.mblse import MBLSE
 import pyscf.scf
 
 import vayesta
@@ -10,7 +9,7 @@ from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj, make_self_energy_moments, remove_fragments_from_full_moments
-from dyson import Lehmann, AuxiliaryShift, MBLSE, CCSD
+from dyson import Lehmann, AuxiliaryShift, MBLSE, MBLGF, MixedMBLGF, CCSD, FCI, NullLogger
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
@@ -148,14 +147,14 @@ class QPEWDMET_RHF(SCMF):
                         integrals = gw.ao2mo()
                         non_local_se_static = gw.build_se_static(integrals)
                         seh, sep = gw.build_se_moments(self.nmom_se-1, integrals, mo_energy=dict(g=gw.mo_energy, w=gw.mo_energy))
-                        non_local_se = seh + sep
+                        non_local_se_moms = seh + sep
                     except ImportError:
                         raise ImportError("momentGW required for non-local GW self-energy contribution")
                 elif self.non_local_se == 'CCSD':
-                    expr = CCSD["1h"](mf)
-                    th = expr.build_gf_moments(nmom_max)
-                    expr = CCSD["1p"](mf)
-                    tp = expr.build_gf_moments(nmom_max)
+                    expr = CCSD["1h"](self.emb.mf)
+                    th = expr.build_gf_moments(self.nmom_se)
+                    expr = CCSD["1p"](self.emb.mf)
+                    tp = expr.build_gf_moments(self.nmom_se)
 
                     solverh = MBLGF(th, hermitian=False, log=NullLogger())
                     solverh.kernel()
@@ -165,11 +164,13 @@ class QPEWDMET_RHF(SCMF):
                     sep = solverp.get_self_energy()
                     non_local_se_static = th[1] + tp[1]
                     non_local_se = seh + sep
+                    non_local_se_moms = np.array([non_local_se.moment(i) for i in range(self.nmom_se)])
+
                 elif self.non_local_se == 'FCI':
-                    expr = FCI["1h"](mf)
-                    th = expr.build_gf_moments(nmom_max)
-                    expr = CCSD["1p"](mf)
-                    tp = expr.build_gf_moments(nmom_max)
+                    expr = FCI["1h"](self.emb.mf)
+                    th = expr.build_gf_moments(self.nmom_se)
+                    expr = CCSD["1p"](self.emb.mf)
+                    tp = expr.build_gf_moments(self.nmom_se)
                     
                     solverh = MBLGF(th, hermitian=True, log=NullLogger())
                     solverp = MBLGF(tp, hermitian=True, log=NullLogger())
@@ -177,10 +178,11 @@ class QPEWDMET_RHF(SCMF):
                     solver.kernel()
                     non_local_se_static = th[1] + tp[1]
                     non_local_se = solver.get_self_energy()
+                    non_local_se_moms = np.array([non_local_se.moment(i) for i in range(self.nmom_se)])
                 else:
                     raise NotImplementedError()
                 self.static_self_energy = remove_fragments_from_full_moments(self.emb, non_local_se_static) + self.static_self_energy
-                self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se, proj=self.proj) + self.self_energy_moments
+                self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se_moms, proj=self.proj) + self.self_energy_moments
             solver = MBLSE(self.static_self_energy, self.self_energy_moments, log=self.log)
             solver.kernel()
             self.self_energy = solver.get_self_energy()
