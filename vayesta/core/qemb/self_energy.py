@@ -114,7 +114,7 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
     return self_energy_moms, static_self_energy, static_potential
 
-def remove_fragments_from_full_moments(emb, se_moms, proj=2):
+def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
     """
     Remove the embedding contribution from a set of full system self-energy moments.
     Useful to combine embedding with full system GW or CCSD calculations and avoid double counting.
