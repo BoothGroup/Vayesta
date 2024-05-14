@@ -9,7 +9,7 @@ from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj, make_self_energy_moments, remove_fragments_from_full_moments
-from dyson import Lehmann, AuxiliaryShift, MBLSE, MBLGF, MixedMBLGF, CCSD, FCI, NullLogger
+from dyson import Lehmann, AuxiliaryShift, AufbauPrinciple, MBLSE, MBLGF, MixedMBLGF, CCSD, FCI, NullLogger
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
@@ -314,7 +314,8 @@ class QPEWDMET_RHF(SCMF):
         # Shift final auxiliaries to ensure right particle number
         phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(phys, self.self_energy, nelec, occupancy=2, log=self.emb.log)
+        Kernel = AuxiliaryShift if self.aux_shift else AufbauPrinciple
+        shift = Kernel(phys, self.self_energy, nelec, occupancy=2, log=self.emb.log)
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
