@@ -6,6 +6,7 @@ import pyscf.fci
 import vayesta
 import vayesta.ewf
 from vayesta.misc.molecules import ring
+from vayesta.core.types.wf.t_to_c import t1_rhf, t2_rhf
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
 # The mf argment contains the hamiltonain in the orthonormal cluster basis
@@ -14,8 +15,15 @@ def solver(mf):
     ci = pyscf.ci.CISD(mf)
     energy, civec = ci.kernel()
     c0, c1, c2 = ci.cisdvec_to_amplitudes(civec)
-    return dict(c0=c0, c1=c1, c2=c2, converged=True, energy=ci.e_corr)
-    
+
+    # To use CI amplitudues use return the following line and set energy_functional='wf' to use the projected energy in the EWF arguments below
+    # return dict(c0=c0, c1=c1, c2=c2, converged=True, energy=ci.e_corr)
+
+    # Convert CISD amplitudes to CCSD amplitudes to be able to make use of the patitioned cumulant energy functional
+    t1 = t1_rhf(c1/c0) 
+    t2 = t2_rhf(t1, c2/c0)
+    return dict(t1=t1, t2=t2, l1=t1, l2=t2, converged=True, energy=ci.e_corr)
+
 natom = 10
 mol = pyscf.gto.Mole()
 mol.atom = ring("H", natom, 1.5)
@@ -33,13 +41,21 @@ mf.kernel()
 cisd = pyscf.ci.CISD(mf)
 cisd.kernel()
 
+# CCSD
+ccsd = pyscf.cc.CCSD(mf)
+ccsd.kernel()
+
+# FCI
+fci = pyscf.fci.FCI(mf)
+fci.kernel()
+
 # Vayesta options
 use_sym = True
 nfrag = 1 
 bath_opts = dict(bathtype="dmet")   
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='wf', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm-t2only', bath_options=bath_opts, solver_options=dict(callback=solver))
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:
@@ -53,4 +69,6 @@ emb.kernel()
 
 print("Hartree-Fock energy          : %s"%mf.e_tot)
 print("CISD Energy                  : %s"%cisd.e_tot)
-print("Emb. Projected Energy         : %s"%emb.e_tot)
+print("CCSD Energy                  : %s"%ccsd.e_tot)
+print("FCI  Energy                  : %s"%fci.e_tot)
+print("Emb. Partitioned Cumulant    : %s"%emb.e_tot)
