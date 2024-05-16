@@ -7,7 +7,7 @@ def bcc(atoms, a):
     """Body-centered cubic.
     Li: 3.51 A
     """
-    amat = a * np.eye(a)
+    amat = a * np.eye(3)
     coords = a * np.asarray([[0, 0, 0], [1, 1, 1]]) / 2
     atom = _make_atom(atoms, coords)
     return amat, atom
