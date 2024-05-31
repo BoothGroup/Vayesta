@@ -10,7 +10,7 @@ except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
-def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
+def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, hermitian=False, eta=1e-2):
     """
     Construct full system self-energy moments from cluster spectral moments
 
@@ -49,9 +49,15 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
         solverh = MBLGF(th, log=NullLogger())
         solverp = MBLGF(tp, log=NullLogger())
-        solver = MixedMBLGF(solverh, solverp)
-        solver.kernel()
-        se = solver.get_self_energy()
+        if hermitian:
+            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver.kernel()
+            se = solver.get_self_energy()
+        else:
+            solverh.kernel()
+            solverp.kernel()
+            se = solverh.get_self_energy() + solverp.get_self_energy()
+        
         se_moms_clus = np.array([se.moment(i) for i in range(n_se_mom)])
         #assert np.allclose(se_moms_clus.imag, 0)
         se_moms_clus = se_moms_clus.real
@@ -154,7 +160,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -202,10 +208,16 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
 
         solverh = MBLGF(th, log=emb.log)
         solverp = MBLGF(tp, log=emb.log)
-        solver = MixedMBLGF(solverh, solverp)
-        solver.kernel()
-        se = solver.get_self_energy()
-        gf = solver.get_greens_function()
+        if hermitian:
+            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver.kernel()
+            se = solver.get_self_energy()
+            gf = solver.get_greens_function()
+        else:
+            solverh.kernel()
+            solverp.kernel()
+            se = solverh.get_self_energy() + solverp.get_self_energy()
+            gf = solverh.get_greens_function() + solverp.get_greens_function()
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
@@ -299,7 +311,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
     return self_energy, static_self_energy, static_potential
 
 
-def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
+def make_self_energy_2proj(emb, hermitian=True, use_sym=True, eta=1e-2):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -334,11 +346,18 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        solverh = MBLGF(th, log=NullLogger())
-        solverp = MBLGF(tp, log=NullLogger())
-        solver = MixedMBLGF(solverh, solverp)
-        solver.kernel()
-        se = solver.get_self_energy()
+        solverh = MBLGF(th, log=emb.log)
+        solverp = MBLGF(tp, log=emb.log)
+        if hermitian:
+            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver.kernel()
+            se = solver.get_self_energy()
+            gf = solver.get_greens_function()
+        else:
+            solverh.kernel()
+            solverp.kernel()
+            se = solverh.get_self_energy() + solverp.get_self_energy()
+            gf = solverh.get_greens_function() + solverp.get_greens_function()
 
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
