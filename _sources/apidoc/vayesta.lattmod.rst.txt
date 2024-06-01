@@ -1,0 +1,29 @@
+vayesta.lattmod
+===============
+
+Submodules
+----------
+
+vayesta.lattmod.bethe
+---------------------
+
+.. automodule:: vayesta.lattmod.bethe
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.lattmod.latt
+--------------------
+
+.. automodule:: vayesta.lattmod.latt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.lattmod
+   :members:
+   :undoc-members:
+   :show-inheritance:

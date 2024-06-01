@@ -1,0 +1,37 @@
+vayesta.tools.plotting
+======================
+
+Submodules
+----------
+
+vayesta.tools.plotting.colors
+-----------------------------
+
+.. automodule:: vayesta.tools.plotting.colors
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.tools.plotting.mpl\_mol
+-------------------------------
+
+.. automodule:: vayesta.tools.plotting.mpl_mol
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.tools.plotting.plotly\_mol
+----------------------------------
+
+.. automodule:: vayesta.tools.plotting.plotly_mol
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.tools.plotting
+   :members:
+   :undoc-members:
+   :show-inheritance:
