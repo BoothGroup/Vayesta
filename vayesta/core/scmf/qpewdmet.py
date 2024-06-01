@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, non_local_se=None, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=None, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
