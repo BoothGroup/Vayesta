@@ -68,6 +68,11 @@ class QPEWDMET_RHF(SCMF):
         self.global_static_potential = global_static_potential
         self.nmom_se = nmom_se
         self.non_local_se = non_local_se
+
+        if hermitian_mblgf is None:
+            self.hermitian_mblgf = False if self.emb.solver == 'CCSD' else True
+        else:
+            self.hermitian_mblgf = hermitian_mblgf
         
         super().__init__(emb, *args, **kwargs)
 
@@ -128,17 +133,17 @@ class QPEWDMET_RHF(SCMF):
         self.static_potential = np.zeros_like(self.fock)
         self.static_self_energy = np.zeros_like(self.fock)
 
-        hermitian_mblgf = False if self.emb.solver == 'CCSD' else True
+        
 
         if self.nmom_se == np.inf:
             if self.proj == 1:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=hermitian_mblgf, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=self.hermitian_mblgf, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
             elif self.proj == 2:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=hermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=self.convergedhermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
             else:
                 return NotImplementedError()
         else:
-            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.nmom_se, proj=self.proj, hermitian=hermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
+            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.nmom_se, proj=self.proj, hermitian=self.hermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
             if self.non_local_se is not None:
                 self.non_local_se = self.non_local_se.upper()
                 if self.non_local_se == 'GW':
