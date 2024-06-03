@@ -53,14 +53,9 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, hermitian=True
 
         solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
         solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
-        if hermitian:
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-            se = solver.get_self_energy()
-        else:
-            solverh.kernel()
-            solverp.kernel()
-            se = solverh.get_self_energy() + solverp.get_self_energy()
+        solver = MixedMBLGF(solverh, solverp)
+        solver.kernel()
+        se = solver.get_self_energy()
         
         se_moms_clus = np.array([se.moment(i) for i in range(n_se_mom)])
         #assert np.allclose(se_moms_clus.imag, 0)
@@ -216,16 +211,11 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
         solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
         solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
-        if hermitian:
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-            se = solver.get_self_energy()
-            gf = solver.get_greens_function()
-        else:
-            solverh.kernel()
-            solverp.kernel()
-            se = solverh.get_self_energy() + solverp.get_self_energy()
-            gf = solverh.get_greens_function() + solverp.get_greens_function()
+        solver = MixedMBLGF(solverh, solverp)
+        solver.kernel()
+        se = solver.get_self_energy()
+        gf = solver.get_greens_function()
+
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
@@ -359,16 +349,10 @@ def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, et
 
         solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
         solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
-        if hermitian:
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-            se = solver.get_self_energy()
-            gf = solver.get_greens_function()
-        else:
-            solverh.kernel()
-            solverp.kernel()
-            se = solverh.get_self_energy() + solverp.get_self_energy()
-            gf = solverh.get_greens_function() + solverp.get_greens_function()
+        solver = MixedMBLGF(solverh, solverp)
+        solver.kernel()
+        se = solver.get_self_energy()
+        gf = solver.get_greens_function()
 
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')

@@ -162,30 +162,15 @@ class QPEWDMET_RHF(SCMF):
                         non_local_se_moms = seh + sep
                     except ImportError:
                         raise ImportError("momentGW required for non-local GW self-energy contribution")
-                elif self.non_local_se == 'CCSD':
-                    expr = CCSD["1h"](self.emb.mf)
-                    th = expr.build_gf_moments(self.nmom_se)
-                    expr = CCSD["1p"](self.emb.mf)
-                    tp = expr.build_gf_moments(self.nmom_se)
-
-                    solverh = MBLGF(th, hermitian=hermitian_mblgf, log=NullLogger())
-                    solverh.kernel()
-                    seh = solverh.get_self_energy()
-                    solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
-                    solverp.kernel()
-                    sep = solverp.get_self_energy()
-                    non_local_se_static = th[1] + tp[1]
-                    non_local_se = seh + sep
-                    non_local_se_moms = np.array([non_local_se.moment(i) for i in range(self.nmom_se)])
-
-                elif self.non_local_se == 'FCI':
+                elif self.non_local_se == 'FCI' or self.non_local_se == 'CCSD':
+                    EXPR = FCI if self.non_local_se == 'FCI' else CCSD
                     expr = FCI["1h"](self.emb.mf)
                     th = expr.build_gf_moments(self.nmom_se)
                     expr = FCI["1p"](self.emb.mf)
                     tp = expr.build_gf_moments(self.nmom_se)
                     
                     solverh = MBLGF(th, hermitian=self.hermitian_mblgf, log=NullLogger())
-                    solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
+                    solverp = MBLGF(tp, hermitian=self.hermitian_mblgf, log=NullLogger())
                     solver = MixedMBLGF(solverh, solverp)
                     solver.kernel()
                     non_local_se_static = th[1] + tp[1]
