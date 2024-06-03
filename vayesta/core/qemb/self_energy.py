@@ -5,12 +5,12 @@ import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
-    from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
+    from dyson import Lehmann, MBLGF, MixedMBLGF, AuxiliaryShift
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
-def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, hermitian=False, eta=1e-2):
+def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, hermitian=False, sym_moms=False, eta=1e-2):
     """
     Construct full system self-energy moments from cluster spectral moments
 
@@ -47,10 +47,14 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, hermitian=Fals
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        solverh = MBLGF(th, log=NullLogger())
-        solverp = MBLGF(tp, log=NullLogger())
+        if sym_moms:
+            th = 0.5 * (th + th.transpose(0,2,1))
+            tp = 0.5 * (tp + tp.transpose(0,2,1))
+
+        solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
+        solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
         if hermitian:
-            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver = MixedMBLGF(solverh, solverp)
             solver.kernel()
             se = solver.get_self_energy()
         else:
@@ -160,7 +164,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -206,10 +210,14 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, use_svd=True, eta=
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
 
-        solverh = MBLGF(th, log=emb.log)
-        solverp = MBLGF(tp, log=emb.log)
+        if sym_moms:
+            th = 0.5 * (th + th.transpose(0,2,1))
+            tp = 0.5 * (tp + tp.transpose(0,2,1))
+
+        solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
+        solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
         if hermitian:
-            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver = MixedMBLGF(solverh, solverp)
             solver.kernel()
             se = solver.get_self_energy()
             gf = solver.get_greens_function()
@@ -311,7 +319,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, use_svd=True, eta=
     return self_energy, static_self_energy, static_potential
 
 
-def make_self_energy_2proj(emb, hermitian=True, use_sym=True, eta=1e-2):
+def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, eta=1e-2):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -345,11 +353,14 @@ def make_self_energy_2proj(emb, hermitian=True, use_sym=True, eta=1e-2):
     for i, f in enumerate(fragments):
         # Calculate self energy from cluster moments
         th, tp = f.results.moms
+        if sym_moms:
+            th = 0.5 * (th + th.transpose(0,2,1))
+            tp = 0.5 * (tp + tp.transpose(0,2,1))
 
-        solverh = MBLGF(th, log=emb.log)
-        solverp = MBLGF(tp, log=emb.log)
+        solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
+        solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
         if hermitian:
-            solver = MixedMBLGF(solverh, solverp, hermitian=hermitian)
+            solver = MixedMBLGF(solverh, solverp)
             solver.kernel()
             se = solver.get_self_energy()
             gf = solver.get_greens_function()

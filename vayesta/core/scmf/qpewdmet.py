@@ -70,7 +70,7 @@ class QPEWDMET_RHF(SCMF):
         self.non_local_se = non_local_se
 
         if hermitian_mblgf is None:
-            self.hermitian_mblgf = False if self.emb.solver == 'CCSD' else True
+            self.hermitian_mblgf = False if emb.solver == 'CCSD' else True
         else:
             self.hermitian_mblgf = hermitian_mblgf
         
