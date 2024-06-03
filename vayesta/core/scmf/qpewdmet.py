@@ -190,7 +190,8 @@ class QPEWDMET_RHF(SCMF):
                     raise NotImplementedError()
                 self.static_self_energy = remove_fragments_from_full_moments(self.emb, non_local_se_static) + self.static_self_energy
                 self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se_moms, proj=self.proj) + self.self_energy_moments
-            solver = MBLSE(self.static_self_energy, self.self_energy_moments, log=self.log)
+            phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
+            solver = MBLSE(phys, self.self_energy_moments, log=self.log)
             solver.kernel()
             self.self_energy = solver.get_self_energy()
 
