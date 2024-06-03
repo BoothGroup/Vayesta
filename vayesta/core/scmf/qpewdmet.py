@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=None, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=None, hermitian_mblse=None, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -73,6 +73,11 @@ class QPEWDMET_RHF(SCMF):
             self.hermitian_mblgf = False if emb.solver == 'CCSD' else True
         else:
             self.hermitian_mblgf = hermitian_mblgf
+
+        if hermitian_mblse is None:
+            self.hermitian_mblse = False if emb.solver == 'CCSD' else True
+        else:
+            self.hermitian_mblse = hermitian_mblse
         
         super().__init__(emb, *args, **kwargs)
 
@@ -163,10 +168,10 @@ class QPEWDMET_RHF(SCMF):
                     expr = CCSD["1p"](self.emb.mf)
                     tp = expr.build_gf_moments(self.nmom_se)
 
-                    solverh = MBLGF(th, hermitian=False, log=NullLogger())
+                    solverh = MBLGF(th, hermitian=hermitian_mblgf, log=NullLogger())
                     solverh.kernel()
                     seh = solverh.get_self_energy()
-                    solverp = MBLGF(tp, hermitian=False, log=NullLogger())
+                    solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
                     solverp.kernel()
                     sep = solverp.get_self_energy()
                     non_local_se_static = th[1] + tp[1]
@@ -179,8 +184,8 @@ class QPEWDMET_RHF(SCMF):
                     expr = FCI["1p"](self.emb.mf)
                     tp = expr.build_gf_moments(self.nmom_se)
                     
-                    solverh = MBLGF(th, hermitian=True, log=NullLogger())
-                    solverp = MBLGF(tp, hermitian=True, log=NullLogger())
+                    solverh = MBLGF(th, hermitian=self.hermitian_mblgf, log=NullLogger())
+                    solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
                     solver = MixedMBLGF(solverh, solverp)
                     solver.kernel()
                     non_local_se_static = th[1] + tp[1]
@@ -191,7 +196,7 @@ class QPEWDMET_RHF(SCMF):
                 self.static_self_energy = remove_fragments_from_full_moments(self.emb, non_local_se_static) + self.static_self_energy
                 self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se_moms, proj=self.proj) + self.self_energy_moments
             phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
-            solver = MBLSE(phys, self.self_energy_moments, log=self.log)
+            solver = MBLSE(phys, self.self_energy_moments, hermitian=hermitian_mblse, log=self.log)
             solver.kernel()
             self.self_energy = solver.get_self_energy()
 
