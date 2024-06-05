@@ -159,6 +159,166 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
+def project_and_reconstruct_se(emb,global_se_static, global_se, n_se_mom, use_sym=True, proj=1, hermitian=True, sym_moms=False, eta=1e-1):
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    self_energy_moms = np.zeros((n_se_mom, fock.shape[1], fock.shape[1]))
+
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+
+        se_clus = Lehmann(global_se.energies, mc.T @ global_se.couplings)
+        se_moms_clus = np.array([se_clus.moment(i) for i in range(n_se_mom)])
+        #assert np.allclose(se_moms_clus.imag, 0)
+        se_moms_clus = se_moms_clus.real
+        
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        if proj == 1:
+            # Static potential
+            v_cls = se_clus.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+            v_frag = cfc @ v_cls  
+            v_frag = 0.5 * (v_frag + v_frag.T)
+            static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+
+            # Static self-energy
+            static_se_cls = mc.T @ global_se_static @ mc - fock_cls
+            static_self_energy_frag = cfc @ static_se_cls
+            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+            static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+            # Self-energy moments
+            se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
+            self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
+                    mc_child = child.get_overlap('mo|cluster')
+                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
+                    self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
+            
+        elif proj == 2:
+            # Static potential 
+            v_cls = se_clus.as_static_potential(e_cls, eta=eta) 
+            v_frag = fc @ v_cls @ fc.T
+            static_potential += f.c_frag @ v_frag @ f.c_frag.T
+
+            # Static self-energy
+            static_se_cls = mc.T @ global_se_static @ mc - fock_cls
+            static_se_frag = fc @ static_se_cls @ fc.T
+            static_self_energy += mf @ static_se_frag @ mf.T
+
+            # Self-energy moments
+            se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
+            self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.c_frag @ v_frag @ child.c_frag.T
+                    mf_child = child.get_overlap('mo|frag')
+                    fc_child = child.get_overlap('frag|cluster')
+                    static_self_energy += mf_child @ static_se_frag @ mf_child.T
+                    self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
+
+    return self_energy_moms, static_self_energy, static_potential
+
+
+def project_and_reconstruct_gf(emb, global_gf_moms, n_se_mom, use_sym=True, proj=1, hermitian=True, sym_moms=False, eta=1e-1):
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    self_energy_moms = np.zeros((n_se_mom, fock.shape[1], fock.shape[1]))
+
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+        
+        th_clus = np.array([mc.T @ global_gf_moms[0][i] @ mc for i in range(len(global_gf_moms[0]))])
+        tp_clus = np.array([mc.T @ global_gf_moms[1][i] @ mc for i in range(len(global_gf_moms[1]))])
+
+        if sym_moms:
+            th_clus = 0.5 * (th_clus + th_clus.transpose(0,2,1))
+            tp_clus = 0.5 * (tp_clus + tp_clus.transpose(0,2,1))
+
+        solverh = MBLGF(th_clus, hermitian=hermitian, log=emb.log)
+        solverp = MBLGF(tp_clus, hermitian=hermitian, log=emb.log)
+        solver = MixedMBLGF(solverh, solverp)
+        solver.kernel()
+        se = solver.get_self_energy()
+        
+        se_moms_clus = np.array([se.moment(i) for i in range(n_se_mom)])
+        #assert np.allclose(se_moms_clus.imag, 0)
+        se_moms_clus = se_moms_clus.real
+
+        
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        if proj == 1:
+            # Static potential
+            v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+            v_frag = cfc @ v_cls  
+            v_frag = 0.5 * (v_frag + v_frag.T)
+            static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+
+            # Static self-energy
+            static_se_cls = th_clus[1] + tp_clus[1] - fock_cls
+            static_self_energy_frag = cfc @ static_se_cls
+            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+            static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+            # Self-energy moments
+            se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
+            self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
+                    mc_child = child.get_overlap('mo|cluster')
+                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
+                    self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
+            
+        elif proj == 2:
+            # Static potential 
+            v_cls = se.as_static_potential(e_cls, eta=eta) 
+            v_frag = fc @ v_cls @ fc.T
+            static_potential += f.c_frag @ v_frag @ f.c_frag.T
+
+            # Static self-energy
+            static_se_cls = th_clus[1] + tp_clus[1] - fock_cls
+            static_se_frag = fc @ static_se_cls @ fc.T
+            static_self_energy += mf @ static_se_frag @ mf.T
+
+            # Self-energy moments
+            se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
+            self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    static_potential += child.c_frag @ v_frag @ child.c_frag.T
+                    mf_child = child.get_overlap('mo|frag')
+                    fc_child = child.get_overlap('frag|cluster')
+                    static_self_energy += mf_child @ static_se_frag @ mf_child.T
+                    self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
+
+    return self_energy_moms, static_self_energy, static_potential
+
 def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
