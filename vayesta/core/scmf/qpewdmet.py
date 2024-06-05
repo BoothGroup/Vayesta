@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=None, hermitian_mblse=None, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=True, hermitian_mblse=True, sym_moms=False, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=False, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -68,16 +68,9 @@ class QPEWDMET_RHF(SCMF):
         self.global_static_potential = global_static_potential
         self.nmom_se = nmom_se
         self.non_local_se = non_local_se
-
-        if hermitian_mblgf is None:
-            self.hermitian_mblgf = False if emb.solver == 'CCSD' else True
-        else:
-            self.hermitian_mblgf = hermitian_mblgf
-
-        if hermitian_mblse is None:
-            self.hermitian_mblse = False if emb.solver == 'CCSD' else True
-        else:
-            self.hermitian_mblse = hermitian_mblse
+        self.sym_moms = sym_moms
+        self.hermitian_mblgf = hermitian_mblgf
+        self.hermitian_mblse = hermitian_mblse
         
         super().__init__(emb, *args, **kwargs)
 
@@ -142,13 +135,13 @@ class QPEWDMET_RHF(SCMF):
 
         if self.nmom_se == np.inf:
             if self.proj == 1:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=self.hermitian_mblgf, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
             elif self.proj == 2:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=self.convergedhermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
             else:
                 return NotImplementedError()
         else:
-            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.nmom_se, proj=self.proj, hermitian=self.hermitian_mblgf, use_sym=self.use_sym, eta=self.eta)
+            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.nmom_se, proj=self.proj, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
             if self.non_local_se is not None:
                 self.non_local_se = self.non_local_se.upper()
                 if self.non_local_se == 'GW':
@@ -181,7 +174,7 @@ class QPEWDMET_RHF(SCMF):
                 self.static_self_energy = remove_fragments_from_full_moments(self.emb, non_local_se_static) + self.static_self_energy
                 self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se_moms, proj=self.proj) + self.self_energy_moments
             phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
-            solver = MBLSE(phys, self.self_energy_moments, hermitian=hermitian_mblse, log=self.log)
+            solver = MBLSE(phys, self.self_energy_moments, hermitian=self.hermitian_mblse, log=self.log)
             solver.kernel()
             self.self_energy = solver.get_self_energy()
 
@@ -190,15 +183,15 @@ class QPEWDMET_RHF(SCMF):
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         self.emb.log.info('Number of electrons in GF: %f'%nelec_gf)
-        if self.aux_shift:
-            aux = AuxiliaryShift(phys, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
-            aux.kernel()
-            self.self_energy = aux.get_self_energy()
-            gf = aux.get_greens_function()
-            dm = gf.occupied().moment(0) * 2.0
-            nelec_gf = np.trace(dm)
-            self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
-        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
+        Shift = AuxiliaryShift if self.aux_shift else AufbauPrinciple
+        shift = Shift(phys, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
+        shift.kernel()
+        self.self_energy = shift.get_self_energy()
+        gf = shift.get_greens_function()
+        dm = gf.occupied().moment(0) * 2.0
+        nelec_gf = np.trace(dm)
+        self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
+        
         
 
         v_old = self.static_potential.copy()
@@ -219,9 +212,13 @@ class QPEWDMET_RHF(SCMF):
             e, mo_coeff = self.fock_scf(self.static_potential)
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
-        
+
+        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
         dynamic_gap = gap(self.gf)
         static_gap = gap(self.gf_qp)
+        self.log.info("Dynamic Gap = %f"%dynamic_gap)
+        self.log.info("Static Gap = %f"%static_gap)
+            
         if self.store_hist:        
             #self.static_potential_frag_hist.append(v_frag.copy())
             self.static_potential_hist.append(self.static_potential.copy())
@@ -230,8 +227,7 @@ class QPEWDMET_RHF(SCMF):
             self.dynamic_gap_hist.append(dynamic_gap)
             self.mo_coeff_hist.append(mo_coeff.copy())
 
-        self.log.info("Dynamic Gap = %f"%dynamic_gap)
-        self.log.info("Static Gap = %f"%static_gap)
+        
         return mo_coeff
 
     def fock_scf(self, v):
