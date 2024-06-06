@@ -137,7 +137,7 @@ class QPEWDMET_RHF(SCMF):
             if self.proj == 1:
                 self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
             elif self.proj == 2:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
             else:
                 return NotImplementedError()
         else:
