@@ -39,7 +39,7 @@ nfrag = 1
 bath_opts = dict(bathtype="dmet")   
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:
