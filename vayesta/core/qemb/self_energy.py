@@ -319,6 +319,196 @@ def project_and_reconstruct_gf(emb, global_gf_moms, n_se_mom, use_sym=True, proj
 
     return self_energy_moms, static_self_energy, static_potential
 
+def project_and_reconstruct_se_1proj(emb,global_se_static,  global_se, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+    einsum = np.einsum
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    energies = []
+    if use_svd:
+        couplings_l, couplings_r = [], []
+    else:
+        couplings = []
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+
+        se_clus = Lehmann(global_se.energies, mc.T @ global_se.couplings)
+
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+
+        # dm = gf.occupied().moment(0) * 2
+        # nelec = np.trace(dm)
+        # emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        if aux_shift_frag:
+            aux = AuxiliaryShift(th[0]+tp[0], se_clus, f.nelectron, occupancy=2, log=emb.log)
+            aux.kernel()
+            se_clus = aux.get_self_energy()
+            gf = aux.get_greens_function()
+            dm = gf.occupied().moment(0) * 2
+            nelec = np.trace(dm)
+            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
+
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T  @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        # Static potential
+        v_cls = se_clus.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+        v_frag = cfc @ v_cls  
+        v_frag = 0.5 * (v_frag + v_frag.T)
+        static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+
+        # Static self-energy
+        static_se_cls = mc.T @ global_se_static @ mc - fock_cls
+        static_self_energy_frag = cfc @ static_se_cls
+        static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+        static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+        # Dynamic self-energy
+        coup_l, coup_r = se._unpack_couplings()
+        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r) + einsum('pa,qa->apq', coup_l , cfc @ coup_r))
+
+        if use_svd:
+            couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
+            for a in range(sym_coup.shape[0]):
+                m = sym_coup[a]
+                U, s, Vt = np.linalg.svd(m)
+                idx = np.abs(s) > se_eval_tol
+                assert idx.sum() <= 2
+                u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
+                v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
+                couplings_l_frag.append(u)
+                couplings_r_frag.append(v)
+                energies_frag += [se.energies[a] for e in range(idx.sum())]
+            
+            couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+            couplings_l.append(mc @ couplings_l_frag)
+            couplings_r.append(mc @ couplings_r_frag)
+            energies.append(energies_frag)
+        else:
+            couplings_frag, energies_frag = [], []
+            for a in range(sym_coup.shape[0]):
+                m = sym_coup[a]
+                val, vec = np.linalg.eigh(m)
+                idx = np.abs(val) > se_eval_tol
+                assert idx.sum() <= 2
+                w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+                couplings_frag.append(w)
+                energies_frag += [se.energies[a] for e in range(idx.sum())]
+
+            couplings_frag = np.hstack(couplings_frag)
+
+            couplings.append(mc @ couplings_frag)
+            energies.append(energies_frag)
+
+        if use_sym:
+            for child in f.get_symmetry_children():
+                static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
+                mc_child = child.get_overlap('mo|cluster')
+                static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
+                energies.append(energies_frag)
+                if use_svd:
+                    couplings_l.append(mc_child @ couplings_l_frag)
+                    couplings_r.append(mc_child @ couplings_r_frag)
+                else:
+                    couplings.append(mc_child @ couplings_frag)
+
+    energies = np.concatenate(energies)
+    if use_svd:
+        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+    else:
+        couplings = np.hstack(couplings)
+    self_energy = Lehmann(energies, couplings)
+
+    self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+
+    return self_energy, static_self_energy, static_potential
+
+
+def project_and_reconstruct_se_2proj(emb, global_se_static, global_se, hermitian=True, sym_moms=False, use_sym=True, eta=1e-1):
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    couplings, energies = [], []
+
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+
+        se_clus = Lehmann(global_se.energies, mc.T @ global_se.couplings)
+
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        # Static potential 
+        v_cls = se_clus.as_static_potential(e_cls, eta=eta) 
+        v_frag = fc @ v_cls @ fc.T
+        static_potential += f.c_frag @ v_frag @ f.c_frag.T
+
+        # Static self-energy
+        static_se_cls = mc.T @ global_se_static @ mc - fock_cls
+        static_se_frag = fc @ static_se_cls @ fc.T
+        static_self_energy += mf @ static_se_frag @ mf.T
+
+        # Dynamic self-energy
+        if type(se_clus.couplings) is tuple:
+            couplings_l, couplings_r = se_clus.couplings
+            couplings_l = mf @ fc @ couplings_l
+            couplings_r = mf @ fc @ couplings_r
+            couplings.append((couplings_l, couplings_r))
+        else:
+            couplings.append(mf @ fc @ se_clus.couplings)
+        energies.append(se_clus.energies)
+
+        if use_sym:
+            for child in f.get_symmetry_children():
+                static_potential += child.c_frag @ v_frag @ child.c_frag.T
+                mf_child = child.get_overlap('mo|frag')
+                fc_child = child.get_overlap('frag|cluster')
+                static_self_energy += mf_child @ static_se_frag @ mf_child.T
+                if type(se_clus.couplings) is tuple:
+                    couplings_l, couplings_r = se_clus.couplings
+                    couplings_l = mf_child @ fc_child @ couplings_l
+                    couplings_r = mf_child @ fc_child @ couplings_r
+                    couplings.append((couplings_l, couplings_r))
+                else:
+                    couplings.append(mf_child @ fc_child @ se_clus.couplings)
+
+                energies.append(se_clus.energies)
+
+    if type(couplings[0]) is tuple:
+        couplings_l, couplings_r = zip(*couplings)
+        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+    else:
+        couplings = np.hstack(couplings)
+    energies = np.concatenate(energies)
+    self_energy = Lehmann(energies, couplings)
+    #self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+
+    return self_energy, static_self_energy, static_potential
+
+
+
 def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
