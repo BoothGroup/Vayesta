@@ -427,7 +427,7 @@ def project_and_reconstruct_se_1proj(emb,global_se_static,  global_se, hermitian
         couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
-    self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+    self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
 
     return self_energy, static_self_energy, static_potential
 
@@ -654,7 +654,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
-    self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+    self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
 
     return self_energy, static_self_energy, static_potential
 
@@ -754,17 +754,19 @@ def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, et
         couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
-    #self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+    #self_energy = remove_se_degeneracy( self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
 
     return self_energy, static_self_energy, static_potential
 
-def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
+def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
 
-    emb.log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    if log is None:
+        log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
     e = se.energies
     couplings_l, couplings_r = se._unpack_couplings()
     e_new, slices = get_unique(e, atol=dtol)#
-    emb.log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    if log is not None:
+        log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
     energies, couplings = [], []
     warn_non_causal = False
     for i, s in enumerate(slices):
@@ -780,11 +782,13 @@ def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
         couplings.append(w)
         energies += [e_new[i] for _ in range(idx.sum())]
 
-        emb.log.debug("    | E = %e << %s"%(e_new[i],e[s]))
-        emb.log.debug("       evals: %s"%val)
-        emb.log.debug("       kept:  %s"%(val[idx]))
+        if log is not None:
+            log.debug("    | E = %e << %s"%(e_new[i],e[s]))
+            log.debug("       evals: %s"%val)
+            log.debug("       kept:  %s"%(val[idx]))
     if warn_non_causal:
-        emb.log.warning("Non-causal poles found in self-energy")
+        if log is not None:
+            log.warning("Non-causal poles found in self-energy")
     couplings = np.hstack(couplings).real
     return Lehmann(np.array(energies), np.array(couplings))
 
@@ -810,6 +814,17 @@ def get_unique(array, atol=1e-15):
     new_array = np.array([array[s].mean() for s in slices])
     return new_array, slices
 
+def check_causal(se, log=None):
+    energies, couplings = se.energies, se.couplings
+    ret = True
+    for i, e in enumerate(energies):
+        m = np.einsum('pi,qi->pq', couplings, couplings.conj())
+        val, vec = np.linalg.eigh(m)
+        if np.any(val < 0):
+            if verbose:
+                log.debug("Non-causal pole at %s"%e)
+            ret = False
+    return ret
 
 def fit_hermitian(se):
     """
