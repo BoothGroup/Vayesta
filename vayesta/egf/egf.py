@@ -21,8 +21,8 @@ from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
 from vayesta.ewf.ewf import REWF
-from vayesta.ewf.fragment import Fragment as EWF_Fragment
-from vayesta.core.qemb.self_energy import *
+from vayesta.egf.fragment import Fragment
+from vayesta.egf.self_energy import *
 
 from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, MixedMBLGF, NullLogger, Lehmann, build_spectral_function
 
@@ -38,6 +38,7 @@ class Options(REWF.Options):
     drop_non_causal: bool = False # Drop non-causal poles
     aux_shift: bool = False # Use auxiliary shift to ensure correct electron number in the physical space
     aux_shift_frag: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
+    se_mode: str = 'moments' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
     sym_moms: bool = True # Use symmetrized moments
@@ -45,9 +46,12 @@ class Options(REWF.Options):
     hermitian_mblse: bool = True # Use hermitian MBLSE
     global_static_potential: bool = False # Use global static potential
 
+    solver_options: dict = Embedding.Options.change_dict_defaults("solver_options", conv_tol=1e-15, conv_tol_normt=1e-15)
+    bath_options: dict = Embedding.Options.change_dict_defaults("bath_options", bathtype='ewdmet', order=1, max_order=1, dmet_threshold=1e-12)
+
 class REGF(REWF):
     Options = Options
-
+    Fragment = Fragment
 
     def __init__(self, mf, solver="CCSD", log=None, **kwargs):
         super().__init__(mf, solver=solver, log=log, **kwargs)
@@ -59,30 +63,32 @@ class REGF(REWF):
             self.log.info(break_into_lines(str(self.opts), newline="\n    "))
             #self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer() - t0))
 
-
-
     def kernel(self):
         super().kernel()
         couplings = []
         energies = []
         self.static_self_energy = np.zeros_like(self.get_fock())
 
-        if self.opts.nmom_se == np.inf:
+        #if self.opts.nmom_se == np.inf:
+        if self.opts.se_mode == 'lehmann':
             if self.opts.proj == 1:
                 self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
             elif self.opts.proj == 2:
-                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self, hermitian=self.optshermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
             else:
                 return NotImplementedError()
-        else:
-            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.opts.emb, self.opts.nmom_se, proj=self.opts.proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+        elif self.opts.se_mode == 'moments':
+            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self, proj=self.opts.proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
             if self.opts.non_local_se is not None:
                 self.opts.non_local_se = self.opts.non_local_se.upper()
-                if self.opts.non_local_se == 'GW':
+                if self.opts.non_local_se.upper() == 'GW-RPA' or self.opts.non_local_se.upper() == 'GW-dTDA':
                     try:
                         from momentGW import GW
                         gw = GW(self.mf)
-                        gw.polarizability = 'dtda'
+                        if self.opts.non_local_se.upper() == 'GW-dRPA':
+                            gw.polarizability = 'drpa'
+                        elif self.opts.non_local_se.upper() == 'GW-dTDA':
+                            gw.polarizability = 'dtda'
                         integrals = gw.ao2mo()
                         non_local_se_static = gw.build_se_static(integrals)
                         seh, sep = gw.build_se_moments(self.opts.nmom_se-1, integrals, mo_energy=dict(g=gw.mo_energy, w=gw.mo_energy))
@@ -126,8 +132,6 @@ class REGF(REWF):
         nelec_gf = np.trace(dm)
         self.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
         
-        
-
         v_old = self.static_potential.copy()
         sc = self.mf.get_ovlp() @ self.mo_coeff
         if self.opts.global_static_potential:
