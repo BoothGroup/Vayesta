@@ -153,7 +153,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
     return corrected_moms
 
 
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -196,8 +196,17 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = []
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
-        se = f.results.self_energy
-        gf = f.results.greens_function
+        if nmom_gf is None:
+            se = f.results.self_energy
+            gf = f.results.greens_function
+        else:
+            th, tp = f.results.moms
+            solverh = MBLGF(th[:nmom_gf[0]], hermitian=hermitian, log=emb.log)
+            solverp = MBLGF(tp[:nmom_gf[1]], hermitian=hermitian, log=emb.log)
+            solver = MixedMBLGF(solverh, solverp)
+            solver.kernel()
+            gf = solver.get_greens_function()
+            se = solver.get_self_energy()
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -292,7 +301,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     return self_energy, static_self_energy, static_potential
 
 
-def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, eta=1e-1):
+def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -324,7 +333,30 @@ def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, et
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
-        se = f.results.self_energy
+        if nmom_gf is None:
+            se = f.results.self_energy
+            gf = f.results.greens_function
+        else:
+            th, tp = f.results.moms
+            solverh = MBLGF(th[:nmom_gf[0]], hermitian=hermitian, log=emb.log)
+            solverp = MBLGF(tp[:nmom_gf[1]], hermitian=hermitian, log=emb.log)
+            solver = MixedMBLGF(solverh, solverp)
+            solver.kernel()
+            gf = solver.get_greens_function()
+            se = solver.get_self_energy()
+
+        dm = gf.occupied().moment(0) * 2
+        nelec = np.trace(dm)
+        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        if aux_shift_frag:
+            aux = AuxiliaryShift(f.results.static_self_energy, se, f.nelectron, occupancy=2, log=emb.log)
+            aux.kernel()
+            se = aux.get_self_energy()
+            gf = aux.get_greens_function()
+            dm = gf.occupied().moment(0) * 2
+            nelec = np.trace(dm)
+            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
+
 
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
