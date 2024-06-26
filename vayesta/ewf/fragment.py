@@ -74,6 +74,7 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         gf_moments: tuple = None
+        se_static: np.ndarray = None
         se_moments: tuple = None
         callback_results: dict = None
         
@@ -273,6 +274,7 @@ class Fragment(BaseFragment):
         # Moments
 
         gf_moments = cluster_solver.gf_hole_moments, cluster_solver.gf_particle_moments
+        se_static = cluster_solver.se_static
         se_moments = cluster_solver.se_hole_moments, cluster_solver.se_particle_moments
         callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None
         # --- Add to results data class
@@ -283,6 +285,7 @@ class Fragment(BaseFragment):
             wf=wf,
             pwf=pwf,
             gf_moments=gf_moments,
+            se_static=se_static,
             se_moments=se_moments,
             e_corr_rpa=e_corr_rpa,
             callback_results=callback_results,

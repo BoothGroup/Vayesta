@@ -44,6 +44,9 @@ class CallbackSolver(ClusterSolver):
         if 'gf_particle_moments' in results:
             self.log.info("Green's function particle moments found in callback results.")
             self.gf_particle_moments = results['gf_particle_moments']
+        if 'se_static' in results:
+            self.log.info("Static self-energy found in callback results.")
+            self.se_static = results['se_static']
         if 'se_hole_moments' in results:
             self.log.info("Self-energy hole moments found in callback results.")
             self.hole_moments = results['se_hole_moments']
