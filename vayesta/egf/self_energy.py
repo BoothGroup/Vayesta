@@ -10,7 +10,7 @@ except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
-def make_self_energy_moments(emb, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1):
+def make_self_energy_moments(emb, nmom_se=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1):
     """
     Construct full system self-energy moments from cluster spectral moments
 
@@ -43,10 +43,12 @@ def make_self_energy_moments(emb, use_sym=True, proj=1, hermitian=True, sym_moms
     
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
-    nmom = fragments[0].results.self_energy_moments.shape[0]
-    self_energy_moms = np.zeros((nmom, fock.shape[1], fock.shape[1]))
+    if nmom_se is None:
+        nmom_se = fragments[0].results.self_energy_moments.shape[0]
+    assert nmom_se <= fragments[0].results.self_energy_moments.shape[0]
+    self_energy_moms = np.zeros((nmom_se, fock.shape[1], fock.shape[1]))
     for i, f in enumerate(fragments):
-        se_moms_clus = f.results.self_energy_moments
+        se_moms_clus = f.results.self_energy_moments[:nmom_se]
         se = f.results.self_energy
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
@@ -301,7 +303,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     return self_energy, static_self_energy, static_potential
 
 
-def make_self_energy_2proj(emb, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
+def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
