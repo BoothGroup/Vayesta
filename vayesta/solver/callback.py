@@ -39,11 +39,17 @@ class CallbackSolver(ClusterSolver):
             self.log.warn("No wavefunction results returned by callback!")
 
         if 'gf_hole_moments' in results:
-            self.log.info("Hole moments found in callback results.")
-            self.hole_moments = results['hole_moments']
+            self.log.info("Green's function hole moments found in callback results.")
+            self.gf_hole_moments = results['gf_hole_moments']
         if 'gf_particle_moments' in results:
-            self.log.info("Particle moments found in callback results.")
-            self.particle_moments = results['particle_moments']
+            self.log.info("Green's function particle moments found in callback results.")
+            self.gf_particle_moments = results['gf_particle_moments']
+        if 'se_hole_moments' in results:
+            self.log.info("Self-energy hole moments found in callback results.")
+            self.hole_moments = results['se_hole_moments']
+        if 'se_particle_moments' in results:
+            self.log.info("Self-energy particle moments found in callback results.")
+            self.se_particle_moments = results['se_particle_moments']
             
         results['wf'] = wf
         self.wf = wf
