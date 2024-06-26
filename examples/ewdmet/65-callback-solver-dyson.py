@@ -26,7 +26,7 @@ def solver(mf):
     nelec = mf.mol.nelec
     civec= fci_1h.c_ci
     dm1, dm2 = pyscf.fci.direct_spin0.make_rdm12(civec, norb, nelec)
-    results = dict(dm1=dm1, dm2=dm2, hole_moments=th, particle_moments=tp, converged=True)
+    results = dict(dm1=dm1, dm2=dm2, gf_hole_moments=th, gf_particle_moments=tp, converged=True)
     return results
 
 natom = 10

@@ -73,7 +73,8 @@ class Fragment(BaseFragment):
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
-        moms: tuple = None
+        gf_moments: tuple = None
+        se_moments: tuple = None
         callback_results: dict = None
         
         @property
@@ -271,8 +272,8 @@ class Fragment(BaseFragment):
 
         # Moments
 
-        moms = cluster_solver.hole_moments, cluster_solver.particle_moments
-
+        gf_moments = cluster_solver.gf_hole_moments, cluster_solver.gf_particle_moments
+        se_moments = cluster_solver.se_hole_moments, cluster_solver.se_particle_moments
         callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None
         # --- Add to results data class
         self._results = results = self.Results(
@@ -281,7 +282,8 @@ class Fragment(BaseFragment):
             converged=cluster_solver.converged,
             wf=wf,
             pwf=pwf,
-            moms=moms,
+            gf_moments=gf_moments,
+            se_moments=se_moments,
             e_corr_rpa=e_corr_rpa,
             callback_results=callback_results,
         )
