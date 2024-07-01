@@ -67,8 +67,13 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
     
     return se, gf
 
-def se_moments_to_gf_moments(se_static, se_moments, ph_separation=True, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
-    assert len(se_moments.shape) in [3,4]
+def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+    if len(se_moments.shape) == 3:
+        ph_separation = False
+    elif len(se_moments.shape) == 4:
+        ph_separation = True
+    else:
+        raise ValueError("Invalid shape for self-energy moments")
     if sym_moms:
         # Use moveaxis to transpose last two axes
         se_moments = se_moments.copy()
