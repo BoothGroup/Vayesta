@@ -101,7 +101,7 @@ class REGF(REWF):
         
 
     def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=False, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
-        self_energy_moments, static_self_energy, static_potential = make_self_energy_moments(self, nmom_se=nmom_se, proj=self.opts.proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+        self_energy_moments, static_self_energy, static_potential = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         if non_local_se is not None:
             if non_local_se.upper() == 'GW-RPA' or non_local_se.upper() == 'GW-dTDA':
                 try:
