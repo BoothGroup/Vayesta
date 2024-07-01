@@ -10,6 +10,66 @@ except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
+
+def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+    """
+    Compute the Green's function moments from the spectral moments using the block Lanczos algorithm.
+
+    Parameters
+    ----------
+    moments : ndarray (nmom, nmo, nmo)
+        Spectral moments
+    hermitian : bool
+        Use Hermitian block Lanczos solver
+    sym_moms : bool
+        Symmetrise moments
+    shift : string ('None', 'auxiliary' or 'aufbau')
+        Type of shift to apply to self-energy
+    nelec : float
+        Number of electrons 
+    log : Logger
+        Logger object
+    kwargs : dict
+        Additional arguments to the block Lanczos solver
+
+    Returns
+    -------
+    se, gf : tuple (Lehmann, Lehmann)
+        Self-energy and Green's function in Lehmann representation
+    """
+    if sym_moms:
+        th = moments[0].copy()
+        tp = moments[1].copy()
+        th = 0.5 * (th + th.transpose(0,2,1))
+        tp = 0.5 * (tp + tp.transpose(0,2,1))
+    else:
+        th, tp = moments.copy()
+
+    solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
+    solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
+    solver = MixedMBLGF(solverh, solverp)
+    solver.kernel()
+    gf = solver.get_greens_function()
+    se = solver.get_self_energy()
+
+    dm = gf.occupied().moment(0) * 2
+    nelec = np.trace(dm)
+    emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+
+    if shift is not None:
+        if nelec is None:
+            raise ValueError("Number of electrons must be provided for shift")
+        Shift = AuxiliaryShift if shift == 'aux' else AufbauPrinciple
+        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2, log=emb.log)
+        shift.kernel()
+        se = shift.get_self_energy()
+        gf = shift.get_greens_function()
+    
+    return se, gf
+
+def se_moments_to_gf_moments(se_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+    pass
+
 def make_self_energy_moments(emb, nmom_se=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1):
     """
     Construct full system self-energy moments from cluster spectral moments
