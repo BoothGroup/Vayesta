@@ -5,7 +5,7 @@ import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
-    from dyson import Lehmann, MBLGF, MixedMBLGF, AuxiliaryShift
+    from dyson import Lehmann, MBLGF, MixedMBLGF, MBLSE, MixedMBLSE, AuxiliaryShift, AufbauPrinciple
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
@@ -45,8 +45,8 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
     else:
         th, tp = moments.copy()
 
-    solverh = MBLGF(th, hermitian=hermitian, log=emb.log)
-    solverp = MBLGF(tp, hermitian=hermitian, log=emb.log)
+    solverh = MBLGF(th, hermitian=hermitian, log=log)
+    solverp = MBLGF(tp, hermitian=hermitian, log=log)
     solver = MixedMBLGF(solverh, solverp)
     solver.kernel()
     gf = solver.get_greens_function()
@@ -54,21 +54,56 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
 
     dm = gf.occupied().moment(0) * 2
     nelec = np.trace(dm)
-    emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+    #log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
 
     if shift is not None:
         if nelec is None:
             raise ValueError("Number of electrons must be provided for shift")
         Shift = AuxiliaryShift if shift == 'aux' else AufbauPrinciple
-        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2, log=emb.log)
+        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2, log=log)
         shift.kernel()
         se = shift.get_self_energy()
         gf = shift.get_greens_function()
     
     return se, gf
 
-def se_moments_to_gf_moments(se_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
-    pass
+def se_moments_to_gf_moments(se_static, se_moments, ph_separation=True, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+    assert len(se_moments.shape) in [3,4]
+    if sym_moms:
+        # Use moveaxis to transpose last two axes
+        se_moments = se_moments.copy()
+        se_moments = 0.5 * (se_moments + np.moveaxis(se_moments, -1, -2))
+    else:
+        se_moments = se_moments.copy()
+    
+    if ph_separation:
+        tp, th = se_moments[0], se_moments[1]
+        solverh = MBLSE(se_static, th, hermitian=hermitian, log=log)
+        solverp = MBLSE(se_static, tp, hermitian=hermitian, log=log)
+        solver = MixedMBLSE(solverh, solverp)
+        solver.kernel()
+    else:
+        solver = MBLSE(se_static, se_moments, hermitian=hermitian, log=log)
+        solver.kernel()
+
+    gf = solver.get_greens_function()
+    se = solver.get_self_energy()
+
+    dm = gf.occupied().moment(0) * 2
+    nelec = np.trace(dm)
+    #log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+
+    if shift is not None:
+        if nelec is None:
+            raise ValueError("Number of electrons must be provided for shift")
+        Shift = AuxiliaryShift if shift == 'aux' else AufbauPrinciple
+        shift = Shift(se_static, se, nelec, occupancy=2, log=log)
+        shift.kernel()
+        se = shift.get_self_energy()
+        gf = shift.get_greens_function()
+    
+    return se, gf
+    
 
 def make_self_energy_moments(emb, nmom_se=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1):
     """
