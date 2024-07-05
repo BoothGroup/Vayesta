@@ -43,7 +43,7 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
         th = 0.5 * (th + th.transpose(0,2,1))
         tp = 0.5 * (tp + tp.transpose(0,2,1))
     else:
-        th, tp = moments.copy()
+        th, tp = moments[0].copy(), moments[1].copy()
 
     solverh = MBLGF(th, hermitian=hermitian, log=log)
     solverp = MBLGF(tp, hermitian=hermitian, log=log)
@@ -110,7 +110,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
     return se, gf
     
 
-def make_self_energy_moments(emb, nmom_se=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1):
+def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
     """
     Construct full system self-energy moments from cluster spectral moments
 
@@ -148,7 +148,19 @@ def make_self_energy_moments(emb, nmom_se=None, use_sym=True, proj=1, hermitian=
     assert nmom_se <= fragments[0].results.se_moments.shape[0]
     self_energy_moms = np.zeros((nmom_se, fock.shape[1], fock.shape[1]))
     for i, f in enumerate(fragments):
-        se_moms_clus = f.results.se_moments[:nmom_se]
+        if debug_se_moms is None and debug_gf_moms is None:
+            se = f.results.self_energy
+            gf = f.results.greens_function
+            se_static = f.results.static_self_energy
+            se_moms = se.occupied().moment(range(nmom_se)), se.virtual().moment(range(nmom_se)) if ph_separation else se.moment(range(nmom_se))
+        elif debug_se_moms is not None:
+            debug_se_moms = np.array(debug_se_moms)
+            assert debug_se_moms.shape[0] == 2 and debug_se_moms.shape[1] == len(fragments)
+            se_static, se_moms = debug_se_moms[0][i], debug_se_moms[1][i] 
+        elif debug_gf_moms is not None:
+            gf_moms = debug_gf_moms
+            se_static = gf_moms[0][1] + gf_moms[1][1]
+            se_moms = gf_moms[0], gf_moms[1]
         se = f.results.self_energy
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
@@ -298,23 +310,15 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = []
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
-        if nmom_gf is None:
-            se = f.results.self_energy
-            gf = f.results.greens_function
-        else:
-            th, tp = f.results.gf_moments
-            solverh = MBLGF(th[:nmom_gf[0]], hermitian=hermitian, log=emb.log)
-            solverp = MBLGF(tp[:nmom_gf[1]], hermitian=hermitian, log=emb.log)
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-            gf = solver.get_greens_function()
-            se = solver.get_self_energy()
-
+        
+        se_static = f.results.gf_moments[0][1] + f.results.gf_moments[1][1]
+        se, gf = gf_moments_block_lanczos(f.results.gf_moments, hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
         if aux_shift_frag:
-            aux = AuxiliaryShift(f.results.static_self_energy, se, f.nelectron, occupancy=2, log=emb.log)
+            aux = AuxiliaryShift(se_static, se, f.nelectron, occupancy=2, log=emb.log)
             aux.kernel()
             se = aux.get_self_energy()
             gf = aux.get_greens_function()
@@ -514,6 +518,78 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
 
     return self_energy, static_self_energy, static_potential
 
+def drop_and_reweight(se, tol=1e-12):
+    couplings_l, couplings_r = se._unpack_couplings()
+    nmo, naux = couplings_l.shape
+    weights = np.einsum('pa,pa->pa', couplings_l, couplings_r.conj())
+    energies = se.energies
+
+
+    idx_p, idx_a = np.nonzero(weights < 0) # indices p, a of non-causal poles
+    new_energies, new_couplings = [], []
+    
+    for a in range(naux):
+        mat = np.einsum('p,q->pq', couplings_l[:,a], couplings_r[:,a].conj())
+        mat = 0.5 * (mat + mat.T)
+        val, vec = np.linalg.eigh(mat)
+        idx = val>tol
+        w = vec[:,idx] @ np.diag(np.sqrt(val[idx]))
+        new_couplings.append(w)
+        new_energies += [energies[a] for _ in range(idx.sum())]
+
+    new_energies, new_couplings = np.array(new_energies), np.hstack(new_couplings)
+
+    new_weights = np.einsum('pa,pa->pa', new_couplings, new_couplings.conj())
+
+    scale_factor2 = weights.sum(axis=1) / new_weights.sum(axis=1)
+    print(scale_factor2)
+    scale_factor = np.sqrt(scale_factor2)
+    new_couplings = new_couplings * scale_factor[:,None]
+
+    return Lehmann(new_energies, new_couplings)
+
+def merge_non_causal_poles(se, weight_tol=1e-12):
+    # TODO check, fix for dense non-causal poles
+    U, V = se._unpack_couplings()
+    nmo, naux = U.shape
+    weights = np.einsum('pa,pa->pa', U, V)
+    es = se.energies
+
+
+    idx_p, idx_a = np.nonzero(weights < 0) # indices p, a of non-causal poles
+    energies, couplings = [], []
+    a = 0
+    while a < naux:
+        if a not in idx_a and a+1 not in idx_a:
+            mat = np.einsum('p,q->pq', U[:,a], V[:,a])
+            mat = 0.5 * (mat + mat.T) # Possibly uncecassary, symmetric by construction?
+            val, vec = np.linalg.eigh(mat)
+            idx = val>weight_tol
+            w = vec[:,idx] @ np.diag(np.sqrt(val[idx]))
+            couplings.append(w)
+            energies += [es[a] for _ in range(idx.sum())]
+            a += 1
+        elif a+1 in idx_a:
+            # sum over poles until next causal pole reached
+            b = a+1
+            while b in idx_a:
+                b += 1
+            mat = np.einsum('pa,qa->pq', U[:,a:b], V[:,a:b])
+            mat = 0.5 * (mat + mat.T)
+            val, vec = np.linalg.eigh(mat)
+            idx = val>weight_tol
+            w = vec[:,idx] @ np.diag(np.sqrt(val[idx]))
+            couplings.append(w)
+            pole_weighting = weights[:,a:b].sum(axis=0)
+            new_energy = (es[a:b] * pole_weighting).sum() / pole_weighting.sum()
+            energies += [new_energy for _ in range(idx.sum())]
+            a = b+1
+        else:
+            raise Exception()
+            a+=1
+            
+    return Lehmann(np.array(energies), np.hstack(couplings))
+
 def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
 
     if log is None:
@@ -570,14 +646,15 @@ def get_unique(array, atol=1e-15):
     new_array = np.array([array[s].mean() for s in slices])
     return new_array, slices
 
-def check_causal(se, log=None):
-    energies, couplings = se.energies, se.couplings
+def check_causal(se, log=None, verbose=False):
+    couplings_l, couplings_r = se._unpack_couplings()
+    energies = se.energies
     ret = True
     for i, e in enumerate(energies):
-        m = np.einsum('pi,qi->pq', couplings, couplings.conj())
-        val, vec = np.linalg.eigh(m)
+        m = np.einsum('pi,qi->pq', couplings_l, couplings_r.conj())
+        val, vec = np.linalg.eig(m)
         if np.any(val < 0):
-            if verbose:
+            if log and verbose:
                 log.debug("Non-causal pole at %s"%e)
             ret = False
     return ret
@@ -674,7 +751,7 @@ def fit_hermitian(se):
 
     #return xgrad
     print(shape)
-    res = scipy.optimize.minimize(obj, x0, jac=grad, method='BFGS')
+    res = scipy.optimize.minimize(obj, x0, jac=grad, method='Newton-CG')
     #res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method='BFGS'))
     print("Sucess %s, Integral = %s"%(res.success, res.x))
 
