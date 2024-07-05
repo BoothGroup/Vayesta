@@ -310,9 +310,19 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = []
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
-        
-        se_static = f.results.gf_moments[0][1] + f.results.gf_moments[1][1]
-        se, gf = gf_moments_block_lanczos(f.results.gf_moments, hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
+        if nmom_gf is None:
+            nmom_gf = nmom_gf_max
+        elif type(nmom_gf) is int:
+            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
+            nmom_gf = (nmom_gf, nmom_gf)
+        elif type(nmom_gf) is tuple:
+            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
+            
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+        se_static = th[1] + tp[1]
+            
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
         
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -341,7 +351,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
 
         # Static self-energy
-        static_se_cls = f.results.static_self_energy - fock_cls
+        static_se_cls = se_static - fock_cls
         static_self_energy_frag = cfc @ static_se_cls
         static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
         static_self_energy += mc @ static_self_energy_frag @ mc.T
@@ -439,17 +449,19 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     for i, f in enumerate(fragments):
+        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
         if nmom_gf is None:
-            se = f.results.self_energy
-            gf = f.results.greens_function
-        else:
-            th, tp = f.results.gf_moments
-            solverh = MBLGF(th[:nmom_gf[0]], hermitian=hermitian, log=emb.log)
-            solverp = MBLGF(tp[:nmom_gf[1]], hermitian=hermitian, log=emb.log)
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-            gf = solver.get_greens_function()
-            se = solver.get_self_energy()
+            nmom_gf = nmom_gf_max
+        elif type(nmom_gf) is int:
+            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
+            nmom_gf = (nmom_gf, nmom_gf)
+        elif type(nmom_gf) is tuple:
+            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
+            
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+        se_static = th[1] + tp[1]
+            
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -477,7 +489,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
         static_potential += f.c_frag @ v_frag @ f.c_frag.T
 
         # Static self-energy
-        static_se_cls = f.results.static_self_energy - fock_cls
+        static_se_cls = se_static - fock_cls
         static_se_frag = fc @ static_se_cls @ fc.T
         static_self_energy += mf @ static_se_frag @ mf.T
 
@@ -587,7 +599,7 @@ def merge_non_causal_poles(se, weight_tol=1e-12):
         else:
             raise Exception()
             a+=1
-            
+
     return Lehmann(np.array(energies), np.hstack(couplings))
 
 def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
