@@ -602,6 +602,50 @@ def merge_non_causal_poles(se, weight_tol=1e-12):
 
     return Lehmann(np.array(energies), np.hstack(couplings))
 
+def eig_outer_sum(vs, ws):
+    """
+    Calculate the eigenvalues and eigenvectors of the sum of symmetrised outer products.
+    Given lists of vectors vs and ws, the function calcualtes the eigendecomposition
+    of the matrix 0.5*(sum_i outer(vs[i], ws[i]) + outer(ws[i], vs[i])) working in
+    the image space of that matrix.
+
+    Parameters
+    ----------
+    vs : np.ndarray (n,N)
+        List of n vectors of length N
+    ws : np.ndarray (n,N)
+        List of n vectors of length N
+
+    Returns
+    -------
+    val : np.ndarray (n,)
+        Eigenvalues 
+    vec : np.ndarray
+        Eigenvectors (N,n)
+    """
+    vs, ws = np.array(vs), np.array(ws)
+    assert vs.shape == ws.shape
+    rank = 2 * vs.shape[0]
+    N = vs.shape[1]
+    left, right = np.zeros((rank, N)), np.zeros((N, rank))
+    print(left.shape, right.shape)
+    for i in range(len(vs)):
+        left[2*i] = ws[i]
+        left[2*i+1] = vs[i]
+        right[:,2*i] = vs[i]
+        right[:,2*i+1] = ws[i]
+    mat = 0.5 * (left @ right)
+    val, vec = np.linalg.eig(mat)
+    assert np.allclose(val.imag, 0)
+    val = val.real
+    idx = np.abs(val) > tol
+    val, vec = val[idx], vec[:,idx]
+    idx = val.argsort()
+    val, vec = val[idx], vec[:,idx]
+    vec = right @ vec 
+    vec = vec / np.linalg.norm(vec, axis=0)
+    return val.real, vec
+    
 def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
 
     if log is None:
