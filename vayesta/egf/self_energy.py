@@ -628,7 +628,6 @@ def eig_outer_sum(vs, ws, tol=1e-12):
     rank = 2 * vs.shape[0]
     N = vs.shape[1]
     left, right = np.zeros((rank, N)), np.zeros((N, rank))
-    print(left.shape, right.shape)
     for i in range(len(vs)):
         left[2*i] = ws[i]
         left[2*i+1] = vs[i]
