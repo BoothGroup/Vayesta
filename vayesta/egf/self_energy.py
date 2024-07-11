@@ -602,7 +602,7 @@ def merge_non_causal_poles(se, weight_tol=1e-12):
 
     return Lehmann(np.array(energies), np.hstack(couplings))
 
-def eig_outer_sum(vs, ws):
+def eig_outer_sum(vs, ws, tol=1e-12):
     """
     Calculate the eigenvalues and eigenvectors of the sum of symmetrised outer products.
     Given lists of vectors vs and ws, the function calcualtes the eigendecomposition
