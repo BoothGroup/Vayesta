@@ -38,7 +38,7 @@ class Options(REWF.Options):
     drop_non_causal: bool = False # Drop non-causal poles
     aux_shift: bool = False # Use auxiliary shift to ensure correct electron number in the physical space
     aux_shift_frag: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
-    se_mode: str = 'moments' # Mode for self-energy reconstruction (moments, lehmann)
+    se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
     sym_moms: bool = True # Use symmetrized moments
@@ -103,7 +103,7 @@ class REGF(REWF):
     def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=False, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
         self_energy_moments, static_self_energy, static_potential = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         if non_local_se is not None:
-            if non_local_se.upper() == 'GW-RPA' or non_local_se.upper() == 'GW-dTDA':
+            if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
                 try:
                     from momentGW import GW
                     gw = GW(self.mf)
@@ -136,8 +136,6 @@ class REGF(REWF):
             static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
             self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
         phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
-        print(self_energy_moments.shape)
-        print(static_self_energy.shape)
         solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse, log=self.log)
         solver.kernel()
         self_energy = solver.get_self_energy()
