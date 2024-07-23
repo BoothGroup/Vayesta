@@ -144,7 +144,7 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     if nmom_se is None:
-        nmom_se = fragments[0].results.se_moments.shape[0]
+        nmom_se = fragments[0].results.se_moments[0].shape[0]
     assert nmom_se <= fragments[0].results.se_moments.shape[0]
     self_energy_moms = np.zeros((nmom_se, fock.shape[1], fock.shape[1]))
     for i, f in enumerate(fragments):
@@ -336,6 +336,8 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             nelec = np.trace(dm)
             emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
 
+
+        #se = se.physical(weight=1e-6)
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
@@ -358,7 +360,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
         # Dynamic self-energy
         coup_l, coup_r = se._unpack_couplings()
-        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r) + einsum('pa,qa->apq', coup_l , cfc @ coup_r))
+        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
 
         if use_svd:
             couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
@@ -377,10 +379,15 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             couplings_l.append(mc @ couplings_l_frag)
             couplings_r.append(mc @ couplings_r_frag)
             energies.append(energies_frag)
+
+            mat = sym_coup.sum(axis=0)
+            mat2 = np.einsum('pa,qa->pq', couplings_l_frag, couplings_r_frag.conj())
+            emb.log.info("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
         else:
             couplings_frag, energies_frag = [], []
             for a in range(sym_coup.shape[0]):
                 m = sym_coup[a]
+                assert np.allclose(m, m.T.conj())
                 val, vec = np.linalg.eigh(m)
                 idx = np.abs(val) > se_eval_tol
                 assert idx.sum() <= 2
@@ -415,7 +422,6 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
 
     return self_energy, static_self_energy, static_potential
-
 
 def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
     """
@@ -554,7 +560,6 @@ def drop_and_reweight(se, tol=1e-12):
     new_weights = np.einsum('pa,pa->pa', new_couplings, new_couplings.conj())
 
     scale_factor2 = weights.sum(axis=1) / new_weights.sum(axis=1)
-    print(scale_factor2)
     scale_factor = np.sqrt(scale_factor2)
     new_couplings = new_couplings * scale_factor[:,None]
 
@@ -644,6 +649,18 @@ def eig_outer_sum(vs, ws, tol=1e-12):
     vec = right @ vec 
     vec = vec / np.linalg.norm(vec, axis=0)
     return val.real, vec
+
+def eig_outer_slow(vs, ws, tol=1.e-10):
+    #outer = 0.5*(np.einsum('ai,aj->ij', vs, ws) + np.einsum('ai,aj->ij', ws, vs))
+    outer = 0.5 * (np.tensordot(vs, ws, axes=([0],[0])) + np.tensordot(ws, vs, axes=([0],[0])))
+    val, vec = np.linalg.eigh(outer)
+    assert np.allclose(val.imag, 0)
+    val = val.real
+    idx = np.abs(val) > tol
+    val, vec = val[idx], vec[:,idx]
+    idx = val.argsort()
+    val, vec = val[idx], vec[:,idx]
+    return val, vec
     
 def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
 
@@ -657,7 +674,9 @@ def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=No
     energies, couplings = [], []
     warn_non_causal = False
     for i, s in enumerate(slices):
-        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s]).real
+        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj()).real
+        #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
+        #assert np.allclose(mat, mat.T.conj())
         val, vec = np.linalg.eigh(mat)
         if  drop_non_causal:
             idx = val > etol
