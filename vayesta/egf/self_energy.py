@@ -423,6 +423,136 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
     return self_energy, static_self_energy, static_potential
 
+def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False, img_space=False, use_svd=False, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+    """
+    Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
+
+    TODO: MPI, SVD
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    use_sym : bool
+        Use symmetry to reconstruct self-energy
+    use_svd : bool
+        Use SVD to decompose the self-energy as outer product
+    eta : float
+        Broadening factor for static potential
+    se_degen_tol : float
+        Tolerance for degeneracy in Lehmann representation
+    se_eval_tol : float
+        Tolerance for self-energy eigenvalues assumed to be kept
+    drop_non_causal : bool
+        Drop non-causal poles (negative eigenvalues) of self-energy
+
+    Returns
+    -------
+    self_energy : Lehmann object
+        Reconstructed self-energy in Lehmann representation (MO basis)
+    static_self_energy : ndarray (nmo,nmo)
+        Static part of self-energy (MO basis)
+    static_potential : ndarray (nao,nao)
+        Static potential (AO basis)
+    """
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    static_potential = np.zeros_like(fock)
+    energies = []
+    if use_svd:
+        couplings_l, couplings_r = [], []
+    else:
+        couplings = []
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
+        if nmom_gf is None:
+            nmom_gf = nmom_gf_max
+        elif type(nmom_gf) is int:
+            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
+            nmom_gf = (nmom_gf, nmom_gf)
+        elif type(nmom_gf) is tuple:
+            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
+            
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+        se_static = th[1] + tp[1]
+            
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        
+        dm = gf.occupied().moment(0) * 2
+        nelec = np.trace(dm)
+        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        if aux_shift_frag:
+            aux = AuxiliaryShift(se_static, se, f.nelectron, occupancy=2, log=emb.log)
+            aux.kernel()
+            se = aux.get_self_energy()
+            gf = aux.get_greens_function()
+            dm = gf.occupied().moment(0) * 2
+            nelec = np.trace(dm)
+            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
+
+
+        #se = se.physical(weight=1e-6)
+        mc = f.get_overlap('mo|cluster')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+        
+        # Fock matrix in cluster basis
+        fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
+        e_cls = np.diag(fock_cls)
+        
+        # Static potential
+        v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+        v_frag = cfc @ v_cls  
+        v_frag = 0.5 * (v_frag + v_frag.T)
+        static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+
+        # Static self-energy
+        static_se_cls = se_static - fock_cls
+        static_self_energy_frag = cfc @ static_se_cls
+        static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+        static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+        couplings_proj, energies_proj = [], []
+        #if hermitian or 1:
+        # Dynamic self-energy
+        couplings_clus = se.couplings
+        couplings_frag = cfc @ couplings_clus
+        nmo, naux = couplings_clus.shape
+
+        for a in range(naux):
+            val, vec = eig_outer_sum([couplings_clus[:,a]], [couplings_frag[:,a]])
+            if len(val) == 0:
+                continue
+            w = vec @ np.diag(np.sqrt(val))
+            couplings_proj.append(w)
+
+            energies_proj += [se.energies[a] for e in range(w.shape[1])]
+        #else:
+        #    raise NotImplementedError()
+
+        couplings_proj = np.hstack(couplings_proj)
+
+        couplings.append(mc @ couplings_proj)
+        energies.append(energies_proj)
+
+
+
+    energies = np.concatenate(energies)
+    if use_svd:
+        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+    else:
+        couplings = np.hstack(couplings)
+
+    print(energies.shape)
+    print(couplings.shape)
+    self_energy = Lehmann(energies, couplings)
+
+    self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+
+    return self_energy, static_self_energy, static_potential
+    
 def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
