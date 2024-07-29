@@ -21,20 +21,13 @@ def calc_fragment_ccsd_t_energy(fragment, t1, t2, eris=None, project='w'):
     eijk = pyscf.lib.direct_sum('i,j,k->ijk', e_occ, e_occ, e_occ)
 
     if eris is not None:
-
         eris_vvov = eris.get_ovvv().conj().transpose(1,3,0,2)
         eris_vooo = np.asarray(eris.ovoo).conj().transpose(1,0,2,3)
         eris_vvoo = np.asarray(eris.ovov).conj().transpose(1,3,0,2)
     else:
-
-        # occ, vir = np.s_[:nocc], np.s_[nocc:]
-        # eris_vvov = eris[vir, vir, occ, vir]
-        # eris_vooo = eris[vir, occ, occ, occ]
-        # eris_vvoo = eris[vir, vir, occ, occ]
-
-        eris_vvov = fragment.hamil.get_eris_bare(block='vvov')
-        eris_vooo = fragment.hamil.get_eris_bare(block='vooo')
-        eris_vvoo = fragment.hamil.get_eris_bare(block='vvoo')
+        eris_vvov = fragment.hamil.get_eris_bare(block='ovvv').conj().transpose(1,3,0,2)
+        eris_vooo = fragment.hamil.get_eris_bare(block='ovoo').conj().transpose(1,0,2,3)
+        eris_vvoo = fragment.hamil.get_eris_bare(block='ovov').conj().transpose(1,3,0,2)
 
     fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
     def get_w(a, b, c):
