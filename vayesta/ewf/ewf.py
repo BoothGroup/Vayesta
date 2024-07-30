@@ -321,7 +321,7 @@ class EWF(Embedding):
             # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
         if functional == 'dmet':
-            # Uses projected denisty matrices
+            # Uses projected density matrices
             return self.get_dmet_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
@@ -344,15 +344,15 @@ class EWF(Embedding):
         return e_corr / self.ncells
     
     @mpi.with_allreduce()
-    def get_ccsd_t_corr_energy(self):
+    def get_ccsd_t_corr_energy(self, project='w'):
         e_ccsd_t = 0
         
         # Only loop over fragments of own MPI rank
         for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
-            if x.results.e_corr_ccsd_t is not None:
-                ex = x.results.e_corr_ccsd_t
-            else:
-                ex = calc_fragment_ccsd_t_energy(x)
+            # if x.results.e_corr_ccsd_t is not None:
+            #     ex = x.results.e_corr_ccsd_t
+            # else:
+            ex = calc_fragment_ccsd_t_energy(x, project=project)
             e_ccsd_t += x.symmetry_factor * ex
         return e_ccsd_t / self.ncells
 
