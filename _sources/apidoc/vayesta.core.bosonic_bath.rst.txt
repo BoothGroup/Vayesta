@@ -1,0 +1,37 @@
+vayesta.core.bosonic\_bath
+==========================
+
+Submodules
+----------
+
+vayesta.core.bosonic\_bath.bbath
+--------------------------------
+
+.. automodule:: vayesta.core.bosonic_bath.bbath
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.bosonic\_bath.projected\_interactions
+--------------------------------------------------
+
+.. automodule:: vayesta.core.bosonic_bath.projected_interactions
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.bosonic\_bath.qba\_rpa
+-----------------------------------
+
+.. automodule:: vayesta.core.bosonic_bath.qba_rpa
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.bosonic_bath
+   :members:
+   :undoc-members:
+   :show-inheritance:
