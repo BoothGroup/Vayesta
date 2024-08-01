@@ -46,7 +46,7 @@ class Options(REWF.Options):
     hermitian_mblse: bool = True # Use hermitian MBLSE
     global_static_potential: bool = False # Use global static potential
 
-    solver_options: dict = Embedding.Options.change_dict_defaults("solver_options", conv_tol=1e-15, conv_tol_normt=1e-15)
+    solver_options: dict = Embedding.Options.change_dict_defaults("solver_options", n_moments=(6,6), conv_tol=1e-15, conv_tol_normt=1e-15)
     bath_options: dict = Embedding.Options.change_dict_defaults("bath_options", bathtype='ewdmet', order=1, max_order=1, dmet_threshold=1e-12)
 
 class REGF(REWF):
@@ -107,7 +107,7 @@ class REGF(REWF):
                 try:
                     from momentGW import GW
                     gw = GW(self.mf)
-                    if non_local_se.upper() == 'GW-dRPA':
+                    if non_localmpo_se.upper() == 'GW-dRPA':
                         gw.polarizability = 'drpa'
                     elif non_local_se.upper() == 'GW-dTDA':
                         gw.polarizability = 'dtda'
