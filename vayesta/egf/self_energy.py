@@ -517,27 +517,52 @@ def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False
         couplings_proj, energies_proj = [], []
         #if hermitian or 1:
         # Dynamic self-energy
-        couplings_clus = se.couplings
-        couplings_frag = cfc @ couplings_clus
-        nmo, naux = couplings_clus.shape
-
+        coup_l, coup_r = se._unpack_couplings()
+        p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
+        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
+        nmo, naux = coup_l.shape
+        couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
+            
         for a in range(naux):
-            val, vec = eig_outer_sum([couplings_clus[:,a]], [couplings_frag[:,a]])
-            if len(val) == 0:
-                continue
-            w = vec @ np.diag(np.sqrt(val))
-            couplings_proj.append(w)
+            if hermitian:
+                vs, ws = [coup_l[:,a]], [p_coup_l[:,a]]
+                rank = 2
+                left, right = np.zeros((rank, nmo)), np.zeros((nmo, rank))
+                for i in range(len(vs)):
+                    left[2*i] = ws[i]
+                    left[2*i+1] = vs[i]
+                    right[:,2*i] = vs[i]
+                    right[:,2*i+1] = ws[i]
+            else:
+                # TODO: Fix for complex U, V
+                vs, ws = [p_coup_l[:,a], coup_l[:,a]], [coup_r[:,a], p_coup_r[:,a]]
+                rank = 4
+                left, right = np.zeros((rank, nmo)), np.zeros((nmo, rank))
+                for i in range(len(vs)):
+                    left[2*i] = ws[i]
+                    #left[2*i+1] = vs[i]
+                    right[:,2*i] = vs[i]
+                    right[:,2*i+1] = ws[i]
+            mat = 0.5 * (left @ right)
+            U, s, Vt = np.linalg.svd(mat)
+            u = U @ np.diag(np.sqrt(s))
+            v = Vt.conj().T @ np.diag(np.sqrt(s))
+            
+            basis = right
+            dbasis = np.linalg.pinv(basis)
+            couplings_l_frag.append(basis @ u)
+            couplings_r_frag.append(dbasis.T @ v)
+            energies_frag += [se.energies[a] for e in range(rank)]
 
-            energies_proj += [se.energies[a] for e in range(w.shape[1])]
-        #else:
-        #    raise NotImplementedError()
+            
+        couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+        couplings_l.append(mc @ couplings_l_frag)
+        couplings_r.append(mc @ couplings_r_frag)
+        energies.append(energies_frag)
 
-        couplings_proj = np.hstack(couplings_proj)
-
-        couplings.append(mc @ couplings_proj)
-        energies.append(energies_proj)
-
-
+        mat = sym_coup.sum(axis=0)
+        mat2 = np.einsum('pa,qa->pq', couplings_l_frag, couplings_r_frag.conj())
+        print("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
 
     energies = np.concatenate(energies)
     if use_svd:
