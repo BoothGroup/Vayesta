@@ -534,10 +534,9 @@ def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False
                     right[:,2*i] = vs[i]
                     right[:,2*i+1] = ws[i]
             else:
-                # TODO: Fix for complex U, V
-                vs, ws = [p_coup_l[:,a], coup_l[:,a]], [coup_r[:,a], p_coup_r[:,a]]
-                rank = 4
-                left, right = np.zeros((rank, nmo)), np.zeros((nmo, rank))
+                vs, ws = [p_coup_l[:,a], coup_l[:,a]], [coup_r[:,a].conj(), p_coup_r[:,a].conj()]
+                rank = 4 # Can redo for rank 2
+                left, right = np.zeros((rank, nmo), dtype=np.complex128), np.zeros((nmo, rank), dtype=np.complex128)
                 for i in range(len(vs)):
                     left[2*i] = ws[i]
                     #left[2*i+1] = vs[i]
@@ -545,8 +544,18 @@ def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False
                     right[:,2*i+1] = ws[i]
             mat = 0.5 * (left @ right)
             U, s, Vt = np.linalg.svd(mat)
+            idx = s > se_eval_tol
+            U = U[:,idx]
+            Vt = Vt[idx,:]
+            s = s[idx]
             u = U @ np.diag(np.sqrt(s))
             v = Vt.conj().T @ np.diag(np.sqrt(s))
+            
+            basis = right
+            dbasis = np.linalg.pinv(basis)
+            couplings_l_frag.append(basis @ u)
+            couplings_r_frag.append(dbasis.T.conj() @ v)
+            energies_frag += [se.energies[a] for e in range(idx.sum())]
             
             basis = right
             dbasis = np.linalg.pinv(basis)
