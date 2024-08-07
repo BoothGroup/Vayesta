@@ -1,7 +1,7 @@
 import numpy as np
 import pyscf.lib
 
-def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, fock=None, eris=None, project='w', global_t1=False, global_fock=False):
+def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='w', global_t1=False, global_fock=False):
     """
     Calculates a fragment CCSD(T) energy contribution.
 
@@ -28,14 +28,9 @@ def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, fock=None, eris=None
     if t2 is None:
         t2T = fragment.results.wf.as_ccsd().t2.transpose(2,3,0,1)
         
-    if global_fock and (fock is None):
-        fock = fragment.base.get_fock_for_energy()
-        c_occ, c_vir = fragment.cluster.c_active_occ, fragment.cluster.c_active_vir
-        fvo = c_vir.T @ fock @ c_occ
-    elif (not global_fock) and (fock is None):
-        fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
 
-    
+    fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
+
     mo_e = fragment.hamil.get_clus_mf_info(with_vext=True)[2]
     e_occ, e_vir = mo_e[:nocc], mo_e[nocc:]
     eijk = pyscf.lib.direct_sum('i,j,k->ijk', e_occ, e_occ, e_occ)
