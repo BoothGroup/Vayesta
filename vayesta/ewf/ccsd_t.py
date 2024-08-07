@@ -1,7 +1,7 @@
 import numpy as np
 import pyscf.lib
 
-def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='w'):
+def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, fock=None, eris=None, project='w', global_t1=False, global_fock=False):
     """
     Calculates a fragment CCSD(T) energy contribution.
 
@@ -12,15 +12,30 @@ def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='
 
     einsum = pyscf.lib.einsum
 
-    if t1 is None:
-        t1 = fragment.results.wf.as_ccsd().t1
+
+    if global_t1 and (t1 is None):
+        t1 = fragment.base.get_global_t1()
+        c_occ, c_vir = fragment.get_overlap('mo[occ]|cluster[occ]'), fragment.get_overlap('mo[vir]|cluster[vir]')
+        t1 = c_occ.T @ t1 @ c_vir
+        t1T = t1.T
+    elif (not global_t1) and (t1 is None):
+        t1T = fragment.results.wf.as_ccsd().t1.T
+    elif t1 is not None:
+        t1T = t1.T
+
+    nvir, nocc = t1T.shape
+
     if t2 is None:
-        t2 = fragment.results.wf.as_ccsd().t2
+        t2T = fragment.results.wf.as_ccsd().t2.transpose(2,3,0,1)
+        
+    if global_fock and (fock is None):
+        fock = fragment.base.get_fock_for_energy()
+        c_occ, c_vir = fragment.cluster.c_active_occ, fragment.cluster.c_active_vir
+        fvo = c_vir.T @ fock @ c_occ
+    elif (not global_fock) and (fock is None):
+        fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
 
-    t1T = t1.T
-    t2T = t2.transpose(2,3,0,1)
-
-    nocc, nvir = t1.shape
+    
     mo_e = fragment.hamil.get_clus_mf_info(with_vext=True)[2]
     e_occ, e_vir = mo_e[:nocc], mo_e[nocc:]
     eijk = pyscf.lib.direct_sum('i,j,k->ijk', e_occ, e_occ, e_occ)
@@ -35,9 +50,7 @@ def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='
         eris_vvov = fragment.hamil.get_eris_bare(block='ovvv').conj().transpose(1,3,0,2)
         eris_vooo = fragment.hamil.get_eris_bare(block='ovoo').conj().transpose(1,0,2,3)
         eris_vvoo = fragment.hamil.get_eris_bare(block='ovov').conj().transpose(1,3,0,2)
-
         
-    fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
     def get_w(a, b, c):
         w = einsum('if,fkj->ijk', eris_vvov[a,b], t2T[c,:])
         w-= einsum('ijm,mk->ijk', eris_vooo[a,:], t2T[b,c])

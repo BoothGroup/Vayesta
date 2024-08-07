@@ -344,7 +344,8 @@ class EWF(Embedding):
         return e_corr / self.ncells
     
     @mpi.with_allreduce()
-    def get_ccsd_t_corr_energy(self, project='w'):
+    def get_ccsd_t_corr_energy(self, project='w', **kwargs):
+        # TODO: Check MPI
         e_ccsd_t = 0
         
         # Only loop over fragments of own MPI rank
@@ -352,7 +353,7 @@ class EWF(Embedding):
             # if x.results.e_corr_ccsd_t is not None:
             #     ex = x.results.e_corr_ccsd_t
             # else:
-            ex = calc_fragment_ccsd_t_energy(x, project=project)
+            ex = calc_fragment_ccsd_t_energy(x, project=project, **kwargs)
             e_ccsd_t += x.symmetry_factor * ex
         return e_ccsd_t / self.ncells
 
