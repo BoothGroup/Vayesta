@@ -8,6 +8,8 @@ import vayesta.ewf
 from vayesta.misc.molecules import ring
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
+# The mf argment contains the hamiltonain in the orthonormal cluster basis
+# Pyscf or other solvers may be used to solve the cluster problem and may return RDMs, CISD amplitudes or CCSD amplitudes
 def solver(mf):
     '''Note that vayesta solvers create dummy mf objects with cluster hamiltonians in 
     orthonormal cluster MO bases.'''
@@ -40,7 +42,7 @@ nfrag = 1
 bath_opts = dict(bathtype="dmet")   
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:

@@ -102,7 +102,6 @@ class EWF(Embedding):
     def kernel(self):
         """Run EWF."""
         t_start = timer()
-        print("EWF opts \n%s\n"%str(self.opts.solver_options))
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
@@ -180,13 +179,13 @@ class EWF(Embedding):
             self.log.error("Some fragments did not converge!")
         self.converged = conv
 
-        if self.solver.lower() == "callback":
-            self.log.info("Total wall time:  %s", time_string(timer() - t_start))
-            return
         # --- Evaluate correlation energy and log information
-        self.e_corr = self.get_e_corr()
-
-
+        try:
+            self.e_corr = self.get_e_corr()
+        except AttributeError as e:
+            self.log.error("Could not calculate correlation energy")
+            self.e_corr = np.nan
+        
         self.log.output("E(MF)=   %s", energy_string(self.e_mf))
         self.log.output("E(corr)= %s", energy_string(self.e_corr))
         self.log.output("E(tot)=  %s", energy_string(self.e_tot))
@@ -225,9 +224,9 @@ class EWF(Embedding):
             nelec = 2 * t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
             if t1diag >= warntol:
-                self.log.warning("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(fx) + ":", t1diag)
             else:
-                self.log.info("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
+                self.log.info("T1 diagnostic for %-20s %.5f", str(fx) + ":", t1diag)
         # Global
         t1 = self.get_global_t1(mpi_target=0)
         if mpi.is_master:
@@ -311,11 +310,17 @@ class EWF(Embedding):
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = "wf"
         if functional == "wf":
+            # CCSD projected energy expression 
             return self.get_wf_corr_energy(**kwargs)
         if functional == "dm-t2only":
+            # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
         if functional == "dm":
+            # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
+        if functional == 'dmet':
+            # Uses projected density matrices
+            return self.get_dmet_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()

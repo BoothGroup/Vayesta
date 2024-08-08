@@ -47,4 +47,5 @@ class CallbackSolver(ClusterSolver):
             
         results['wf'] = wf
         self.wf = wf
+        self.converged = results['converged'] if 'converged' in results else False
         self.callback_results = results

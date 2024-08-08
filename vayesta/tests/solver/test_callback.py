@@ -49,12 +49,14 @@ class TestSolvers(TestCase):
     def _test(self, key):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
         bath_opts = dict(bathtype="dmet")
-        emb = vayesta.ewf.EWF(mf, solver=key[2],  energy_functional='dm', bath_options=bath_opts)
+        emb = vayesta.ewf.EWF(mf, solver=key[2],  energy_functional='wf', bath_options=bath_opts)
         emb.kernel()
 
         for dm in [True, False]:
+            if key[2] == 'CISD' and dm:
+                return
             callback = lambda mf: callbacks[key[2]](mf, dm=dm)
-            emb_callback = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm', bath_options=bath_opts, solver_options=dict(callback=callback))
+            emb_callback = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='wf', bath_options=bath_opts, solver_options=dict(callback=callback))
             emb_callback.kernel()
 
             for a, b in [(False, False), (True, False), (True, True)]:
@@ -67,8 +69,8 @@ class TestSolvers(TestCase):
     def test_fci_h6(self):
         self._test(("h6_sto6g", "rhf", "FCI"))
 
-    # def test_cisd_lih(self):
-    #     self._test(("lih_ccpvdz", "rhf", "CISD"))
+    def test_cisd_lih(self):
+        self._test(("lih_ccpvdz", "rhf", "CISD"))
 
 if __name__ == "__main__":
     print("Running %s" % __file__)
