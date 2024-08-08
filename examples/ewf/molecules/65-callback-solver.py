@@ -9,8 +9,11 @@ from vayesta.misc.molecules import ring
 
 # User defined FCI solver - takes pyscf mf as input and returns RDMs
 def solver(mf):
+    '''Note that vayesta solvers create dummy mf objects with cluster hamiltonians in 
+    orthonormal cluster MO bases.'''
     h1e = mf.get_hcore()
     h2e = mf._eri
+    assert(np.allclose(mf.get_ovlp(),np.eye(h1e.shape[0])))
     norb = mf.mo_coeff.shape[-1]
     nelec = mf.mol.nelec
     energy, civec = pyscf.fci.direct_spin0.kernel(h1e, h2e, norb, nelec, conv_tol=1.e-14)
