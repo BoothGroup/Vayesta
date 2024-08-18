@@ -81,7 +81,7 @@ class Options(OptionsBase):
         # General
         bathtype="dmet",
         canonicalize=True,
-        occupation_tolerance=1e-8,
+        occupation_tolerance=1e-6,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
@@ -157,8 +157,11 @@ class Options(OptionsBase):
         store_as_ccsd=None,
         # Dump
         dumpfile="clusters.h5",
+        # Callback
+        callback = None,
         # MP2
         compress_cderi=False,
+
     )
     # --- Other
     symmetry_tol: float = 1e-6  # Tolerance (in Bohr) for atomic positions
@@ -339,7 +342,7 @@ class Embedding:
         mf = copy.copy(mf)
         self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
-        if getattr(mf, "kpts", None) is not None:
+        if isinstance(mf, pyscf.pbc.scf.khf.KSCF):
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
@@ -1260,7 +1263,7 @@ class Embedding:
     def make_rdm2_demo(self, *args, **kwargs):
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
-    def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
+    def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True, mpi_target=None):
         """Calculate electronic DMET energy via democratically partitioned density-matrices.
 
         Parameters
@@ -1272,6 +1275,10 @@ class Embedding:
         approx_cumulant: bool, optional
             If True, the approximate cumulant, containing (delta 1-DM)-squared terms, is partitioned,
             instead of the true cumulant, if `part_cumulant=True`. Default: True.
+        mpi_target: int or None, optional
+            If set to an integer, the result will only be available at the specified MPI rank.
+            If set to None, an MPI allreduce will be performed and the result will be available
+            at all MPI ranks. Default: None. 
 
         Returns
         -------
@@ -1283,7 +1290,8 @@ class Embedding:
             wx = x.symmetry_factor
             e_dmet += wx * x.get_fragment_dmet_energy(part_cumulant=part_cumulant, approx_cumulant=approx_cumulant)
         if mpi:
-            mpi.world.allreduce(e_dmet)
+            e_dmet = mpi.nreduce(e_dmet, target=mpi_target, logfunc=self.log.timingv)
+
         if part_cumulant:
             dm1 = self.make_rdm1_demo(ao_basis=True)
             if not approx_cumulant:
@@ -1574,7 +1582,7 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            fragments = self.get_fragments(contributes=True, flags=dict(is_secfrag=False))
             if not fragments:
                 return False
             c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
@@ -1732,7 +1740,15 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
-
+    def qpewdmet_scmf(self, *args, **kwargs):
+        """Decorator for QP-EWDMET."""
+        try:
+            from vayesta.core.scmf import QPEWDMET
+        except ImportError:
+            self.log.error("QP-EWDMET requires Dyson installed")
+            return
+        self.with_scmf = QPEWDMET(self, *args, **kwargs)
+        self.kernel = self.with_scmf.kernel
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         if self.opts.screening:

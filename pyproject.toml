@@ -19,7 +19,7 @@ authors = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -28,10 +28,10 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: C",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
@@ -41,7 +41,7 @@ dependencies = [
     "scipy>=1.1.0,<=1.10.0",
     "h5py>=2.7",
     "cvxpy>=1.1",
-    "pyscf @ git+https://github.com/pyscf/pyscf@e90d8342e29446365f8570682af4a65fe16be27c",
+    "pyscf @ git+https://github.com/pyscf/pyscf@master",
 ]
 dynamic = ["version"]
 
@@ -68,11 +68,9 @@ dyson = [
 ebcc = [
     "ebcc",
 ]
-
 pygnme = [
     "pygnme @ git+https://github.com/BoothGroup/pygnme@master" 
 ]
-
 dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",
@@ -126,6 +124,7 @@ target-version = [
     "py38",
     "py39",
     "py310",
+    "py311",
 ]
 include="\\.py"
 extend-exclude = """

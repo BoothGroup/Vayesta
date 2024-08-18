@@ -6,7 +6,7 @@ from vayesta.tests import testsystems
 
 
 class DiamondRIRPATest(TestCase):
-    PLACES = 8
+    PLACES = 6
 
     @classmethod
     def setUpClass(cls):

@@ -9,6 +9,7 @@ from vayesta.core.types.wf.mp2 import MP2_WaveFunction, RMP2_WaveFunction, UMP2_
 from vayesta.core.types.wf.cisd import CISD_WaveFunction, RCISD_WaveFunction, UCISD_WaveFunction
 from vayesta.core.types.wf.ccsd import CCSD_WaveFunction, RCCSD_WaveFunction, UCCSD_WaveFunction
 from vayesta.core.types.wf.fci import FCI_WaveFunction, RFCI_WaveFunction, UFCI_WaveFunction
+from vayesta.core.types.wf.rdm import RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction
 
 # WIP:
 from vayesta.core.types.wf.cisdtq import CISDTQ_WaveFunction, RCISDTQ_WaveFunction, UCISDTQ_WaveFunction
@@ -38,4 +39,7 @@ __all__ = [
     "CCSDTQ_WaveFunction",
     "RCCSDTQ_WaveFunction",
     "UCCSDTQ_WaveFunction",
+    "RDM_WaveFunction",
+    "RRDM_WaveFunction",
+    "URDM_WaveFunction",
 ]

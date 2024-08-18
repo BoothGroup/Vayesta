@@ -5,6 +5,7 @@ from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
 from vayesta.solver.coupled_ccsd import coupledRCCSD_Solver
 from vayesta.solver.dump import DumpSolver
+from vayesta.solver.callback import CallbackSolver
 from vayesta.solver.ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from vayesta.solver.ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
@@ -66,6 +67,7 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
     ('FCI', True, True): EB_UEBFCI_Solver,
     ('Dump', False, False): DumpSolver,
     ('Dump', True, False): DumpSolver,
+    ('Callback', False, False): CallbackSolver,
 }
 
 
