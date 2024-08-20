@@ -65,9 +65,9 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
     ('FCI', True, False): UFCI_Solver,
     ('FCI', False, True): EB_EBFCI_Solver,
     ('FCI', True, True): EB_UEBFCI_Solver,
-    ('Dump', False, False): DumpSolver,
-    ('Dump', True, False): DumpSolver,
-    ('Callback', False, False): CallbackSolver,
+    ('DUMP', False, False): DumpSolver,
+    ('DUMP', True, False): DumpSolver,
+    ('CALLBACK', False, False): CallbackSolver,
 }
 
 
