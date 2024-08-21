@@ -119,7 +119,7 @@ class EDMETFragment(DMETFragment):
     def check_solver(self, solver):
         is_uhf = np.ndim(self.base.mo_coeff[1]) == 2
         is_eb = True
-        check_solver_config(is_uhf, is_eb, solver, self.log)
+        check_solver_config(solver, is_uhf, is_eb, self.log)
 
     def get_fock(self):
         f = self.base.get_fock()
