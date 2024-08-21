@@ -423,7 +423,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
     return self_energy, static_self_energy, static_potential
 
-def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False, img_space=False, use_svd=False, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False, img_space=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-12, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -533,37 +533,39 @@ def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False
                     left[2*i+1] = vs[i]
                     right[:,2*i] = vs[i]
                     right[:,2*i+1] = ws[i]
-            else:
-                vs, ws = [p_coup_l[:,a], coup_l[:,a]], [coup_r[:,a].conj(), p_coup_r[:,a].conj()]
-                rank = 4 # Can redo for rank 2
-                left, right = np.zeros((rank, nmo), dtype=np.complex128), np.zeros((nmo, rank), dtype=np.complex128)
-                for i in range(len(vs)):
-                    left[2*i] = ws[i]
-                    #left[2*i+1] = vs[i]
-                    right[:,2*i] = vs[i]
-                    right[:,2*i+1] = ws[i]
-            mat = 0.5 * (left @ right)
-            U, s, Vt = np.linalg.svd(mat)
-            idx = s > se_eval_tol
-            U = U[:,idx]
-            Vt = Vt[idx,:]
-            s = s[idx]
-            u = U @ np.diag(np.sqrt(s))
-            v = Vt.conj().T @ np.diag(np.sqrt(s))
-            
-            basis = right
-            dbasis = np.linalg.pinv(basis)
-            couplings_l_frag.append(basis @ u)
-            couplings_r_frag.append(dbasis.T.conj() @ v)
-            energies_frag += [se.energies[a] for e in range(idx.sum())]
-            
-            basis = right
-            dbasis = np.linalg.pinv(basis)
-            couplings_l_frag.append(basis @ u)
-            couplings_r_frag.append(dbasis.T @ v)
-            energies_frag += [se.energies[a] for e in range(rank)]
 
-            
+                mat = 0.5 * (left @ right)
+                U, s, Vt = np.linalg.svd(mat)
+                idx = s > se_eval_tol
+                U = U[:,idx]
+                Vt = Vt[idx,:]
+                s = s[idx]
+                basis = right
+                dbasis = np.linalg.pinv(basis)
+                u = basis @ U @ np.diag(np.sqrt(s))
+                v = dbasis.T @ Vt.conj().T @ np.diag(np.sqrt(s))
+            else:
+                rank = 2 # Can redo for rank 2
+                left, right = np.zeros((rank, nmo), dtype=np.complex128), np.zeros((nmo, rank), dtype=np.complex128)
+                basis_l = np.vstack([p_coup_l[:,a], coup_l[:,a]]).T
+                dbasis_l = np.linalg.pinv(basis_l)
+                basis_r = np.vstack([coup_r[:,a], p_coup_r[:,a]]).T
+                dbasis_r = np.linalg.pinv(basis_r)
+                
+                mat = 0.5 * (basis_r.conj().T @ basis_r)
+                U, s, Vh = np.linalg.svd(mat)
+                idx = s > se_eval_tol
+                s = s[idx]
+                u = basis_l @ U[:,idx] @ np.diag(np.sqrt(s))
+                v = (np.diag(np.sqrt(s)) @ Vh[idx,:] @ dbasis_r).conj().T
+
+                symcoup = np.einsum('pa,qa->pq', u, v.conj())
+                print("Inner norm %s"%np.linalg.norm(u@v.conj().T - sym_coup[a]))
+
+            couplings_l_frag.append(u)
+            couplings_r_frag.append(v)
+            energies_frag += [se.energies[a] for e in range(idx.sum())]
+
         couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
         couplings_l.append(mc @ couplings_l_frag)
         couplings_r.append(mc @ couplings_r_frag)
@@ -579,8 +581,8 @@ def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False
     else:
         couplings = np.hstack(couplings)
 
-    print(energies.shape)
-    print(couplings.shape)
+    # print(energies.shape)
+    # print(couplings.shape)
     self_energy = Lehmann(energies, couplings)
 
     self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
