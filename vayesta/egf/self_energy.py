@@ -108,7 +108,8 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
         gf = shift.get_greens_function()
     
     return se, gf
-    
+
+
 
 def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
     """
@@ -266,8 +267,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -360,46 +360,24 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
         # Dynamic self-energy
         coup_l, coup_r = se._unpack_couplings()
+        p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
         sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
-
+        mat = sym_coup.sum(axis=0)
         if use_svd:
-            couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
-            for a in range(sym_coup.shape[0]):
-                m = sym_coup[a]
-                U, s, Vt = np.linalg.svd(m)
-                idx = np.abs(s) > se_eval_tol
-                assert idx.sum() <= 2
-                u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
-                v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
-                couplings_l_frag.append(u)
-                couplings_r_frag.append(v)
-                energies_frag += [se.energies[a] for e in range(idx.sum())]
-            
-            couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+            energies_frag, couplings_l_frag, couplings_r_frag = project_1_to_fragment_svd(cfc, se, img_space=img_space, tol=1e-6)
             couplings_l.append(mc @ couplings_l_frag)
             couplings_r.append(mc @ couplings_r_frag)
             energies.append(energies_frag)
-
-            mat = sym_coup.sum(axis=0)
+            
             mat2 = np.einsum('pa,qa->pq', couplings_l_frag, couplings_r_frag.conj())
-            emb.log.info("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
+            
         else:
-            couplings_frag, energies_frag = [], []
-            for a in range(sym_coup.shape[0]):
-                m = sym_coup[a]
-                assert np.allclose(m, m.T.conj())
-                val, vec = np.linalg.eigh(m)
-                idx = np.abs(val) > se_eval_tol
-                assert idx.sum() <= 2
-                w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-                couplings_frag.append(w)
-                energies_frag += [se.energies[a] for e in range(idx.sum())]
-
-            couplings_frag = np.hstack(couplings_frag)
-
+            energies_frag, couplings_frag = project_1_to_fragment_eig(cfc, se, img_space=img_space, tol=1e-6)
             couplings.append(mc @ couplings_frag)
             energies.append(energies_frag)
+            mat2 = np.einsum('pa,qa->pq', couplings_frag, couplings_frag.conj())
 
+        emb.log.info("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
         if use_sym:
             for child in f.get_symmetry_children():
                 static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
@@ -419,175 +397,133 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
-    self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+    #self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
 
     return self_energy, static_self_energy, static_potential
 
-def make_self_energy_1proj_img(emb, hermitian=True, use_sym=True, sym_moms=False, img_space=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-12, drop_non_causal=False):
+def project_1_to_fragment_eig(cfc, se, img_space=True, tol=1e-6):
     """
-    Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
+    DEPRECATED: Use SVD instead of eigenvalue decomposition
 
-    TODO: MPI, SVD
+    Symmetrically project self-energy couplings to fragment as 0.5 * (PV V^T _ V PV^T) and rewrite as an outer product via diagonalization
 
     Parameters
-    ----------
-    emb : EWF object
-        Embedding object
-    use_sym : bool
-        Use symmetry to reconstruct self-energy
-    use_svd : bool
-        Use SVD to decompose the self-energy as outer product
-    eta : float
-        Broadening factor for static potential
-    se_degen_tol : float
-        Tolerance for degeneracy in Lehmann representation
-    se_eval_tol : float
-        Tolerance for self-energy eigenvalues assumed to be kept
-    drop_non_causal : bool
-        Drop non-causal poles (negative eigenvalues) of self-energy
-
+    ---------- 
+    cfc : ndarray (nclus, nclus)
+        Fragment projector in cluster basis
+    se : Lehmann object 
+        Cluster self-energy
+    img_space : bool
+        Perform SVD in the image space
+    tol : float
+        Tolerance for self-energy singular values assumed to be kept
+    
     Returns
     -------
-    self_energy : Lehmann object
-        Reconstructed self-energy in Lehmann representation (MO basis)
-    static_self_energy : ndarray (nmo,nmo)
-        Static part of self-energy (MO basis)
-    static_potential : ndarray (nao,nao)
-        Static potential (AO basis)
+    energies_frag : ndarray (naux_new)
+        Energies of the fragment couplings
+    couplings_l_frag : ndarray (nmo, naux_new)
+        Left couplings of the fragment projected self-energy
+
     """
+    coup_l, coup_r = se._unpack_couplings()
+    p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
+    sym_coup = 0.5*(einsum('pa,qa->apq', p_coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , p_coup_r.conj()))
+    nmo, naux = coup_l.shape
+    couplings_frag, energies_frag = [], []
+    for a in range(naux):
+        if img_space:
+            raise NotImplementedError()
+        else:
+            m = sym_coup[a]
+            assert np.allclose(m, m.T.conj())
+            val, vec = np.linalg.eigh(m)
+            idx = np.abs(val) > tol
+            assert idx.sum() <= 2
+            w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
 
-    fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
-    static_potential = np.zeros_like(fock)
-    energies = []
-    if use_svd:
-        couplings_l, couplings_r = [], []
-    else:
-        couplings = []
-    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
-    for i, f in enumerate(fragments):
-        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
-        if nmom_gf is None:
-            nmom_gf = nmom_gf_max
-        elif type(nmom_gf) is int:
-            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
-            nmom_gf = (nmom_gf, nmom_gf)
-        elif type(nmom_gf) is tuple:
-            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
-            
-        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
-        se_static = th[1] + tp[1]
-            
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
-        
-        dm = gf.occupied().moment(0) * 2
-        nelec = np.trace(dm)
-        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
-        if aux_shift_frag:
-            aux = AuxiliaryShift(se_static, se, f.nelectron, occupancy=2, log=emb.log)
-            aux.kernel()
-            se = aux.get_self_energy()
-            gf = aux.get_greens_function()
-            dm = gf.occupied().moment(0) * 2
-            nelec = np.trace(dm)
-            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
-
-
-        #se = se.physical(weight=1e-6)
-        mc = f.get_overlap('mo|cluster')
-        fc = f.get_overlap('frag|cluster')
-        cfc = fc.T @ fc
-        
-        # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
-        e_cls = np.diag(fock_cls)
-        
-        # Static potential
-        v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
-        v_frag = cfc @ v_cls  
-        v_frag = 0.5 * (v_frag + v_frag.T)
-        static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
-
-        # Static self-energy
-        static_se_cls = se_static - fock_cls
-        static_self_energy_frag = cfc @ static_se_cls
-        static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
-        static_self_energy += mc @ static_self_energy_frag @ mc.T
-
-        couplings_proj, energies_proj = [], []
-        #if hermitian or 1:
-        # Dynamic self-energy
-        coup_l, coup_r = se._unpack_couplings()
-        p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
-        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
-        nmo, naux = coup_l.shape
-        couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
-            
-        for a in range(naux):
-            if hermitian:
-                vs, ws = [coup_l[:,a]], [p_coup_l[:,a]]
-                rank = 2
-                left, right = np.zeros((rank, nmo)), np.zeros((nmo, rank))
-                for i in range(len(vs)):
-                    left[2*i] = ws[i]
-                    left[2*i+1] = vs[i]
-                    right[:,2*i] = vs[i]
-                    right[:,2*i+1] = ws[i]
-
-                mat = 0.5 * (left @ right)
-                U, s, Vt = np.linalg.svd(mat)
-                idx = s > se_eval_tol
-                U = U[:,idx]
-                Vt = Vt[idx,:]
-                s = s[idx]
-                basis = right
-                dbasis = np.linalg.pinv(basis)
-                u = basis @ U @ np.diag(np.sqrt(s))
-                v = dbasis.T @ Vt.conj().T @ np.diag(np.sqrt(s))
-            else:
-                rank = 2 # Can redo for rank 2
-                left, right = np.zeros((rank, nmo), dtype=np.complex128), np.zeros((nmo, rank), dtype=np.complex128)
-                basis_l = np.vstack([p_coup_l[:,a], coup_l[:,a]]).T
-                dbasis_l = np.linalg.pinv(basis_l)
-                basis_r = np.vstack([coup_r[:,a], p_coup_r[:,a]]).T
-                dbasis_r = np.linalg.pinv(basis_r)
-                
-                mat = 0.5 * (basis_r.conj().T @ basis_r)
-                U, s, Vh = np.linalg.svd(mat)
-                idx = s > se_eval_tol
-                s = s[idx]
-                u = basis_l @ U[:,idx] @ np.diag(np.sqrt(s))
-                v = (np.diag(np.sqrt(s)) @ Vh[idx,:] @ dbasis_r).conj().T
-
-                symcoup = np.einsum('pa,qa->pq', u, v.conj())
-                print("Inner norm %s"%np.linalg.norm(u@v.conj().T - sym_coup[a]))
-
-            couplings_l_frag.append(u)
-            couplings_r_frag.append(v)
+        if idx.sum() != 0:
+            couplings_frag.append(w)
             energies_frag += [se.energies[a] for e in range(idx.sum())]
 
-        couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
-        couplings_l.append(mc @ couplings_l_frag)
-        couplings_r.append(mc @ couplings_r_frag)
-        energies.append(energies_frag)
+        mat = np.einsum('pa,qa->pq', w, w)
+        norm = np.linalg.norm(mat - sym_coup[a])
+        if norm > 1e-4:
+            rprint = lambda x: print(repr(x))
+            rprint(mat.real)
+            rprint(sym_coup[a])
+            rprint(w)
+            rprint(coup_l[:,a]) 
+            rprint(coup_r[:,a])
+            rprint(p_coup_l[:,a])
+            rprint(p_coup_r[:,a])
+            break
+    return np.array(energies_frag), np.hstack(couplings_frag)
 
-        mat = sym_coup.sum(axis=0)
-        mat2 = np.einsum('pa,qa->pq', couplings_l_frag, couplings_r_frag.conj())
-        print("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
+def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
+    """
+    Symmetrically project self-energy couplings to fragment as 0.5 * (PV V^T _ V PV^T) and rewrite as an outer product via SVD
 
-    energies = np.concatenate(energies)
-    if use_svd:
-        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
-    else:
-        couplings = np.hstack(couplings)
+    Parameters
+    ---------- 
+    cfc : ndarray (nclus, nclus)
+        Fragment projector in cluster basis
+    se : Lehmann object 
+        Cluster self-energy
+    img_space : bool
+        Perform SVD in the image space
+    tol : float
+        Tolerance for self-energy singular values assumed to be kept
+    
+    Returns
+    -------
+    energies_frag : ndarray (naux_new)
+        Energies of the fragment couplings
+    couplings_l_frag : ndarray (nmo, naux_new)
+        Left couplings of the fragment projected self-energy
+    couplings_r_frag : ndarray (nmo, naux_new)
+        Right couplings of the fragment projected self-energy
+    """
 
-    # print(energies.shape)
-    # print(couplings.shape)
-    self_energy = Lehmann(energies, couplings)
+    coup_l, coup_r = se._unpack_couplings()
+    p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
 
-    self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+    nmo, naux = coup_l.shape
+    couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
+        
+    for a in range(naux):
+        m = 0.5 * (np.outer(p_coup_l[:,a], coup_r[:,a].conj()) + np.outer(coup_l[:,a], p_coup_r[:,a].conj()))
+        if img_space:
+            rank = 2
+            basis_l = np.vstack([p_coup_l[:,a], coup_l[:,a]]).T
+            dbasis_l = np.linalg.pinv(basis_l)
+            basis_r = np.vstack([coup_r[:,a], p_coup_r[:,a]]).T
+            dbasis_r = np.linalg.pinv(basis_r)
+            
+            mat = 0.5 * (basis_r.conj().T @ basis_r) # FIX ME
+            
+            U, s, Vh = np.linalg.svd(mat)
+            idx = s > tol
+            assert idx.sum() <= 2 # Rank at most 2
+            s = s[idx]
+            u = basis_l @ U[:,idx] @ np.diag(np.sqrt(s))
+            v = (np.diag(np.sqrt(s)) @ Vh[idx,:] @ dbasis_r).conj().T
+        else:     
+            mat = 0.5 * (np.outer(p_coup_l[:,a], coup_r[:,a].conj()) + np.outer(coup_l[:,a], p_coup_r[:,a].conj()))
+            U, s, Vt = np.linalg.svd(mat)
+            idx = np.abs(s) > tol
+            assert idx.sum() <= 2
+            u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
+            v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
 
-    return self_energy, static_self_energy, static_potential
+        if idx.sum() != 0:   
+            couplings_l_frag.append(u)
+            couplings_r_frag.append(v)
+        energies_frag += [se.energies[a] for e in range(idx.sum())]
+
+    return np.array(energies_frag), np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+
+
     
 def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
     """
@@ -842,7 +778,7 @@ def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=No
     for i, s in enumerate(slices):
         mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj()).real
         #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
-        #assert np.allclose(mat, mat.T.conj())
+        assert np.allclose(mat, mat.T.conj())
         val, vec = np.linalg.eigh(mat)
         if  drop_non_causal:
             idx = val > etol
