@@ -326,7 +326,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
-        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        emb.log.info("Fragment %s: Electron target %s %s without shift"%(f.id, f.nelectron, nelec))
         if aux_shift_frag:
             aux = AuxiliaryShift(se_static, se, f.nelectron, occupancy=2, log=emb.log)
             aux.kernel()
@@ -334,7 +334,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             gf = aux.get_greens_function()
             dm = gf.occupied().moment(0) * 2
             nelec = np.trace(dm)
-            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
+            emb.log.info("Fragment %s: Electron target %s %s with shift"%(f.id, f.nelectron, nelec))
 
 
         #se = se.physical(weight=1e-6)
@@ -397,8 +397,8 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
-    #self_energy = remove_se_degeneracy(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
-
+    #self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+    self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
     return self_energy, static_self_energy, static_potential
 
 def project_1_to_fragment_eig(cfc, se, img_space=True, tol=1e-6):
@@ -763,8 +763,9 @@ def eig_outer_slow(vs, ws, tol=1.e-10):
     idx = val.argsort()
     val, vec = val[idx], vec[:,idx]
     return val, vec
-    
-def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
+
+
+def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=None):
 
     if log is None:
         log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
@@ -778,6 +779,7 @@ def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=No
     for i, s in enumerate(slices):
         mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj()).real
         #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
+        mat = 0.5 * (mat + mat.T)
         assert np.allclose(mat, mat.T.conj())
         val, vec = np.linalg.eigh(mat)
         if  drop_non_causal:
@@ -799,6 +801,39 @@ def remove_se_degeneracy(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, log=No
             log.warning("Non-causal poles found in self-energy")
     couplings = np.hstack(couplings).real
     return Lehmann(np.array(energies), np.array(couplings))
+
+
+def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, log=None):
+
+    if log is None:
+        log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    e = se.energies
+    couplings_l, couplings_r = se._unpack_couplings()
+    e_new, slices = get_unique(e, atol=dtol)#
+    if log is not None:
+        log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    energies, new_couplings_l, new_couplings_r = [], [], []
+    for i, s in enumerate(slices):
+        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj()).real
+        U, sing, Vh = np.linalg.svd(mat)
+        idx = sing > etol
+        u = U[:,idx] @ np.diag(np.sqrt(sing[idx]))
+        v = Vh.T.conj()[:,idx] @ np.diag(np.sqrt(sing[idx]))
+        new_couplings_l.append(u)
+        new_couplings_r.append(v)
+        energies += [e_new[i] for _ in range(idx.sum())]
+
+        if log is not None:
+            log.debug("    | E = %e << %s"%(e_new[i],e[s]))
+            log.debug("       sing vals: %s"%sing)
+            log.debug("            kept:  %s"%(sing[idx]))
+
+    couplings = np.hstack(new_couplings_l), np.hstack(new_couplings_r)
+    print(np.array(energies).shape)
+    print(np.hstack(new_couplings_l).shape)
+    print(np.hstack(new_couplings_r).shape)
+    return Lehmann(np.array(energies), couplings)
+
 
 def get_unique(array, atol=1e-15):
     
