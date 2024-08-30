@@ -230,7 +230,7 @@ class UEmbedding(Embedding):
         for group in frags:
             parent, children = group[0], group[1:]
             for child in children:
-                charge_err, spin_err = parent.get_tsymmetry_error(child, dm1=dm1)
+                charge_err, spin_err = parent.get_symmetry_error(child, dm1=dm1)
                 if (charge_err > charge_tol) or (spin_err > spin_tol):
                     raise RuntimeError(
                         "%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
