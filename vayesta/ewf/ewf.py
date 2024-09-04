@@ -224,9 +224,9 @@ class EWF(Embedding):
             nelec = 2 * t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
             if t1diag >= warntol:
-                self.log.warning("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(fx) + ":", t1diag)
             else:
-                self.log.info("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
+                self.log.info("T1 diagnostic for %-20s %.5f", str(fx) + ":", t1diag)
         # Global
         t1 = self.get_global_t1(mpi_target=0)
         if mpi.is_master:
@@ -319,7 +319,7 @@ class EWF(Embedding):
             # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
         if functional == 'dmet':
-            # Uses projected denisty matrices
+            # Uses projected density matrices
             return self.get_dmet_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 

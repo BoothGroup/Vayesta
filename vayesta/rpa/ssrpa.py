@@ -335,7 +335,7 @@ class ssRPA:
         elif self.mf._eri is not None:
             eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
         else:
-            eris = self.mol.ao2mo(mo_coeff, compact=compact)
+            eris = self.mf.mol.ao2mo(mo_coeff, compact=compact)
         if not compact:
             if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
                 shape = 4 * [mo_coeff.shape[-1]]
