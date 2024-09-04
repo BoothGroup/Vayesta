@@ -198,6 +198,14 @@ class Test_CCSD(Test_MP2):
         dm2 = emb.make_rdm2_demo(ao_basis=True)
         self.assertAllclose(dm2, dm2_exact)
 
+    # TODO: Check CCSD(T) for solids
+    # def test_ccsd_t(self):
+    #     exact_ccsd_t = self.cc.ccsd_t()
+    #     emb = self.emb(-1)
+    #     emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=False)
+    #     self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
+    #     emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=True)
+    #     self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
 
 # --- Unrestricted
 
