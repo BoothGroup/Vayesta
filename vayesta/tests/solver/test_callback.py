@@ -73,6 +73,9 @@ class TestSolvers(TestCase):
             emb_callback = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='wf', bath_options=bath_opts, solver_options=dict(callback=callback))
             emb_callback.kernel()
 
+            functional = 'dmet' if dm else 'wf'
+            self.assertAlmostEqual(emb.get_e_corr(functional=functional), emb_callback.get_e_corr(functional=functional), delta=1e-6)
+
             for a, b in [(False, False), (True, False), (True, True)]:
                 self.assertAlmostEqual(emb.get_dmet_energy(part_cumulant=a, approx_cumulant=b), emb_callback.get_dmet_energy(part_cumulant=a, approx_cumulant=b), delta=1e-6)
 
