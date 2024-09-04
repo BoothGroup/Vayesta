@@ -262,7 +262,11 @@ class Fragment(BaseFragment):
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()
-        if isinstance(wf, (RRDM_WaveFunction, URDM_WaveFunction)):
+
+        if isinstance(wf, URDM_WaveFunction):
+            proj = self.get_overlap("cluster|frag")
+            proj = proj[0] @ proj[0].T, proj[1] @ proj[1].T
+        elif isinstance(wf, RRDM_WaveFunction):
             proj = self.get_overlap("cluster|frag")
             proj = proj @ proj.T
         else:
