@@ -1,7 +1,16 @@
 import numpy as np
 import pyscf.lib
 
-def calc_fragment_ccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='w', global_t1=False, global_fock=False):
+
+def calc_fragment_ccsd_t_energy(fragment, **kwargs):
+    if fragment.base.is_rhf:
+        return calc_fragment_rccsd_t_energy(fragment, **kwargs)
+    elif fragment.base.is_uhf:
+        return calc_fragment_uccsd_t_energy(fragment, **kwargs)
+    else:
+        raise NotImplementedError()
+
+def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='w', global_t1=False):
     """
     Calculates a fragment CCSD(T) energy contribution.
 
@@ -173,3 +182,167 @@ def r3(w):
     return (4 * w + w.transpose(1,2,0) + w.transpose(2,0,1)
             - 2 * w.transpose(2,1,0) - 2 * w.transpose(0,2,1)
             - 2 * w.transpose(1,0,2))
+
+
+def calc_fragment_uccsd_t_energy(fragment, t1=None, t2=None, eris=None, project='w', global_t1=False):
+
+    einsum = pyscf.lib.einsum
+    lib = pyscf.lib
+
+    def p6(t):
+        return (t + t.transpose(1,2,0,4,5,3) +
+                t.transpose(2,0,1,5,3,4) + t.transpose(0,2,1,3,5,4) +
+                t.transpose(2,1,0,5,4,3) + t.transpose(1,0,2,4,3,5))
+    def r6(w):
+        return (w + w.transpose(2,0,1,3,4,5) + w.transpose(1,2,0,3,4,5)
+                - w.transpose(2,1,0,3,4,5) - w.transpose(0,2,1,3,4,5)
+                - w.transpose(1,0,2,3,4,5))
+    
+    def sym_proj(expr, spin):
+        assert len(expr.shape) == 6
+        cfa, cfb = fragment.get_overlap('cluster[occ]|frag[occ]')
+        cfca, cfcb = cfa @ cfa.T, cfb @ cfb.T
+        cfc = dict(a=cfca, b=cfcb)
+        sym_expr =  einsum('iI,Ijkabc->ijkabc', cfc[spin[0]], expr)
+        sym_expr += einsum('jJ,iJkabc->ijkabc', cfc[spin[1]], expr)
+        sym_expr += einsum('kK,ijKabc->ijkabc', cfc[spin[2]], expr)
+
+        return  1/3 * sym_expr
+
+
+    if global_t1 and (t1 is None):
+        t1a, t1b = fragment.base.get_global_t1()
+        c_occ, c_vir = fragment.get_overlap('mo[occ]|cluster[occ]'), fragment.get_overlap('mo[vir]|cluster[vir]')
+        t1a = c_occ[0].T @ t1a @ c_vir[0]
+        t1b = c_occ[1].T @ t1b @ c_vir[1]
+    elif (not global_t1) and (t1 is None):
+        t1a, t1b = fragment.results.wf.as_ccsd().t1
+    elif t1 is not None:
+        t1a, t1b = t1
+
+    if t2 is None:
+        t2aa, t2ab, t2bb = fragment.results.wf.as_ccsd().t2
+    else:
+        t2aa, t2ab, t2bb = t2
+
+    nocca, noccb = t2ab.shape[:2]
+    mo_ea, mo_eb = fragment.hamil.get_clus_mf_info(with_vext=True)[2]
+    eia = mo_ea[:nocca,None] - mo_ea[nocca:]
+    eIA = mo_eb[:noccb,None] - mo_eb[noccb:]
+    focka, fockb = fragment.hamil.get_fock(with_vext=True)
+    fvo = focka[nocca:,:nocca]
+    fVO = fockb[noccb:,:noccb]
+
+    if eris is not None:
+        eris_ovvv = numpy.asarray(eris.get_ovvv()).conj()
+        eris_ovoo = numpy.asarray(eris.ovoo).conj()
+        eris_ovov = numpy.asarray(eris.ovov).conj()
+        eris_OVVV = numpy.asarray(eris.get_OVVV()).conj()
+        eris_OVOO = numpy.asarray(eris.OVOO).conj()
+        eris_OVOV = numpy.asarray(eris.OVOV).conj()
+        eris_ovVV = numpy.asarray(eris.get_ovVV()).conj()
+        eris_OVvv = numpy.asarray(eris.get_OVvv()).conj()
+        eris_ovOO = numpy.asarray(eris.ovOO).conj()
+        eris_OVoo = numpy.asarray(eris.OVoo).conj()
+        eris_ovOV = numpy.asarray(eris.ovOV).conj()
+    else:
+        eris_ovvv = fragment.hamil.get_eris_bare(block='ovvv').conj()
+        eris_ovoo = fragment.hamil.get_eris_bare(block='ovoo').conj()
+        eris_ovov = fragment.hamil.get_eris_bare(block='ovov').conj()
+        eris_OVVV = fragment.hamil.get_eris_bare(block='OVVV').conj()
+        eris_OVOO = fragment.hamil.get_eris_bare(block='OVOO').conj()
+        eris_OVOV = fragment.hamil.get_eris_bare(block='OVOV').conj()
+        eris_ovVV = fragment.hamil.get_eris_bare(block='ovVV').conj()
+        eris_OVvv = fragment.hamil.get_eris_bare(block='OVvv').conj()
+        eris_ovOO = fragment.hamil.get_eris_bare(block='ovOO').conj()
+        eris_OVoo = fragment.hamil.get_eris_bare(block='OVoo').conj()
+        eris_ovOV = fragment.hamil.get_eris_bare(block='ovOV').conj()
+        
+    # aaa
+    d3 = lib.direct_sum('ia+jb+kc->ijkabc', eia, eia, eia)
+    w = einsum('ijae,kceb->ijkabc', t2aa, eris_ovvv)
+    w-= einsum('mkbc,iajm->ijkabc', t2aa, eris_ovoo)
+    r = r6(w)
+    v = einsum('jbkc,ia->ijkabc', eris_ovov, t1a)
+    v+= einsum('jkbc,ai->ijkabc', t2aa, fvo) * .5
+    wvd = p6(w + v) / d3
+
+    if project == 'w':
+        wvd = sym_proj(wvd, 'aaa')
+    elif project == 'r':
+        r = sym_proj(r, 'aaa')
+    else:
+        raise NotImplementedError()
+    et = einsum('ijkabc,ijkabc', wvd.conj(), r)
+
+    # bbb
+    d3 = lib.direct_sum('ia+jb+kc->ijkabc', eIA, eIA, eIA)
+    w = einsum('ijae,kceb->ijkabc', t2bb, eris_OVVV)
+    w-= einsum('imab,kcjm->ijkabc', t2bb, eris_OVOO)
+    r = r6(w)
+    v = einsum('jbkc,ia->ijkabc', eris_OVOV, t1b)
+    v+= einsum('jkbc,ai->ijkabc', t2bb, fVO) * .5
+    wvd = p6(w + v) / d3
+
+    if project == 'w':
+        wvd = sym_proj(wvd, 'bbb')
+    elif project == 'r':
+        r = sym_proj(r, 'bbb')
+    else:
+        raise NotImplementedError()
+    et += einsum('ijkabc,ijkabc', wvd.conj(), r)
+
+    # baa
+    w  = einsum('jIeA,kceb->IjkAbc', t2ab, eris_ovvv) * 2
+    w += einsum('jIbE,kcEA->IjkAbc', t2ab, eris_ovVV) * 2
+    w += einsum('jkbe,IAec->IjkAbc', t2aa, eris_OVvv)
+    w -= einsum('mIbA,kcjm->IjkAbc', t2ab, eris_ovoo) * 2
+    w -= einsum('jMbA,kcIM->IjkAbc', t2ab, eris_ovOO) * 2
+    w -= einsum('jmbc,IAkm->IjkAbc', t2aa, eris_OVoo)
+    r = w - w.transpose(0,2,1,3,4,5)
+    r = r + r.transpose(0,2,1,3,5,4)
+    v  = einsum('jbkc,IA->IjkAbc', eris_ovov, t1b)
+    v += einsum('kcIA,jb->IjkAbc', eris_ovOV, t1a)
+    v += einsum('kcIA,jb->IjkAbc', eris_ovOV, t1a)
+    v += einsum('jkbc,AI->IjkAbc', t2aa, fVO) * .5
+    v += einsum('kIcA,bj->IjkAbc', t2ab, fvo) * 2
+    w += v
+    d3 = lib.direct_sum('ia+jb+kc->ijkabc', eIA, eia, eia)
+    r /= d3
+
+    if project == 'w':
+        w = sym_proj(w, 'baa')
+    elif project == 'r':
+        r = sym_proj(r, 'baa')
+    else:
+        raise NotImplementedError()
+    et += einsum('ijkabc,ijkabc', w.conj(), r)
+
+    # bba
+    w  = einsum('ijae,kceb->ijkabc', t2ab, eris_OVVV) * 2
+    w += einsum('ijeb,kcea->ijkabc', t2ab, eris_OVvv) * 2
+    w += einsum('jkbe,iaec->ijkabc', t2bb, eris_ovVV)
+    w -= einsum('imab,kcjm->ijkabc', t2ab, eris_OVOO) * 2
+    w -= einsum('mjab,kcim->ijkabc', t2ab, eris_OVoo) * 2
+    w -= einsum('jmbc,iakm->ijkabc', t2bb, eris_ovOO)
+    r = w - w.transpose(0,2,1,3,4,5)
+    r = r + r.transpose(0,2,1,3,5,4)
+    v  = einsum('jbkc,ia->ijkabc', eris_OVOV, t1a)
+    v += einsum('iakc,jb->ijkabc', eris_ovOV, t1b)
+    v += einsum('iakc,jb->ijkabc', eris_ovOV, t1b)
+    v += einsum('JKBC,ai->iJKaBC', t2bb, fvo) * .5
+    v += einsum('iKaC,BJ->iJKaBC', t2ab, fVO) * 2
+    w += v
+    d3 = lib.direct_sum('ia+jb+kc->ijkabc', eia, eIA, eIA)
+    r /= d3
+
+    if project == 'w':
+        w = sym_proj(w, 'abb')
+    elif project == 'r':
+        r = sym_proj(r, 'abb')
+    else:
+        raise NotImplementedError()
+    et += einsum('ijkabc,ijkabc', w.conj(), r)
+
+    et *= .25
+    return et
