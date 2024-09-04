@@ -35,13 +35,13 @@ mf.kernel()
 
 # Vayesta options
 use_sym = True
-nfrag = 1 
+nfrag = 1
 bath_opts = dict(bathtype="dmet")   
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
 # Set up fragments
-with emb.iao_fragmentation() as f:
+with emb.iaopao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
@@ -51,8 +51,24 @@ with emb.iao_fragmentation() as f:
         f.add_all_atomic_fragments()
 emb.kernel()
 
+emb_cb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
+# Set up fragments
+with emb_cb.iaopao_fragmentation() as f:
+    if use_sym:
+        # Add rotational symmetry
+        with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
+            f.add_atomic_fragment(range(nfrag))
+    else:
+        # Add all atoms as separate fragments 
+        f.add_all_atomic_fragments()
+emb_cb.kernel()
+
 print("Hartree-Fock energy          : %s"%mf.e_tot)
-print("DMET energy                  : %s"%emb.get_dmet_energy(part_cumulant=False, approx_cumulant=False))
-print("DMET energy   (part-cumulant): %s"%emb.get_dmet_energy(part_cumulant=True, approx_cumulant=False))
-print("DMET energy (approx-cumulant): %s"%emb.get_dmet_energy(part_cumulant=True, approx_cumulant=True))
+print("                                    Vayesta                Callback")
+e, ecb = emb.get_dmet_energy(part_cumulant=False, approx_cumulant=False), emb_cb.get_dmet_energy(part_cumulant=False, approx_cumulant=False)
+print("DMET energy                  : %s    %s"%(e, ecb))
+e, ecb = emb.get_dmet_energy(part_cumulant=True, approx_cumulant=False), emb_cb.get_dmet_energy(part_cumulant=True, approx_cumulant=False)
+print("DMET energy   (part-cumulant): %s    %s"%(e, ecb))
+e, ecb = emb.get_dmet_energy(part_cumulant=True, approx_cumulant=True), emb_cb.get_dmet_energy(part_cumulant=True, approx_cumulant=True)
+print("DMET energy (approx-cumulant): %s    %s"%(e, ecb))
 
