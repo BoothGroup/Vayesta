@@ -68,6 +68,7 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
     ('DUMP', False, False): DumpSolver,
     ('DUMP', True, False): DumpSolver,
     ('CALLBACK', False, False): CallbackSolver,
+    ('CALLBACK', True, False): CallbackSolver,
 }
 
 
