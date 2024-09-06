@@ -401,10 +401,10 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     self_energy = Lehmann(energies, couplings)
     emb.log.info("Removing SE degeneracy. Naux:    %s"%len(energies))
 
-    # if hermitian:
-    #     self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
-    # else:
-    #     self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
+    if hermitian:
+        self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+    else:
+        self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
 
     emb.log.info("Removed SE degeneracy, new Naux: %s"%len(self_energy.energies)) 
     return self_energy, static_self_energy, static_potential
@@ -832,7 +832,14 @@ def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, im
     for i, s in enumerate(slices):
         mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s]).real
         #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
-        if not img_space:
+        if img_space:
+            # TODO FIX ME - need to track non causal poles correctly and ensure maximal cancellation
+            val, w = eig_outer_sum(couplings_l[:,s].T, couplings_r[:,s].T, tol=etol, fac=0.5)
+            idx = val > etol if  drop_non_causal else np.abs(val) > etol
+            if np.sum(val[idx] < -etol) > 0:
+                warn_non_causal = True
+            w = w[:,idx]
+        else:
             mat = 0.5 * (mat + mat.T.conj())
             assert np.allclose(mat, mat.T.conj())
             val, vec = np.linalg.eigh(mat)
@@ -840,13 +847,6 @@ def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, im
             if np.sum(val[idx] < -etol) > 0:
                 warn_non_causal = True
             w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex128))
-        else img_space:
-            # TODO FIX ME - need to track non causal poles correctly and ensure maximal cancellation
-            val, w = eig_outer_sum(couplings_l[:,s].T, couplings_r[:,s].T, tol=etol, fac=0.5)
-            idx = val > etol if  drop_non_causal else np.abs(val) > etol
-            if np.sum(val[idx] < -etol) > 0:
-                warn_non_causal = True
-            w = w[:,idx]
         couplings.append(w)
         energies += [e_new[i] for _ in range(idx.sum())]
 
