@@ -107,7 +107,7 @@ class REGF(REWF):
                 try:
                     from momentGW import GW
                     gw = GW(self.mf)
-                    if non_localmpo_se.upper() == 'GW-dRPA':
+                    if non_local_se.upper() == 'GW-dRPA':
                         gw.polarizability = 'drpa'
                     elif non_local_se.upper() == 'GW-dTDA':
                         gw.polarizability = 'dtda'
@@ -142,18 +142,21 @@ class REGF(REWF):
         return static_self_energy, self_energy
 
     def make_greens_function(self, static_self_energy, self_energy, aux_shift=None):
-        if aux_shift is None:
-            aux_shift = self.opts.aux_shift
+        #if aux_shift is None:
+        #    aux_shift = self.opts.aux_shift
         phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
-        gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
-        dm = gf.occupied().moment(0) * 2.0
-        nelec_gf = np.trace(dm)
-        self.log.info('Number of electrons in GF: %f'%nelec_gf)
-        Shift = AuxiliaryShift if aux_shift else AufbauPrinciple
-        shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
-        shift.kernel()
-        self_energy = shift.get_self_energy()
-        gf = shift.get_greens_function()
+        if aux_shift is None or 0:
+            gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
+            #dm = gf.occupied().moment(0) * 2.0
+            #nelec_gf = np.trace(dm)
+        else:
+            #self.log.info('Number of electrons in GF: %f'%nelec_gf)
+            self.log.info("Performing %s on self-energy"%str(type(AufbauPrinciple)))
+            Shift = AuxiliaryShift if aux_shift=='auf' else AufbauPrinciple
+            shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
+            shift.kernel()
+            self_energy = shift.get_self_energy()
+            gf = shift.get_greens_function()
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         self.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
