@@ -10,7 +10,6 @@ except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
-mode = True
 
 def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
     """
@@ -468,38 +467,24 @@ def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6
     couplings_frag, energies_frag = [], []
     for a in range(naux):
 
-        if mode:
-            if img_space:
-                raise NotImplementedError()
-            else:
-                m = sym_coup[a]
-                assert np.allclose(m, m.T.conj())
-                val, vec = np.linalg.eigh(m)
-                idx = np.abs(val) > tol
-                assert idx.sum() <= 2
-                w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex128))
+        if img_space:
+            vs = np.vstack([p_coup[:,a], coup[:,a]])
+            ws = np.vstack([coup[:,a], p_coup[:,a]])
+            val, w = eig_outer_sum(vs, ws, tol=tol, fac=0.5)
         else:
-            if img_space:
-                vs = np.vstack([p_coup[:,a], coup[:,a]])
-                ws = np.vstack([coup[:,a], p_coup[:,a]])
-                val, w = eig_outer_sum(vs, ws, tol=tol, fac=0.5)
-            else:
-                vs = np.vstack([p_coup[:,a], coup[:,a]])
-                ws = np.vstack([coup[:,a], p_coup[:,a]])
-                val, w = eig_outer_sum_slow(vs, ws, tol=tol, fac=0.5)
-            w = w[:, val > tol]
+            vs = np.vstack([p_coup[:,a], coup[:,a]])
+            ws = np.vstack([coup[:,a], p_coup[:,a]])
+            val, w = eig_outer_sum_slow(vs, ws, tol=tol, fac=0.5)
+        w = w[:, val > tol]
 
         if w.shape[0] != 0:
-            print(w.shape)
             couplings_frag.append(w)
             energies_frag += [se.energies[a] for e in range(w.shape[1])]
 
         mat = np.einsum('pa,qa->pq', w, w)
         norm = np.linalg.norm(mat - sym_coup[a])
 
-        print("Norm diff of SE numerator %s"%norm)
-
-    print("eig - mode: %s  img_space: %s"%(mode, img_space))
+        #print("Norm diff of SE numerator %s"%norm)
     return np.array(energies_frag)-se.chempot, np.hstack(couplings_frag)
 
 def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
@@ -536,45 +521,20 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
     
     for a in range(naux):
         m = 0.5 * (np.outer(p_coup_l[:,a], coup_r[:,a].conj()) + np.outer(coup_l[:,a], p_coup_r[:,a].conj()))
-        if mode:    
-            if img_space:
-                rank = 2
-                basis_l = np.vstack([p_coup_l[:,a], coup_l[:,a]]).T
-                dbasis_l = np.linalg.pinv(basis_l)
-                basis_r = np.vstack([coup_r[:,a], p_coup_r[:,a]]).T
-                dbasis_r = np.linalg.pinv(basis_r)
-                
-                mat = 0.5 * (basis_r.conj().T @ basis_r) # FIX ME
-                
-                U, s, Vh = np.linalg.svd(mat)
-                idx = s > tol
-                assert idx.sum() <= 2 # Rank at most 2
-                s = s[idx]
-                u = basis_l @ U[:,idx] @ np.diag(np.sqrt(s))
-                v = (np.diag(np.sqrt(s)) @ Vh[idx,:] @ dbasis_r).conj().T
-            else:     
-                mat = 0.5 * (np.outer(p_coup_l[:,a], coup_r[:,a].conj()) + np.outer(coup_l[:,a], p_coup_r[:,a].conj()))
-                U, s, Vt = np.linalg.svd(mat)
-                idx = np.abs(s) > tol
-                assert idx.sum() <= 2
-                u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
-                v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
-
+        
+        if img_space:
+            vs = np.vstack([p_coup_l[:,a], coup_l[:,a]])
+            ws = np.vstack([coup_r[:,a], p_coup_r[:,a]])
+            u, s, v = svd_outer_sum(vs, ws, tol=tol, fac=0.5)
         else:
-            if img_space:
-                vs = np.vstack([p_coup_l[:,a], coup_l[:,a]])
-                ws = np.vstack([coup_r[:,a], p_coup_r[:,a]])
-                u, s, v = svd_outer_sum(vs, ws, tol=tol, fac=0.5)
-            else:
-                vs = np.vstack([p_coup_l[:,a], coup_l[:,a]])
-                ws = np.vstack([coup_r[:,a], p_coup_r[:,a]])
-                u, s, v = svd_outer_sum_slow(vs, ws, tol=tol, fac=0.5)
+            vs = np.vstack([p_coup_l[:,a], coup_l[:,a]])
+            ws = np.vstack([coup_r[:,a], p_coup_r[:,a]])
+            u, s, v = svd_outer_sum_slow(vs, ws, tol=tol, fac=0.5)
 
         if u.shape[0] != 0:   
             couplings_l_frag.append(u)
             couplings_r_frag.append(v)
         energies_frag += [se.energies[a] for e in range(u.shape[1])]
-    print("svd - mode: %s  img_space: %s"%(mode, img_space))
     return np.array(energies_frag)-se.chempot, np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
 
 
@@ -874,7 +834,6 @@ def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, im
         #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
         if not img_space:
             mat = 0.5 * (mat + mat.T.conj())
-            print(np.linalg.norm(mat-mat.T.conj()))
             assert np.allclose(mat, mat.T.conj())
             val, vec = np.linalg.eigh(mat)
             idx = val > etol if  drop_non_causal else np.abs(val) > etol
@@ -912,7 +871,6 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
     if log is not None:
         log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
     energies, new_couplings_l, new_couplings_r = [], [], []
-    print('inital:', couplings_l.shape, couplings_r.shape)
     for i, s in enumerate(slices):
         mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj())
         if img_space:
@@ -926,7 +884,6 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
             v = Vh.T.conj()[:,idx] @ np.diag(np.sqrt(sing[idx]))
         new_couplings_l.append(u)
         new_couplings_r.append(v)
-        print(u.shape, v.shape)
         energies += [e_new[i] for _ in range(u.shape[1])]
 
         if log is not None:
@@ -935,7 +892,6 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
             log.debug("            kept:  %s"%(sing[idx]))
     
     couplings = np.hstack(new_couplings_l), np.hstack(new_couplings_r)
-    print(couplings[0].shape, couplings[1].shape, len(energies))
     return Lehmann(np.array(energies), couplings)
 
 
