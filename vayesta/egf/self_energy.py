@@ -876,6 +876,7 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
         if img_space:
             # Fast image space algorithm
             u, sing, v = svd_outer_sum(couplings_l[:,s].T, couplings_r[:,s].T, tol=etol)
+            idx = sing > etol
         else:
             # Slow SVD in full space
             U, sing, Vh = np.linalg.svd(mat)
