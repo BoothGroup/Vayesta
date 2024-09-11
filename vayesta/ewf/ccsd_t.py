@@ -38,9 +38,9 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         t2T = fragment.results.wf.as_ccsd().t2.transpose(2,3,0,1)
         
 
-    fvo = fragment.hamil.get_fock(with_vext=True)[nocc:,:nocc]
+    fvo = fragment.hamil.get_fock(with_exxdiv=True)[nocc:,:nocc]
 
-    mo_e = fragment.hamil.get_clus_mf_info(with_vext=True)[2]
+    mo_e = fragment.hamil.get_clus_mf_info(with_exxdiv=True)[2]
     e_occ, e_vir = mo_e[:nocc], mo_e[nocc:]
     eijk = pyscf.lib.direct_sum('i,j,k->ijk', e_occ, e_occ, e_occ)
 
@@ -130,8 +130,6 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
                     zcba = sym_proj(zcba)
                 else:
                     raise NotImplementedError()
-                
-
 
                 et+= einsum('ijk,ijk', wabc, zabc.conj())
                 et+= einsum('ikj,ijk', wacb, zabc.conj())
@@ -226,10 +224,10 @@ def calc_fragment_uccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         t2aa, t2ab, t2bb = t2
 
     nocca, noccb = t2ab.shape[:2]
-    mo_ea, mo_eb = fragment.hamil.get_clus_mf_info(with_vext=True)[2]
+    mo_ea, mo_eb = fragment.hamil.get_clus_mf_info(with_exxdiv=True)[2]
     eia = mo_ea[:nocca,None] - mo_ea[nocca:]
     eIA = mo_eb[:noccb,None] - mo_eb[noccb:]
-    focka, fockb = fragment.hamil.get_fock(with_vext=True)
+    focka, fockb = fragment.hamil.get_fock(with_exxdiv=True)
     fvo = focka[nocca:,:nocca]
     fVO = fockb[noccb:,:noccb]
 
