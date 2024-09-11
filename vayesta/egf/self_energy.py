@@ -339,7 +339,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             emb.log.info("Fragment %s: Electron target %s %s with shift"%(f.id, f.nelectron, nelec))
             
         emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
-        se = se.physical(weight=1e-4)
+        #se = se.physical(weight=1e-4)
         emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
