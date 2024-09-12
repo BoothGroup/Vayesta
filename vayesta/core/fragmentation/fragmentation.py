@@ -104,7 +104,8 @@ class Fragmentation:
 
     # --- Adding fragments:
     def autosym(self):
-        atom = self.emb.mf.mol.atom
+        atom = self.emb.mf.mol._atom
+        print(self.emb.mf.mol._atom)
         atom, coords = list(zip(*atom))
         mol = Molecule(atom, coords)
         p = PointGroupAnalyzer(mol)
