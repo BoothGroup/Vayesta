@@ -86,9 +86,13 @@ class REGF(REWF):
         self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, aux_shift=self.opts.aux_shift)
 
 
-        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
-        dynamic_gap = gap(self.gf)
-        self.log.info("Dynamic Gap = %f"%dynamic_gap)
+
+        ea = self.gf.physical().virtual().energies[0] 
+        ip = self.gf.physical().occupied().energies[-1]
+        gap = ea - ip
+        self.log.info("IP  = %1.10e"%ip)
+        self.log.info("EA  = %1.10e"%ea)
+        self.log.info("Gap = %1.10e"%gap)
 
     def make_self_energy_lehmann(self, proj, nmom_gf=None):
         if proj == 1:
