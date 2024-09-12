@@ -15,7 +15,7 @@ import vayesta
 from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_recursive, hstack, log_method, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction, RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction
 from vayesta.core.bath import DMET_Bath
 from vayesta.mpi import mpi
 
@@ -74,7 +74,8 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         moms: tuple = None
-
+        callback_results: dict = None
+        
         @property
         def dm1(self):
             """Cluster 1DM"""
@@ -84,6 +85,7 @@ class Fragment(BaseFragment):
         def dm2(self):
             """Cluster 2DM"""
             return self.wf.make_rdm2()
+
 
     def __init__(self, *args, **kwargs):
         """
@@ -234,6 +236,7 @@ class Fragment(BaseFragment):
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
                 cluster_solver.kernel()
+
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == "random":
@@ -259,13 +262,22 @@ class Fragment(BaseFragment):
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()
-        proj = self.get_overlap("proj|cluster-occ")
+
+        if isinstance(wf, URDM_WaveFunction):
+            proj = self.get_overlap("cluster|frag")
+            proj = proj[0] @ proj[0].T, proj[1] @ proj[1].T
+        elif isinstance(wf, RRDM_WaveFunction):
+            proj = self.get_overlap("cluster|frag")
+            proj = proj @ proj.T
+        else:
+            proj = self.get_overlap("proj|cluster-occ")
         pwf = pwf.project(proj, inplace=False)
 
         # Moments
 
         moms = cluster_solver.hole_moments, cluster_solver.particle_moments
 
+        callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None
         # --- Add to results data class
         self._results = results = self.Results(
             fid=self.id,
@@ -275,13 +287,15 @@ class Fragment(BaseFragment):
             pwf=pwf,
             moms=moms,
             e_corr_rpa=e_corr_rpa,
+            callback_results=callback_results,
         )
 
         self.hamil = cluster_solver.hamil
 
         # --- Correlation energy contributions
-        if self.opts.calc_e_wf_corr:
+        if self.opts.calc_e_wf_corr and not isinstance(wf, (RRDM_WaveFunction, URDM_WaveFunction)):
             ci = wf.as_cisd(c0=1.0)
+
             ci = ci.project(proj)
             es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, hamil=self.hamil)
             self.log.debug(
@@ -306,7 +320,8 @@ class Fragment(BaseFragment):
         has_actspace = (
             (solver == "TCCSD")
             or ("CCSDt'" in solver)
-            or (solver.upper() == "EBCC" and self.opts.solver_options["ansatz"] == "CCSDt'")
+            or ("CCSDt" in solver)
+            or (solver.upper() == "EBCC" and self.opts.solver_options["ansatz"] in ["CCSDt", "CCSDt'"])
         )
         if has_actspace:
             # Set CAS orbitals
@@ -322,6 +337,8 @@ class Fragment(BaseFragment):
                 solver_opts["tcc_fci_opts"] = self.opts.tcc_fci_opts
         elif solver.upper() == "DUMP":
             solver_opts["filename"] = self.opts.solver_options["dumpfile"]
+        if solver.upper() == 'CALLBACK':
+            solver_opts["callback"] = self.opts.solver_options["callback"]
         solver_opts["external_corrections"] = self.flags.external_corrections
         solver_opts["test_extcorr"] = self.flags.test_extcorr
         return solver_opts

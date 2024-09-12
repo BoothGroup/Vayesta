@@ -88,7 +88,7 @@ class CAS_Fragmentation(Fragmentation):
                 # Shouldn't reach this as would require CAS to have more electrons than the full system.
                 raise ValueError("CAS would contain more electrons than full system.")
 
-            if ogap < degen_tol:
+            if abs(ogap) < degen_tol:
                 raise ValueError("Requested %sCAS splits degenerate occupied orbitals." % name)
 
             try:
@@ -99,7 +99,7 @@ class CAS_Fragmentation(Fragmentation):
                 vgap = np.inf
             else:
                 self.log.info("%sCAS virtual  energy gap: %s", name, energy_string(vgap))
-            if vgap < degen_tol:
+            if abs(vgap) < degen_tol:
                 raise ValueError("Requested CAS splits degenerate virtual orbitals.")
 
         if self.emb.is_rhf:

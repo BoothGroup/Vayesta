@@ -95,8 +95,10 @@ def to_single_ham(fullham, fullovlp, returnsizes=False):
 def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     """Calculate the hamiltonian element between multiple FCI wavefunctions in different fragments.
     This requires the CI coefficients and the basis set in which they are defined.
+    These will be taken from their respective fragment attributes, unless optionally passed in.
 
-    If `inc_bare` is True, then the mean-field determinant of emb will be included in the calculation.
+    If `inc_mf` is True, then another wave function is added to the list of cluster wave functions, 
+    which just consists of the mean-field reference.
     """
 
     if fs is None:
@@ -114,6 +116,7 @@ def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     ci = [x.ci for x in wfs]
 
     if inc_mf:
+        # Create another wavefunction in the list, which is just the mean-field state of a single cluster.
         mfwf = np.zeros_like(ci[-1])
         mfwf[0, 0] = 1.0
         ci += [mfwf]

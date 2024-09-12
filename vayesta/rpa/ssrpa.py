@@ -95,18 +95,18 @@ class ssRPA:
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
             XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
 
-        nov = self.ova
+        nova = self.ova
         if self.ov_rot is not None:
-            nov = self.ov_rot[0].shape[0]
+            nova = self.ov_rot[0].shape[0]
 
-        self.XpY_ss = (XpY[:nov], XpY[nov:])
-        self.XmY_ss = (XmY[:nov], XmY[nov:])
+        self.XpY_ss = (XpY[:nova], XpY[nova:])
+        self.XmY_ss = (XmY[:nova], XmY[nova:])
 
         self.freqs_sf = None
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
 
         if xc_kernel is None:
-            self.e_corr_ss = (sum(self.freqs_ss) - sum(eps[0] + eps[1]) - v.trace()) / 2
+            self.e_corr_ss = (sum(self.freqs_ss) - sum(eps[0]) - sum(eps[1]) - v.trace()) / 2
         else:
             self.e_corr_ss = self.calc_energy_correction(xc_kernel=xc_kernel, version=3)
 
@@ -335,7 +335,7 @@ class ssRPA:
         elif self.mf._eri is not None:
             eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
         else:
-            eris = self.mol.ao2mo(mo_coeff, compact=compact)
+            eris = self.mf.mol.ao2mo(mo_coeff, compact=compact)
         if not compact:
             if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
                 shape = 4 * [mo_coeff.shape[-1]]

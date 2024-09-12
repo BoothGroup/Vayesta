@@ -52,7 +52,7 @@ class ssURPA(ssRPA):
         epsa = (epsa.T - self.mf.mo_energy[0][:nocc_a]).T
         epsa = epsa.reshape((self.ova,))
 
-        epsb = np.zeros((nocc_a, nvir_a))
+        epsb = np.zeros((nocc_b, nvir_b))
         epsb = epsb + self.mf.mo_energy[1][nocc_b:]
         epsb = (epsb.T - self.mf.mo_energy[1][:nocc_b]).T
         epsb = epsb.reshape((self.ovb,))
@@ -63,18 +63,26 @@ class ssURPA(ssRPA):
         epsa, epsb = self._gen_eps()
 
         if self.ov_rot is not None:
-            epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])
-            try:
-                epsa, ca = scipy.linalg.eigh(epsa)
-            except Exception as e:
-                print(epsa)
-                raise e
-            epsb = einsum("pn,n,qn->pq", self.ov_rot[1], epsb, self.ov_rot[1])
-            try:
-                epsb, cb = scipy.linalg.eigh(epsb)
-            except Exception as e:
-                print(epsb)
-                raise e
+            if self.ov_rot[0].size > 0:
+                epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])
+                try:
+                    epsa, ca = scipy.linalg.eigh(epsa)
+                except Exception as e:
+                    print(epsa)
+                    raise e
+            else:
+                epsa = np.empty((0))
+                ca = np.empty((0,0))
+            if self.ov_rot[1].size > 0:
+                epsb = einsum("pn,n,qn->pq", self.ov_rot[1], epsb, self.ov_rot[1])
+                try:
+                    epsb, cb = scipy.linalg.eigh(epsb)
+                except Exception as e:
+                    print(epsb)
+                    raise e
+            else:
+                epsb = np.empty((0))
+                cb = np.empty((0,0))
             self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
 
         AmB = np.concatenate([epsa, epsb])
@@ -82,6 +90,9 @@ class ssURPA(ssRPA):
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
             fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
+            #print("Alpha rot: ", self.ov_rot[0].shape)
+            #print("Beta rot: ", self.ov_rot[1].shape)
+            #print("Size of full rot: ",fullrot.shape)
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.

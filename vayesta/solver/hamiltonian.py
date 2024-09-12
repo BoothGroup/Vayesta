@@ -1,3 +1,4 @@
+import os
 import dataclasses
 from typing import Optional
 
@@ -309,7 +310,11 @@ class RClusterHamiltonian:
         # Copy over all output controls from original mol object.
         clusmol.verbose = self.orig_mf.mol.verbose
         if self.orig_mf.mol.output is not None:
-            clusmol.output = f"f{self._fragment.id}_{self.orig_mf.mol.output}"
+            fid = self._fragment.id
+            output = self.orig_mf.mol.output
+            dirname = os.path.dirname(output)
+            basename = os.path.basename(output)
+            clusmol.output = os.path.join(dirname, f"f{fid}_{basename}")
             self.log.debugv("Setting solver output file to %s", clusmol.output)
         # Set information as required for our cluster.
         clusmol.nelec = self.nelec
@@ -360,8 +365,9 @@ class RClusterHamiltonian:
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: pad_to_match(
+            clusmf.get_fock = lambda *args, **kwargs: np.asarray(pad_to_match(
                 self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy
+                )
             )
             clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
                 clusmf.get_hcore()
@@ -639,7 +645,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 + einsum("iipq->pq", gab[oa, oa])  # Coulomb
                 - einsum("ipqi->pq", gbb[ob, :, :, ob])
             )  # Exchange
-            fock = ((fock[0] + dfa), (fock[1] + dfb))
+            fock = np.asarray(((fock[0] + dfa), (fock[1] + dfb)))
 
         return fock
 

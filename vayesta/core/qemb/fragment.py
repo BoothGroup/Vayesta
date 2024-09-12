@@ -1055,7 +1055,7 @@ class Fragment:
         """
         assert mpi.rank == self.mpi_rank
         if dm1 is None:
-            dm1 = self.results.dm1
+            dm1 = self.results.dm1.copy()
         if dm1 is None:
             raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
@@ -1069,7 +1069,6 @@ class Fragment:
 
         if dm2 is None:
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
-
         # Get effective core potential
         if h1e_eff is None:
             if part_cumulant:
@@ -1161,7 +1160,7 @@ class Fragment:
             is_eb = "crpa_full" in self.opts.screening
         else:
             is_eb = False
-        check_solver_config(is_uhf, is_eb, solver, self.log)
+        check_solver_config(solver, is_uhf, is_eb, self.log)
 
     def get_solver(self, solver=None):
         if solver is None:

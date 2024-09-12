@@ -2,13 +2,9 @@
 
 import numpy as np
 from vayesta.core.util import dot, einsum, with_doc
+from vayesta.mpi import mpi
 
-
-def _get_fragments(emb):
-    return emb.get_fragments(contributes=True)
-
-
-def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
+def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_target=None):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -23,23 +19,30 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
         Is only used if `partition = 'dm'`. Default: False.
     symmetrize: bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
+    mpi_target: int or None, optional
+        If set to an integer, the result will only be available at the specified MPI rank.
+        If set to None, an MPI allreduce will be performed and the result will be available
+        at all MPI ranks. Default: None.    
 
     Returns
     -------
     dm1: (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+
     """
     ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
     dm1 = np.zeros((emb.nmo, emb.nmo))
-    if with_mf is True:
-        dm1[np.diag_indices(emb.nocc)] = 2
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1x = x.results.wf.make_rdm1(with_mf=False)
         rx = x.get_overlap("mo|cluster")
         px = x.get_overlap("cluster|frag|cluster")
         dm1 += einsum("xi,ij,px,qj->pq", px, dm1x, rx, rx)
+    if mpi:
+        dm1 = mpi.nreduce(dm1, target=mpi_target, logfunc=emb.log.timingv)
+    if with_mf is True:
+        dm1[np.diag_indices(emb.nocc)] += 2
     if symmetrize:
         dm1 = (dm1 + dm1.T) / 2
     if ao_basis:
@@ -47,7 +50,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     return dm1
 
 
-def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
+def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_target=None):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -72,16 +75,19 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     mo_coeff = emb.mo_coeff
     dm1a = np.zeros((emb.nmo[0], emb.nmo[0]))
     dm1b = np.zeros((emb.nmo[1], emb.nmo[1]))
-    if with_mf is True:
-        dm1a[np.diag_indices(emb.nocc[0])] = 1
-        dm1b[np.diag_indices(emb.nocc[1])] = 1
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1xa, dm1xb = x.results.wf.make_rdm1(with_mf=False)
         rxa, rxb = x.get_overlap("mo|cluster")
         pxa, pxb = x.get_overlap("cluster|frag|cluster")
         dm1a += einsum("xi,ij,px,qj->pq", pxa, dm1xa, rxa, rxa)
         dm1b += einsum("xi,ij,px,qj->pq", pxb, dm1xb, rxb, rxb)
+    if mpi:
+        dm1a = mpi.nreduce(dm1a, target=mpi_target, logfunc=emb.log.timingv)
+        dm1b = mpi.nreduce(dm1b, target=mpi_target, logfunc=emb.log.timingv)
+    if with_mf is True:
+        dm1a[np.diag_indices(emb.nocc[0])] += 1
+        dm1b[np.diag_indices(emb.nocc[1])] += 1
     if symmetrize:
         dm1a = (dm1a + dm1a.T) / 2
         dm1b = (dm1b + dm1b.T) / 2
@@ -96,8 +102,8 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
 
 
 def make_rdm2_demo_rhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True
-):
+    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
+    ):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -159,6 +165,10 @@ def make_rdm2_demo_rhf(
         Default: True.
     symmetrize: bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
+    mpi_target: int or None, optional
+        If set to an integer, the result will only be available at the specified MPI rank.
+        If set to None, an MPI allreduce will be performed and the result will be available
+        at all MPI ranks. Default: None. 
 
     Returns
     -------
@@ -169,7 +179,7 @@ def make_rdm2_demo_rhf(
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         rx = x.get_overlap("mo|cluster")
         px = x.get_overlap("cluster|frag|cluster")
 
@@ -219,7 +229,8 @@ def make_rdm2_demo_rhf(
                 dm2[:, i, i, :] -= pdm1x
 
         dm2 += einsum("xi,ijkl,px,qj,rk,sl->pqrs", px, dm2x, rx, rx, rx, rx)
-
+    if mpi:
+        dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
     # Add non-cumulant contribution (unless added above, for part_cumulant=False)
     if with_dm1 and part_cumulant:
         if approx_cumulant:
@@ -243,7 +254,7 @@ def make_rdm2_demo_rhf(
 
 @with_doc(make_rdm2_demo_rhf)
 def make_rdm2_demo_uhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True
+    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
 ):
     na, nb = emb.nmo
     dm2aa = np.zeros((na, na, na, na))
@@ -252,7 +263,7 @@ def make_rdm2_demo_uhf(
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in _get_fragments(emb):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         rxa, rxb = x.get_overlap("mo|cluster")
         pxa, pxb = x.get_overlap("cluster|frag|cluster")
 
@@ -302,7 +313,10 @@ def make_rdm2_demo_uhf(
             einsum("xi,ijkl,px,qj,rk,sl->pqrs", pxa, dm2xab, rxa, rxa, rxb, rxb)
             + einsum("xk,ijkl,pi,qj,rx,sl->pqrs", pxb, dm2xab, rxa, rxa, rxb, rxb)
         ) / 2
-
+    if mpi:
+        dm2aa = mpi.nreduce(dm2aa, target=mpi_target, logfunc=emb.log.timingv)
+        dm2bb = mpi.nreduce(dm2bb, target=mpi_target, logfunc=emb.log.timingv)
+        dm2ab = mpi.nreduce(dm2ab, target=mpi_target, logfunc=emb.log.timingv)
     if with_dm1 and part_cumulant:
         if approx_cumulant:
             ddm1a, ddm1b = make_rdm1_demo_uhf(emb, with_mf=False)
