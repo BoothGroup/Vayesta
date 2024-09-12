@@ -7,7 +7,7 @@ from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
 
-@pytest.mark.veryslow
+#@pytest.mark.veryslow
 class DiamondTest(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -81,9 +81,28 @@ class DiamondTest(TestCase):
         return self._test_dm1_symmetry("inversion")
 
     # TODO: Fix failing
-    # def test_dm1_mirror_symmetry(self):
-    #    return self._test_dm1_symmetry('mirror')
+    def test_dm1_mirror_symmetry(self):
+       return self._test_dm1_symmetry('mirror')
 
+
+    def _test_ccsd_t_symmetry(self, symmetry):
+        emb_sym = self.emb(1e-4, symmetry=symmetry)
+        emb = self.emb(1e-4)
+        e_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=False)
+        e_ccsd_t_sym = emb_sym.get_ccsd_t_corr_energy(global_t1=False)
+        self.assertAlmostEqual(e_ccsd_t, e_ccsd_t_sym)
+        e_ccsd_tg = emb.get_ccsd_t_corr_energy(global_t1=True)
+        e_ccsd_tg_sym = emb_sym.get_ccsd_t_corr_energy(global_t1=True)
+        self.assertAlmostEqual(e_ccsd_tg, e_ccsd_tg_sym)
+
+    def test_ccsd_t_symmetry_rotation(self):
+        return self._test_ccsd_t_symmetry("rotation")
+
+    def test_ccsd_t_symmetry_inversion(self):
+        return self._test_ccsd_t_symmetry("inversion")
+
+    # def test_ccsd_t_symmetry_mirror(self):
+    #     return self._test_ccsd_t_symmetry("mirror")    
 
 if __name__ == "__main__":
     print("Running %s" % __file__)
