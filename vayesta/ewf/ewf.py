@@ -320,7 +320,7 @@ class EWF(Embedding):
             return self.get_dm_corr_energy(**kwargs)
         if functional == 'dmet':
             # Uses projected density matrices
-            return self.get_dmet_energy(**kwargs)
+            return self.get_dmet_energy(**kwargs) - self.e_mf
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()
