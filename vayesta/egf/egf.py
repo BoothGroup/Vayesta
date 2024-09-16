@@ -90,9 +90,9 @@ class REGF(REWF):
         ea = self.gf.physical().virtual().energies[0] 
         ip = self.gf.physical().occupied().energies[-1]
         gap = ea - ip
-        self.log.info("IP  = %1.10e"%ip)
-        self.log.info("EA  = %1.10e"%ea)
-        self.log.info("Gap = %1.10e"%gap)
+        self.log.info("IP  = %8f"%ip)
+        self.log.info("EA  = %8f"%ea)
+        self.log.info("Gap = %8f"%gap)
 
     def make_self_energy_lehmann(self, proj, nmom_gf=None):
         if proj == 1:
