@@ -11,13 +11,13 @@ except ImportError as e:
     print("Dyson required for self-energy calculations")
 
 
-def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
     """
     Compute the Green's function moments from the spectral moments using the block Lanczos algorithm.
 
     Parameters
     ----------
-    moments : ndarray (nmom, nmo, nmo)
+    gf_moments : tuple (hole, particle) of ndarray (nmom, nmo, nmo)
         Spectral moments
     hermitian : bool
         Use Hermitian block Lanczos solver
@@ -38,12 +38,12 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
         Self-energy and Green's function in Lehmann representation
     """
     if sym_moms:
-        th = moments[0].copy()
-        tp = moments[1].copy()
+        th = gf_moments[0].copy()
+        tp = gf_moments[1].copy()
         th = 0.5 * (th + th.transpose(0,2,1))
         tp = 0.5 * (tp + tp.transpose(0,2,1))
     else:
-        th, tp = moments[0].copy(), moments[1].copy()
+        th, tp = gf_moments[0].copy(), gf_moments[1].copy()
 
     solverh = MBLGF(th, hermitian=hermitian, log=log)
     solverp = MBLGF(tp, hermitian=hermitian, log=log)
@@ -68,6 +68,34 @@ def gf_moments_block_lanczos(moments, hermitian=True, sym_moms=True, shift=None,
     return se, gf
 
 def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
+    """
+    Compute the Green's function moments from the spectral moments using the block Lanczos algorithm.
+
+    Parameters
+    ----------
+    se_static : ndarray (nmo, nmo)
+        Static part of the self-energy
+    se_moments : ndarray (nmom, nmo, nmo)
+        Self-energy moments
+    hermitian : bool
+        Use Hermitian block Lanczos solver
+    sym_moms : bool
+        Symmetrise moments
+    shift : string ('None', 'aux' or 'auf')
+        Method to determine filling. Auxilliary shift or Aufbau principle.
+    nelec : float
+        Number of electrons for shift
+    log : Logger
+        Logger object
+    kwargs : dict
+        Additional arguments to the block Lanczos solver
+
+    Returns
+    -------
+    se, gf : tuple (Lehmann, Lehmann)
+        Self-energy and Green's function in Lehmann representation
+    """
+    se_moments = np.array(se_moments)
     if len(se_moments.shape) == 3:
         ph_separation = False
     elif len(se_moments.shape) == 4:
@@ -111,7 +139,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
 
 
-def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
+def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
     """
     Construct full system self-energy moments from cluster spectral moments
 
@@ -122,9 +150,9 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
     ph_separation : bool
         Return separate particle and hole self-energy moments
     nmom_se : int
-        Number of self-energy moments
+        Number of self-energy moments to compute
     nmom_gf : int
-        Number of Green's function moments
+        Number of Green's function moments to use for block Lanczos
     use_sym : bool
         Use symmetry to reconstruct self-energy
     proj : int
@@ -332,16 +360,24 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         Embedding object
     use_sym : bool
         Use symmetry to reconstruct self-energy
+    sym_moms : bool
+        Symmetrise moments
+    hermitian : bool
+        Use Hermitian block Lanczos solver
+    nmom_gf : int
+        Number of Green's function moments to use for block Lanczos
     use_svd : bool
         Use SVD to decompose the self-energy as outer product
-    eta : float
-        Broadening factor for static potential
+    img_space : bool
+        Use image space for SVD or diagonalisation
     se_degen_tol : float
         Tolerance for degeneracy in Lehmann representation
     se_eval_tol : float
         Tolerance for self-energy eigenvalues assumed to be kept
     drop_non_causal : bool
         Drop non-causal poles (negative eigenvalues) of self-energy
+    eta : float
+        Broadening factor for static potential
 
     Returns
     -------
@@ -600,6 +636,12 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
     ----------
     emb : EWF object
         Embedding object
+    nmom_gf : int
+        Number of Green's function moments to use for block Lanczos
+    sym_moms : bool
+        Symmetrise moments
+    hermitian : bool
+        Use Hermitian block Lanczos solver
     use_sym : bool
         Use symmetry to reconstruct self-energy
     eta : float
@@ -779,7 +821,7 @@ def eig_outer_sum(vs, ws, tol=1e-12, fac=1):
     Calculate the eigenvalues and eigenvectors of the sum of symmetrised outer products.
     Given lists of vectors vs and ws, the function calcualtes the eigendecomposition
     of the matrix fac*(sum_i outer(vs[i], ws[i]) + outer(ws[i], vs[i])) working in
-    the image space of that matrix.
+    the image space spanned by the input vectors.
 
     Parameters
     ----------
@@ -787,6 +829,10 @@ def eig_outer_sum(vs, ws, tol=1e-12, fac=1):
         List of n vectors of length N
     ws : np.ndarray (n,N)
         List of n vectors of length N
+    tol : float
+        Tolerance for eigenvalues to be kept
+    fac : float
+        Scaling factor for the outer products
 
     Returns
     -------
@@ -821,6 +867,32 @@ def eig_outer_sum(vs, ws, tol=1e-12, fac=1):
     return val, v
 
 def svd_outer_sum(vs, ws, tol=1e-12, fac=1):
+    """
+    Calculate the singular value decomposition of the sum of outer products.
+    Given lists of vectors vs and ws, the function calcualtes the SVD of the
+    matrix fac * sum_i outer(vs[i], ws[i].conj() working in the image space 
+    spanned by the input vectors.
+        
+    Parameters
+    ----------
+    vs : np.ndarray (n,N)
+        List of n vectors of length N
+    ws : np.ndarray (n,N)
+        List of n vectors of length N
+    tol : float
+        Tolerance for singular values to be kept
+    fac : float
+        Scaling factor for the outer products
+    
+    Returns
+    -------
+    u : np.ndarray (N,n)
+        Left singular vectors
+    s : np.ndarray (n,)
+        Singular values
+    v : np.ndarray (N,n)
+        Right singular vectors
+    """
     rank = 2
     #basis_l = np.vstack([p_coup_l[:,a], coup_l[:,a]]).T
     basis_l = np.vstack(vs).T
@@ -842,6 +914,30 @@ def svd_outer_sum(vs, ws, tol=1e-12, fac=1):
 
     
 def eig_outer_sum_slow(vs, ws, tol=1.e-10, fac=1):
+    """
+    Calculate the eigenvalues and eigenvectors of the sum of symmetrised outer products.
+    Given lists of vectors vs and ws, the function calcualtes the eigendecomposition
+    of the matrix fac*(sum_i outer(vs[i], ws[i]) + outer(ws[i], vs[i])) working in
+    the full space.
+
+    Parameters
+    ----------
+    vs : np.ndarray (n,N)
+        List of n vectors of length N
+    ws : np.ndarray (n,N)
+        List of n vectors of length N
+    tol : float
+        Tolerance for eigenvalues to be kept
+    fac : float
+        Scaling factor for the outer products
+
+    Returns
+    -------
+    val : np.ndarray (n,)
+        Eigenvalues 
+    vec : np.ndarray
+        Eigenvectors (N,n)
+    """
     #outer = 0.5*(np.einsum('ai,aj->ij', vs, ws) + np.einsum('ai,aj->ij', ws, vs))
     outer = fac * (np.tensordot(vs, ws, axes=([0],[0])) + np.tensordot(ws, vs, axes=([0],[0])))
     val, vec = np.linalg.eigh(outer)
@@ -858,7 +954,27 @@ def svd_outer_sum_slow(vs, ws, tol=1e-12, fac=1):
     """
     Calculate the singular value decomposition of the sum of outer products.
     Given lists of vectors vs and ws, the function calcualtes the SVD of the
-    matrix fac * sum_i outer(vs[i], ws[i].conj().
+    matrix fac * sum_i outer(vs[i], ws[i].conj() working in the full space.
+        
+    Parameters
+    ----------
+    vs : np.ndarray (n,N)
+        List of n vectors of length N
+    ws : np.ndarray (n,N)
+        List of n vectors of length N
+    tol : float
+        Tolerance for singular values to be kept
+    fac : float
+        Scaling factor for the outer products
+    
+    Returns
+    -------
+    u : np.ndarray (N,n)
+        Left singular vectors
+    s : np.ndarray (n,)
+        Singular values
+    v : np.ndarray (N,n)
+        Right singular vectors
     """
     assert len(ws) == len(vs)
     outer = fac*np.einsum('ap,aq->pq', vs, ws.conj())
