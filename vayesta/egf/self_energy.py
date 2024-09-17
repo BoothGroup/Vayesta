@@ -119,8 +119,12 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
     ----------
     emb : EWF object
         Embedding object
-    n_se_mom : int
+    ph_separation : bool
+        Return separate particle and hole self-energy moments
+    nmom_se : int
         Number of self-energy moments
+    nmom_gf : int
+        Number of Green's function moments
     use_sym : bool
         Use symmetry to reconstruct self-energy
     proj : int
@@ -141,28 +145,34 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
     fock = emb.get_fock()
     static_self_energy = np.zeros_like(fock)
     static_potential = np.zeros_like(fock)
-    
+    energies = []
+
+    nao, nmo = emb.mo_coeff.shape
+    dtype = emb.fragments[0].results.gf_moments[0].dtype
+
+    if ph_separation:
+        self_energy_moms_holes = np.zeros((nmom_se, nmo, nmo), dtype=dtype)
+        self_energy_moms_parts = np.zeros((nmom_se, nmo, nmo), dtype=dtype)
+    else:
+        self_energy_moms = np.zeros((nmom_se, nmo, nmo), dtype=dtype)
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
-    if nmom_se is None:
-        nmom_se = fragments[0].results.se_moments[0].shape[0]
-    assert nmom_se <= fragments[0].results.se_moments.shape[0]
-    self_energy_moms = np.zeros((nmom_se, fock.shape[1], fock.shape[1]))
     for i, f in enumerate(fragments):
-        if debug_se_moms is None and debug_gf_moms is None:
-            se = f.results.self_energy
-            gf = f.results.greens_function
-            se_static = f.results.static_self_energy
-            se_moms = se.occupied().moment(range(nmom_se)), se.virtual().moment(range(nmom_se)) if ph_separation else se.moment(range(nmom_se))
-        elif debug_se_moms is not None:
-            debug_se_moms = np.array(debug_se_moms)
-            assert debug_se_moms.shape[0] == 2 and debug_se_moms.shape[1] == len(fragments)
-            se_static, se_moms = debug_se_moms[0][i], debug_se_moms[1][i] 
-        elif debug_gf_moms is not None:
-            gf_moms = debug_gf_moms
-            se_static = gf_moms[0][1] + gf_moms[1][1]
-            se_moms = gf_moms[0], gf_moms[1]
-        se = f.results.self_energy
+        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
+        if nmom_gf is None:
+            nmom_gf = nmom_gf_max
+        elif type(nmom_gf) is int:
+            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
+            nmom_gf = (nmom_gf, nmom_gf)
+        elif type(nmom_gf) is tuple:
+            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
+            
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+        se_static_clus = th[1] + tp[1]
+            
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        
+
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
@@ -172,6 +182,7 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
         fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
         
+        imag_tol = 1e-10
         if proj == 1:
             # Static potential
             v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
@@ -180,24 +191,41 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
             static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
 
             # Static self-energy
-            static_se_cls = f.results.static_self_energy - fock_cls
-            static_self_energy_frag = cfc @ static_se_cls
+            static_se_clus = se_static_clus - fock_cls
+            static_self_energy_frag = cfc @ static_se_clus
             static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
             static_self_energy += mc @ static_self_energy_frag @ mc.T
 
             # Self-energy moments
             if ph_separation:
-                se_moms_frag = []
-            se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
-            self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
+                se_moms_clus_holes = se.occupied().moment(range(nmom_se))
+                se_moms_clus_parts = se.virtual().moment(range(nmom_se))
+                assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
+                assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
+                se_moms_clus_holes = se_moms_clus_holes.real
+                se_moms_clus_parts = se_moms_clus_parts.real
+                se_moms_frag_holes = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus_holes])
+                se_moms_frag_parts = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus_parts])
+                self_energy_moms_holes += np.array([mc @ mom @ mc.T for mom in se_moms_frag_holes])
+                self_energy_moms_parts += np.array([mc @ mom @ mc.T for mom in se_moms_frag_parts])
+            else:
+                se_moms_clus = se.moment(range(nmom_se))
+                se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
+                assert np.linalg.norm(se_moms_frag.imag) < imag_tol
+                se_moms_frag = se_moms_frag.real
+                self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
 
             if use_sym:
                 for child in f.get_symmetry_children():
                     static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
                     mc_child = child.get_overlap('mo|cluster')
                     static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
-                    self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
-            
+                    if ph_separation:
+                        self_energy_moms_holes += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag_holes])
+                        self_energy_moms_parts += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag_parts])
+                    else:
+                        self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
+
         elif proj == 2:
             # Static potential 
             v_cls = se.as_static_potential(e_cls, eta=eta) 
@@ -205,13 +233,28 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
             static_potential += f.c_frag @ v_frag @ f.c_frag.T
 
             # Static self-energy
-            static_se_cls = f.results.static_self_energy - fock_cls
-            static_se_frag = fc @ static_se_cls @ fc.T
+            static_se_clus = se_static_clus - fock_cls
+            static_se_frag = fc @ static_se_clus @ fc.T
             static_self_energy += mf @ static_se_frag @ mf.T
 
             # Self-energy moments
-            se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
-            self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
+            if ph_separation:
+                se_moms_clus_holes = se.occupied().moment(range(nmom_se))
+                se_moms_clus_parts = se.virtual().moment(range(nmom_se))
+                assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
+                assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
+                se_moms_clus_holes = se_moms_clus_holes.real
+                se_moms_clus_parts = se_moms_clus_parts.real
+                se_moms_frag_holes = np.array([0.5*(fc @ mom @ fc.T) for mom in se_moms_clus_holes])
+                se_moms_frag_parts = np.array([0.5*(fc @ mom @ fc.T) for mom in se_moms_clus_parts])
+                self_energy_moms_holes += np.array([mf @ mom @ mf.T for mom in se_moms_frag_holes])
+                self_energy_moms_parts += np.array([mf @ mom @ mf.T for mom in se_moms_frag_parts])
+            else:
+                se_moms_clus = se.moment(range(nmom_se))
+                assert np.linalg.norm(se_moms_clus.imag) < imag_tol
+                se_moms_clus = se_moms_clus.real
+                se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
+                self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
 
             if use_sym:
                 for child in f.get_symmetry_children():
@@ -219,16 +262,24 @@ def make_self_energy_moments(emb, nmom_se=None, nmom_gf=None, use_sym=True, proj
                     mf_child = child.get_overlap('mo|frag')
                     fc_child = child.get_overlap('frag|cluster')
                     static_self_energy += mf_child @ static_se_frag @ mf_child.T
-                    self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
+
+                    if ph_separation:
+                        self_energy_moms_holes += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag_holes])
+                        self_energy_moms_parts += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag_parts])
+                    else:
+                        self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
     if sym_moms:
         self_energy_moms = 0.5 * (self_energy_moms + self_energy_moms.transpose(0,2,1)) 
         static_self_energy = 0.5 * (static_self_energy + static_self_energy.T)
         static_potential = 0.5 * (static_potential + static_potential.T)
 
-    return self_energy_moms, static_self_energy, static_potential
+    if ph_separation:
+        return (self_energy_moms_holes, self_energy_moms_parts), static_self_energy, static_potential
+    else:
+        return self_energy_moms, static_self_energy, static_potential
 
-
+            
 def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
     """
     Remove the embedding contribution from a set of full system self-energy moments.
