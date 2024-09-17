@@ -69,11 +69,14 @@ class RCCSD_Solver(ClusterSolver):
         else:
             self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
             l1, l2 = mycc.t1, mycc.t2
+            
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
         # Cluster spectral moments
         nmom = self.opts.n_moments
+        if type(nmom) is int:
+            nmom = (nmom, nmom)
         if nmom is not None:
             try:
                 from dyson.expressions import CCSD
@@ -83,7 +86,7 @@ class RCCSD_Solver(ClusterSolver):
                 return
             self.log.info("Calculating cluster CCSD spectral moments %s" % str(nmom))
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+                expr = CCSD["1h"](mf_clus, ccsd=mycc)
                 self.gf_hole_moments = expr.build_gf_moments(nmom[0])
             
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
@@ -93,7 +96,7 @@ class RCCSD_Solver(ClusterSolver):
                 # self.ip_moment_amplitudes = (amps_bra, amps_ket)
             
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+                expr = CCSD["1p"](mf_clus, ccsd=mycc)
                 self.gf_particle_moments = expr.build_gf_moments(nmom[1])
                 
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
