@@ -1,0 +1,29 @@
+vayesta.misc.variational\_embedding
+===================================
+
+Submodules
+----------
+
+vayesta.misc.variational\_embedding.calc\_nonorth\_couplings
+------------------------------------------------------------
+
+.. automodule:: vayesta.misc.variational_embedding.calc_nonorth_couplings
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.misc.variational\_embedding.variational\_params
+-------------------------------------------------------
+
+.. automodule:: vayesta.misc.variational_embedding.variational_params
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.misc.variational_embedding
+   :members:
+   :undoc-members:
+   :show-inheritance:
