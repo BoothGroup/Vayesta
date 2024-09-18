@@ -8,12 +8,13 @@ else:
     directory = os.path.abspath(os.path.dirname(__file__))
 
 examples = os.popen("find . | grep \.py$").readlines()
-
 assert len(examples) > 0
 
 N = len(examples)
 errs = []
 for eg in examples[1:]:
+    print(eg)
+    if 'run_examples.py' in eg: continue
     print("Running %s" % eg)
     errno = subprocess.call("python " + eg[:-1] + " -q", shell=True)
     if errno != 0:
