@@ -23,6 +23,7 @@ from vayesta.mpi import mpi
 from vayesta.ewf.ewf import REWF
 from vayesta.egf.fragment import Fragment
 from vayesta.egf.self_energy import *
+from vayesta.egf.qsegf import QSEGF_RHF
 
 from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, MixedMBLGF, NullLogger, Lehmann, build_spectral_function
 
@@ -156,7 +157,7 @@ class REGF(REWF):
         else:
             #self.log.info('Number of electrons in GF: %f'%nelec_gf)
             self.log.info("Performing %s on self-energy"%str(type(AufbauPrinciple)))
-            Shift = AuxiliaryShift if aux_shift=='auf' else AufbauPrinciple
+            Shift = AuxiliaryShift #if aux_shift=='aux' else AufbauPrinciple
             shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
             shift.kernel()
             self_energy = shift.get_self_energy()
@@ -165,6 +166,13 @@ class REGF(REWF):
         nelec_gf = np.trace(dm)
         self.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
         return gf
+
+
+    def qsEGF(self, *args, **kwargs):
+        """Decorator for qsEGF"""
+        self.with_scmf = QSEGF_RHF(self, *args, **kwargs)
+        self.kernel_orig = self.kernel
+        self.kernel = self.with_scmf.kernel
 
 
 
