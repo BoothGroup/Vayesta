@@ -124,6 +124,7 @@ class Test_CCSD(Test_MP2):
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
             ("e_tot", -1): cls.cc.e_tot / nk,
+            ("e_ccsd_t", -1): cls.cc.ccsd_t() / nk,
             ("e_corr", 1e-3): -0.0153692736073979,
             ("e_tot", 1e-3): -1.2835024529439953,
         }
@@ -199,7 +200,7 @@ class Test_CCSD(Test_MP2):
         self.assertAllclose(dm2, dm2_exact)
 
     def test_ccsd_t(self):
-        exact_ccsd_t = self.cc.ccsd_t()
+        exact_ccsd_t = self.ref_values[("e_ccsd_t", -1)]
         emb = self.emb(-1)
         emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=False)
         self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
@@ -271,6 +272,7 @@ class Test_UCCSD(Test_CCSD):
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
             ("e_tot", -1): cls.cc.e_tot / nk,
+            ("e_ccsd_t", -1): cls.cc.uccsd_t() / nk,
             ("e_corr", 1e-3): -0.01654717440912164,
             ("e_tot", 1e-3): -1.7250820680314027,
         }
@@ -310,11 +312,7 @@ class Test_UCCSD(Test_CCSD):
 
     def test_dm2_demo(self):
         pass
-
-    # PYSCF issue with periodic UCCSD(T)
-    def test_ccsd_t(self):
-        pass
-
+    
 # --- 2D
 
 
