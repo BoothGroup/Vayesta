@@ -1160,7 +1160,7 @@ class Fragment:
             is_eb = "crpa_full" in self.opts.screening
         else:
             is_eb = False
-        check_solver_config(is_uhf, is_eb, solver, self.log)
+        check_solver_config(solver, is_uhf, is_eb, self.log)
 
     def get_solver(self, solver=None):
         if solver is None:
