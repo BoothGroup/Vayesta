@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+import types
 from contextlib import contextmanager
 from copy import deepcopy
 import itertools
+import importlib
 import dataclasses
 import functools
 import logging
@@ -9,6 +13,7 @@ import re
 import string
 import sys
 from timeit import default_timer
+from typing import *
 
 
 try:
@@ -62,6 +67,7 @@ __all__ = [
     "getif",
     "callif",
     "permutations_with_signs",
+    "MissingModule",
 ]
 
 
@@ -503,7 +509,7 @@ def time_string(seconds, show_zeros=False):
     elif seconds >= 60:
         tstr = "%.0f min %.0f s" % (m, s)
     else:
-        tstr = "%.1f s" % s
+        tstr = "%.5f s" % s
     if sign == -1:
         tstr = "-%s" % tstr
     return tstr
@@ -763,3 +769,20 @@ def permutations_with_signs(seq):
         return items
 
     return [(item, -1 if i % 2 else 1) for i, item in enumerate(_permutations(list(seq)))]
+
+
+class MissingModule:
+
+    def __init__(self, module_name: str) -> None:
+        self.module_name = module_name
+
+    def __getattr__(self, item: Any) -> NoReturn:
+        raise ModuleNotFoundError(f"module {self.module_name} required, but not found")
+
+
+def optional_import(module_name: str) -> types.ModuleType | MissingModule:
+    """Attempt import, return module if successful and MissingModule object if not."""
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError:
+        return MissingModule(module_name)
