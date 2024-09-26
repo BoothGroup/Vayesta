@@ -11,6 +11,74 @@ except ImportError as e:
     print("Dyson required for self-energy calculations")
 
 
+def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=True):
+    """
+    Construct global static self-energy equal to the first Green's function moment.
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    proj : int
+        Number of projectors to use (1 or 2)
+    sym_moms : bool
+        Hermitise the static self energy
+    with_mf : bool
+        Include the fock matrix in the static self energy
+    use_sym : bool
+        Use symmetry
+    
+    Returns
+    -------
+    static_self_energy : ndarray (nmo,nmo)
+        Static part of self-energy (MO basis)   
+    """
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+
+    nao, nmo = emb.mo_coeff.shape
+
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+
+        static_self_energy_clus = f.results.gf_moments[0][1] + f.results.gf_moments[1][1]
+
+        if not with_mf:
+            fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+            static_se_clus = static_self_energy_clus - fock_cls
+
+        if proj == 1:
+            static_self_energy_frag = cfc @ static_self_energy_clus
+            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+            static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    mc_child = child.get_overlap('mo|cluster')
+                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T 
+
+        elif proj == 2:
+            static_self_energy_frag = fc @ static_self_energy_clus @ fc.T
+            static_self_energy += mf @ static_self_energy_frag @ mf.T
+
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    mf_child = child.get_overlap('mo|frag')
+                    static_self_energy += mf_child @ static_self_energy_frag @ mf_child.T
+
+    if sym_moms:
+        static_self_energy = 0.5 * (static_self_energy + static_self_energy.T.conj())
+    
+    return static_self_energy
+
+
+
 def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
     """
     Compute the Green's function moments from the spectral moments using the block Lanczos algorithm.
@@ -164,15 +232,9 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
     -------
     self_energy_moms : ndarry (n_se_mom, nmo, nmo)
         Full system self-energy moments (MO basis)
-    static_self_energy : ndarray (nmo,nmo)
-        Static part of self-energy (MO basis)
-    static_potential : ndarray (nao,nao)
-        Static potential (AO basis)
     """
 
     fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
-    static_potential = np.zeros_like(fock)
     energies = []
 
     nao, nmo = emb.mo_coeff.shape
@@ -199,32 +261,14 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
         se_static_clus = th[1] + tp[1]
             
         se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
-        
 
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
-        # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
-        e_cls = np.diag(fock_cls)
-        
         imag_tol = 1e-10
         if proj == 1:
-            # Static potential
-            v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
-            v_frag = cfc @ v_cls  
-            v_frag = 0.5 * (v_frag + v_frag.T)
-            static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
-
-            # Static self-energy
-            static_se_clus = se_static_clus - fock_cls
-            static_self_energy_frag = cfc @ static_se_clus
-            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
-            static_self_energy += mc @ static_self_energy_frag @ mc.T
-
-            # Self-energy moments
             if ph_separation:
                 se_moms_clus_holes = se.occupied().moment(range(nmom_se))
                 se_moms_clus_parts = se.virtual().moment(range(nmom_se))
@@ -245,9 +289,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
 
             if use_sym:
                 for child in f.get_symmetry_children():
-                    static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
                     mc_child = child.get_overlap('mo|cluster')
-                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
                     if ph_separation:
                         self_energy_moms_holes += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag_holes])
                         self_energy_moms_parts += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag_parts])
@@ -255,17 +297,6 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
                         self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
 
         elif proj == 2:
-            # Static potential 
-            v_cls = se.as_static_potential(e_cls, eta=eta) 
-            v_frag = fc @ v_cls @ fc.T
-            static_potential += f.c_frag @ v_frag @ f.c_frag.T
-
-            # Static self-energy
-            static_se_clus = se_static_clus - fock_cls
-            static_se_frag = fc @ static_se_clus @ fc.T
-            static_self_energy += mf @ static_se_frag @ mf.T
-
-            # Self-energy moments
             if ph_separation:
                 se_moms_clus_holes = se.occupied().moment(range(nmom_se))
                 se_moms_clus_parts = se.virtual().moment(range(nmom_se))
@@ -286,11 +317,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
 
             if use_sym:
                 for child in f.get_symmetry_children():
-                    static_potential += child.c_frag @ v_frag @ child.c_frag.T
                     mf_child = child.get_overlap('mo|frag')
-                    fc_child = child.get_overlap('frag|cluster')
-                    static_self_energy += mf_child @ static_se_frag @ mf_child.T
-
                     if ph_separation:
                         self_energy_moms_holes += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag_holes])
                         self_energy_moms_parts += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag_parts])
@@ -298,14 +325,12 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
                         self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
     if sym_moms:
-        self_energy_moms = 0.5 * (self_energy_moms + self_energy_moms.transpose(0,2,1)) 
-        static_self_energy = 0.5 * (static_self_energy + static_self_energy.T)
-        static_potential = 0.5 * (static_potential + static_potential.T)
+        self_energy_moms = 0.5 * (self_energy_moms + self_energy_moms.transpose(0,2,1).conj()) 
 
     if ph_separation:
-        return (self_energy_moms_holes, self_energy_moms_parts), static_self_energy, static_potential
+        return (self_energy_moms_holes, self_energy_moms_parts)
     else:
-        return self_energy_moms, static_self_energy, static_potential
+        return self_energy_moms
 
             
 def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
@@ -383,15 +408,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     -------
     self_energy : Lehmann object
         Reconstructed self-energy in Lehmann representation (MO basis)
-    static_self_energy : ndarray (nmo,nmo)
-        Static part of self-energy (MO basis)
-    static_potential : ndarray (nao,nao)
-        Static potential (AO basis)
     """
-
-    fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
-    static_potential = np.zeros_like(fock)
     energies = []
     if use_svd:
         couplings_l, couplings_r = [], []
@@ -431,22 +448,6 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
-        # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
-        e_cls = np.diag(fock_cls)
-        
-        # Static potential
-        v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
-        v_frag = cfc @ v_cls  
-        v_frag = 0.5 * (v_frag + v_frag.T)
-        static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
-
-        # Static self-energy
-        static_se_cls = se_static - fock_cls
-        static_self_energy_frag = cfc @ static_se_cls
-        static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
-        static_self_energy += mc @ static_self_energy_frag @ mc.T
-
         # Dynamic self-energy
         coup_l, coup_r = se._unpack_couplings()
         p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
@@ -469,9 +470,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         emb.log.info("Norm diff of SE numerator %s"%np.linalg.norm(mat - mat2))
         if use_sym:
             for child in f.get_symmetry_children():
-                static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
                 mc_child = child.get_overlap('mo|cluster')
-                static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
                 energies.append(energies_frag)
                 if use_svd:
                     couplings_l.append(mc_child @ couplings_l_frag)
@@ -493,7 +492,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
 
     emb.log.info("Removed SE degeneracy, new Naux: %s"%len(self_energy.energies)) 
-    return self_energy, static_self_energy, static_potential
+    return self_energy
         
 def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6):
     """
@@ -631,10 +630,6 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
     static_potential : ndarray (nao,nao)
         Static potential (AO basis)
     """
-
-    fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
-    static_potential = np.zeros_like(fock)
     couplings, energies = [], []
 
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
@@ -669,20 +664,6 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         
-        # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
-        e_cls = np.diag(fock_cls)
-        
-        # Static potential 
-        v_cls = se.as_static_potential(e_cls, eta=eta) 
-        v_frag = fc @ v_cls @ fc.T
-        static_potential += f.c_frag @ v_frag @ f.c_frag.T
-
-        # Static self-energy
-        static_se_cls = se_static - fock_cls
-        static_se_frag = fc @ static_se_cls @ fc.T
-        static_self_energy += mf @ static_se_frag @ mf.T
-
         # Dynamic self-energy
         if type(se.couplings) is tuple:
             couplings_l, couplings_r = se.couplings
@@ -695,10 +676,8 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
 
         if use_sym:
             for child in f.get_symmetry_children():
-                static_potential += child.c_frag @ v_frag @ child.c_frag.T
                 mf_child = child.get_overlap('mo|frag')
                 fc_child = child.get_overlap('frag|cluster')
-                static_self_energy += mf_child @ static_se_frag @ mf_child.T
                 if type(se.couplings) is tuple:
                     couplings_l, couplings_r = se.couplings
                     couplings_l = mf_child @ fc_child @ couplings_l
@@ -718,7 +697,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
     self_energy = Lehmann(energies, couplings)
     self_energy = remove_se_degeneracy_sym( self_energy, dtol=emb.opts.se_degen_tol, etol=emb.opts.se_eval_tol, log=emb.log)
 
-    return self_energy, static_self_energy, static_potential
+    return self_energy
 
 def drop_and_reweight(se, tol=1e-12):
     couplings_l, couplings_r = se._unpack_couplings()

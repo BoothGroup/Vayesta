@@ -104,11 +104,11 @@ class REGF(REWF):
         self_energy : Lehmann
             Self-energy in Lehmann representation
         """
-
+        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
         if proj == 1:
-            self_energy, static_self_energy, static_potential = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
-            self_energy, static_self_energy, static_potential = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         else:
             raise NotImplementedError()
         return static_self_energy, self_energy
@@ -141,7 +141,8 @@ class REGF(REWF):
         self_energy : MBLSE
             Self-energy in Lehmann representation
         """
-        self_energy_moments, static_self_energy, static_potential = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
+        self_energy_moments, = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         if non_local_se is not None:
             if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
                 try:
