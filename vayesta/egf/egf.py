@@ -33,9 +33,10 @@ class Options(REWF.Options):
     """Options for EGF calculations."""
     eta: float = 1e-1 # Broadening factor
     proj: int = 2     # Number of projectors used on self-energy (1, 2)
-    use_sym: bool = True
+    use_sym: bool = True # Use symmetry for self-energy reconstruction
     se_degen_tol: float = 1e-6 # Tolerance for degeneracy of self-energy poles
     se_eval_tol: float = 1e-6  # Tolerance for self-energy eignvalues
+    img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
     aux_shift: bool = False # Use auxiliary shift to ensure correct electron number in the physical space
     aux_shift_frag: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
@@ -96,8 +97,27 @@ class REGF(REWF):
         self.log.info("Gap = %8f"%gap)
 
     def make_self_energy_lehmann(self, proj, nmom_gf=None):
+        """
+        Reconstruct self-energy from fragment using block Lanczos to obtain a Lehmann representation
+        in the cluster, projecting and summing over all fragments.
+        
+        Parameters
+        ----------
+        proj : int
+            Number of projectors to use for fragment projection of self-energy
+        nmom_gf : int
+            Number of Green's function moments to use for block Lanczos
+        
+        Returns
+        -------
+        static_self_energy : ndarray
+            Static part of the self-energy
+        self_energy : Lehmann
+            Self-energy in Lehmann representation
+        """
+
         if proj == 1:
-            self_energy, static_self_energy, static_potential = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            self_energy, static_self_energy, static_potential = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
             self_energy, static_self_energy, static_potential = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         else:
@@ -106,6 +126,32 @@ class REGF(REWF):
         
 
     def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=False, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
+        """
+        Reconstruct self-energy moments from fragment self-energy moments and perform block Lanczos
+        on full system to obtain a Lehmann self-energy.
+        
+        Parameters
+        ----------
+        proj : int
+            Number of projectors to use for fragment projection of self-energy moments
+        nmom_se : int
+            Number of self-energy moments to calculate
+        ph_separation : bool
+            Calculate separate particle and hole moments
+        hermitian_mblse : bool
+            Use hermitian MBLSE
+        from_gf_moms : bool
+            Use Green's function moments to calculate self-energy moments via recursion relation
+        non_local_se : str
+            Combine fragment self-energy with non-local self-energy (GW, CCSD, FCI) calculated on full system
+
+        Returns
+        -------
+        static_self_energy : ndarray
+            Static part of the self-energy
+        self_energy : MBLSE
+            Self-energy in Lehmann representation
+        """
         self_energy_moments, static_self_energy, static_potential = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
         if non_local_se is not None:
             if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
@@ -147,6 +193,23 @@ class REGF(REWF):
         return static_self_energy, self_energy
 
     def make_greens_function(self, static_self_energy, self_energy, aux_shift=None):
+        """
+        Calculate Green's function from self-energy using Dyson equation.
+
+        Parameters
+        ----------
+        static_self_energy : ndarray
+            Static part of the self-energy
+        self_energy : Lehmann
+            Self-energy in Lehmann representation
+        aux_shift : bool
+            Use auxiliary shift to ensure correct electron number in the physical space
+        
+        Returns
+        -------
+        gf : Lehmann
+            Green's function
+        """
         #if aux_shift is None:
         #    aux_shift = self.opts.aux_shift
         phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
@@ -169,9 +232,8 @@ class REGF(REWF):
 
 
     def qsEGF(self, *args, **kwargs):
-        """Decorator for qsEGF"""
+        """Convert EGF to qsEGF"""
         self.with_scmf = QSEGF_RHF(self, *args, **kwargs)
-        self.kernel_orig = self.kernel
         self.kernel = self.with_scmf.kernel
 
 
