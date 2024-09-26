@@ -39,7 +39,7 @@ class Options(REWF.Options):
     img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
     aux_shift: bool = False # Use auxiliary shift to ensure correct electron number in the physical space
-    aux_shift_frag: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
+    aux_shift_clus: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
@@ -106,9 +106,9 @@ class REGF(REWF):
         """
         static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
         if proj == 1:
-            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta,aux_shift_frag=self.opts.aux_shift_frag, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta, aux_shift_clus=self.opts.aux_shift_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
-            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta, aux_shift_clus=self.opts.aux_shift_clus)
         else:
             raise NotImplementedError()
         return static_self_energy, self_energy

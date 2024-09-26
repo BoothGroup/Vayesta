@@ -120,10 +120,6 @@ def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=No
     gf = solver.get_greens_function()
     se = solver.get_self_energy()
 
-    dm = gf.occupied().moment(0) * 2
-    nelec = np.trace(dm)
-    #log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
-
     if shift is not None:
         if nelec is None:
             raise ValueError("Number of electrons must be provided for shift")
@@ -189,10 +185,6 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
     gf = solver.get_greens_function()
     se = solver.get_self_energy()
-
-    dm = gf.occupied().moment(0) * 2
-    nelec = np.trace(dm)
-    #log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
 
     if shift is not None:
         if nelec is None:
@@ -373,7 +365,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_frag=False, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_clus=False, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -428,20 +420,11 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static = th[1] + tp[1]
             
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=aux_shift_clus, nelec=f.nelectron, log=emb.log)
         
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
-        emb.log.info("Fragment %s: Electron target %s %s without shift"%(f.id, f.nelectron, nelec))
-        if aux_shift_frag:
-            aux = AuxiliaryShift(se_static, se, 2*f.cluster.nocc, occupancy=2, log=emb.log)
-            aux.kernel()
-            se = aux.get_self_energy()
-            gf = aux.get_greens_function()
-            dm = gf.occupied().moment(0) * 2
-            nelec = np.trace(dm)
-            emb.log.info("Fragment %s: Electron target %s %s with shift"%(f.id, f.nelectron, nelec))
-            
+        emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
         emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
 
         mc = f.get_overlap('mo|cluster')
@@ -517,7 +500,6 @@ def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6
         Energies of the fragment couplings
     couplings_l_frag : ndarray (nmo, naux_new)
         Left couplings of the fragment projected self-energy
-
     """
     coup_l, coup_r = se._unpack_couplings()
     if hermitize:
@@ -600,7 +582,7 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
 
 
     
-def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_frag=False, eta=1e-1):
+def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_clus=None, eta=1e-1):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -625,10 +607,6 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
     -------
     self_energy : Lehmann object
         Reconstructed self-energy in Lehmann representation (MO basis)
-    static_self_energy : ndarray (nmo,nmo)
-        Static part of self-energy (MO basis)
-    static_potential : ndarray (nao,nao)
-        Static potential (AO basis)
     """
     couplings, energies = [], []
 
@@ -646,20 +624,11 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static = th[1] + tp[1]
             
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=aux_shift_clus, nelec=f.nelectron, log=emb.log)
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
-        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
-        if aux_shift_frag:
-            aux = AuxiliaryShift(f.results.static_self_energy, se, f.nelectron, occupancy=2, log=emb.log)
-            aux.kernel()
-            se = aux.get_self_energy()
-            gf = aux.get_greens_function()
-            dm = gf.occupied().moment(0) * 2
-            nelec = np.trace(dm)
-            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
-
+        emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
 
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
