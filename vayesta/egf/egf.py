@@ -46,7 +46,6 @@ class Options(REWF.Options):
     sym_moms: bool = True # Use symmetrized moments
     hermitian_mblgf: bool = True # Use hermitian MBLGF
     hermitian_mblse: bool = True # Use hermitian MBLSE
-    global_static_potential: bool = False # Use global static potential
 
     solver_options: dict = Embedding.Options.change_dict_defaults("solver_options", n_moments=(6,6), conv_tol=1e-15, conv_tol_normt=1e-15)
     bath_options: dict = Embedding.Options.change_dict_defaults("bath_options", bathtype='ewdmet', order=1, max_order=1, dmet_threshold=1e-12)
@@ -66,28 +65,18 @@ class REGF(REWF):
             #self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer() - t0))
 
     def kernel(self):
+        """Run the EGF calculation"""
         super().kernel()
         couplings = []
         energies = []
         self.static_self_energy = np.zeros_like(self.get_fock())
 
-        #if self.opts.nmom_se == np.inf:
         if self.opts.se_mode == 'lehmann':
             self.static_self_energy, self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
         elif self.opts.se_mode == 'moments':
             self.static_self_energy, self.self_energy = self.make_self_energy_moments(self.opts.proj, non_local_se=self.opts.non_local_se)
 
-        
-        
-        # sc = self.mf.get_ovlp() @ self.mo_coeff
-        # if self.opts.global_static_potential:
-        #     self.static_potential = self.mo_coeff @ self.self_energy.as_static_potential(self.mf.mo_energy, eta=self.opts.eta)  @ self.mo_coeff.T
-        # self.static_potential = self.mf.get_ovlp() @ self.static_potential @ self.mf.get_ovlp()
-
-
         self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, aux_shift=self.opts.aux_shift)
-
-
 
         ea = self.gf.physical().virtual().energies[0] 
         ip = self.gf.physical().occupied().energies[-1]
@@ -202,32 +191,31 @@ class REGF(REWF):
             Static part of the self-energy
         self_energy : Lehmann
             Self-energy in Lehmann representation
-        aux_shift : bool
-            Use auxiliary shift to ensure correct electron number in the physical space
+        aux_shift : (None, 'auf', 'aux')
+            Type of chemical potential optimisation for full system Green's function. AufbaiPrinciple or AuxiliaryShift.
         
         Returns
         -------
         gf : Lehmann
             Green's function
         """
-        #if aux_shift is None:
-        #    aux_shift = self.opts.aux_shift
-        phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
-        if aux_shift is None or 0:
+
+        if aux_shift is None:
+           aux_shift = self.opts.aux_shift
+        SC = self.get_ovlp() @ self.mo_coeff
+        phys = SC.T @ self.get_fock() @ SC + static_self_energy 
+        if aux_shift is None:
             gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
-            #dm = gf.occupied().moment(0) * 2.0
-            #nelec_gf = np.trace(dm)
         else:
-            #self.log.info('Number of electrons in GF: %f'%nelec_gf)
             self.log.info("Performing %s on self-energy"%str(type(AufbauPrinciple)))
-            Shift = AuxiliaryShift #if aux_shift=='aux' else AufbauPrinciple
+            Shift = AuxiliaryShift if aux_shift=='aux' else AufbauPrinciple
             shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
             shift.kernel()
             self_energy = shift.get_self_energy()
             gf = shift.get_greens_function()
-        dm = gf.occupied().moment(0) * 2.0
-        nelec_gf = np.trace(dm)
-        self.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
+        dm = gf.occupied().moment(0) 
+        nelec_gf = np.trace(dm) * 2.0
+        self.log.info('Number of electrons in GF: %f'%nelec_gf)
         return gf
 
 

@@ -141,7 +141,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
 def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
     """
-    Construct full system self-energy moments from cluster spectral moments
+    Construct full system self-energy moments from Green's function moments
 
     Parameters
     ----------
@@ -426,8 +426,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             emb.log.info("Fragment %s: Electron target %s %s with shift"%(f.id, f.nelectron, nelec))
             
         emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
-        #se = se.physical(weight=1e-4)
-        emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
+
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
@@ -495,28 +494,6 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
     emb.log.info("Removed SE degeneracy, new Naux: %s"%len(self_energy.energies)) 
     return self_energy, static_self_energy, static_potential
-
-
-    
-# def make_self_energy_on_grid(emb, proj, grid, eta, sym_moms=False, hermitian=False, use_sym=True):
-
-#     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
-#     if grid is None:
-#         emin, emax = 0, 0
-#     for i, f in enumerate(fragments):
-#         th, tp = f.results.gf_moments
-#         se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
-#         if i == 0 or se.energies.min() < emin
-#             emin = se.energies.min()
-#         if i == 0 or se.energies.max() > emax
-#             emax = se.energies.max()
-
-#         ses.append(se)
-    
-#     se_grid = np.zeros((nfreq, nmo,nmo))
-#     for i, f in enumerate(fragments):
-#         se_grid_frag = se.on_grid(grid, eta=eta)
-#         se_grid += np.einsum('pP,qQ,wPQ->wpq', mc, se_grid_frag
         
 def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6):
     """
@@ -570,8 +547,6 @@ def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6
 
         mat = np.einsum('pa,qa->pq', w, w)
         norm = np.linalg.norm(mat - sym_coup[a])
-
-        #print("Norm diff of SE numerator %s"%norm)
     return np.array(energies_frag)-se.chempot, np.hstack(couplings_frag)
 
 def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
@@ -1130,11 +1105,9 @@ def fit_hermitian(se):
             denom = 1 / (1j*w - e)
             b = np.einsum('pa,qa,a->pq', V, V, denom)
             c = (np.abs(a - b) ** 2).sum()
-            #print(c)
             return c
         lim = np.inf
         val, err = scipy.integrate.quad(integrand, -lim, lim)
-        print("obj: %s err: %s"%(val, err))
         return val
     
     def grad(x):
@@ -1160,8 +1133,6 @@ def fit_hermitian(se):
             omegaRe = (e**2 - w**2)/(w**2 + e**2)**2
             omegaIm = 2*e*w/(w**2 + e**2)**2
 
-            #print(omegaIm)
-
             ret = 2*np.einsum('pq,pb,qb,b->b', d.real, V, V, omegaRe)
             ret += 2*np.einsum('pq,pb,qb,b->b', d.imag, V, V, omegaIm)
             return ret
@@ -1170,8 +1141,6 @@ def fit_hermitian(se):
         integrand = lambda w: np.hstack([integrand_V(w).flatten(), integrand_e(w)])
         lim = np.inf
         jac, err_V = scipy.integrate.quad_vec(lambda x: integrand(x), -lim, lim)
-        print('grad norm: %s err: %s'%(np.linalg.norm(jac),err_V))
-        #print(grad)
         return jac
         
 
@@ -1180,19 +1149,6 @@ def fit_hermitian(se):
     x0 = x0.flatten()
 
     xgrad = grad(x0)
-    print(shape)
-    print("obj(x0) = %s"%obj(x0))
-    print('grad(x0)')
-    print(xgrad)
-    #x0 = np.random.randn(*x0.shape)  #* 1e-2
-
-    #x = xgrad.reshape(x0.shape)
-
-    #return xgrad
-    print(shape)
     res = scipy.optimize.minimize(obj, x0, jac=grad, method='Newton-CG')
-    #res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method='BFGS'))
-    print("Sucess %s, Integral = %s"%(res.success, res.x))
-
     x = res.x.reshape(shape)
     return Lehmann(x[-1], x[:-1])
