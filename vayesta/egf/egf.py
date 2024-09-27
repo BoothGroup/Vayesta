@@ -38,8 +38,8 @@ class Options(REWF.Options):
     se_eval_tol: float = 1e-6  # Tolerance for self-energy eignvalues
     img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
-    aux_shift: bool = False # Use auxiliary shift to ensure correct electron number in the physical space
-    aux_shift_clus: bool = False # Use auxiliary shift to ensure correct electron number in the fragment space
+    aux_shift: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
+    aux_shift_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
@@ -104,7 +104,7 @@ class REGF(REWF):
         self_energy : Lehmann
             Self-energy in Lehmann representation
         """
-        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
+        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
         if proj == 1:
             self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, eta=self.opts.eta, aux_shift_clus=self.opts.aux_shift_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
@@ -193,7 +193,7 @@ class REGF(REWF):
         self_energy : Lehmann
             Self-energy in Lehmann representation
         aux_shift : (None, 'auf', 'aux')
-            Type of chemical potential optimisation for full system Green's function. AufbaiPrinciple or AuxiliaryShift.
+            Type of chemical potential optimisation for full system Green's function. AufbauPrinciple or AuxiliaryShift.
         
         Returns
         -------
@@ -204,7 +204,7 @@ class REGF(REWF):
         if aux_shift is None:
            aux_shift = self.opts.aux_shift
         SC = self.get_ovlp() @ self.mo_coeff
-        phys = SC.T @ self.get_fock() @ SC + static_self_energy 
+        phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
         if aux_shift is None:
             gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
         else:

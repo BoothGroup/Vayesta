@@ -51,7 +51,7 @@ def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=
 
         if not with_mf:
             fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
-            static_se_clus = static_self_energy_clus - fock_cls
+            static_self_energy_clus = static_self_energy_clus - fock_cls
 
         if proj == 1:
             static_self_energy_frag = cfc @ static_self_energy_clus
