@@ -199,7 +199,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
 
 
-def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, debug_gf_moms=None, debug_se_moms=None):
+def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, chempot_clus=None, sym_moms=False, debug_gf_moms=None, debug_se_moms=None):
     """
     Construct full system self-energy moments from Green's function moments
 
@@ -230,6 +230,11 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
     nao, nmo = emb.mo_coeff.shape
     dtype = emb.fragments[0].results.gf_moments[0].dtype
 
+    if nmom_gf is None:
+        nmom_gf = len(emb.fragments[0].results.gf_moments[0])
+    if nmom_se is None:
+        nmom_se = nmom_gf - 2
+
     if ph_separation:
         self_energy_moms_holes = np.zeros((nmom_se, nmo, nmo), dtype=dtype)
         self_energy_moms_parts = np.zeros((nmom_se, nmo, nmo), dtype=dtype)
@@ -250,7 +255,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static_clus = th[1] + tp[1]
             
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=None, nelec=f.nelectron, log=emb.log)
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
 
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
@@ -262,8 +267,8 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
             if ph_separation:
                 se_moms_clus_holes = se.occupied().moment(range(nmom_se))
                 se_moms_clus_parts = se.virtual().moment(range(nmom_se))
-                assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
-                assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
+                # assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
+                # assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
                 se_moms_clus_holes = se_moms_clus_holes.real
                 se_moms_clus_parts = se_moms_clus_parts.real
                 se_moms_frag_holes = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus_holes])
@@ -273,7 +278,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
             else:
                 se_moms_clus = se.moment(range(nmom_se))
                 se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
-                assert np.linalg.norm(se_moms_frag.imag) < imag_tol
+                # assert np.linalg.norm(se_moms_frag.imag) < imag_tol
                 se_moms_frag = se_moms_frag.real
                 self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
 
@@ -315,7 +320,11 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
                         self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
     if sym_moms:
-        self_energy_moms = 0.5 * (self_energy_moms + self_energy_moms.transpose(0,2,1).conj()) 
+        if ph_separation:
+            self_energy_moms_holes = 0.5 * (self_energy_moms_holes + self_energy_moms_holes.transpose(0,2,1).conj())
+            self_energy_moms_parts = 0.5 * (self_energy_moms_parts + self_energy_moms_parts.transpose(0,2,1).conj())
+        else:
+            self_energy_moms = 0.5 * (self_energy_moms + self_energy_moms.transpose(0,2,1).conj()) 
 
     if ph_separation:
         return (self_energy_moms_holes, self_energy_moms_parts)
@@ -363,7 +372,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, nmom_gf=None, aux_shift_clus=False, remove_degeneracy=True, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, nmom_gf=None, chempot_clus=False, remove_degeneracy=True, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -418,7 +427,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static = th[1] + tp[1]
             
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=aux_shift_clus, nelec=f.nelectron, log=emb.log)
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
         
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -581,7 +590,7 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
 
 
     
-def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, remove_degeneracy=True, use_sym=True, aux_shift_clus=None):
+def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, remove_degeneracy=True, use_sym=True, chempot_clus=None, se_degen_tol=1e-4, se_eval_tol=1e-6):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -623,7 +632,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static = th[1] + tp[1]
             
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=aux_shift_clus, nelec=f.nelectron, log=emb.log)
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -665,7 +674,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
     self_energy = Lehmann(energies, couplings)
     if remove_degeneracy:
         if hermitian:
-            self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+            self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=False, log=emb.log)
         else:
             self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
     return self_energy

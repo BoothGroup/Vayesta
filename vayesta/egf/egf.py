@@ -39,7 +39,7 @@ class Options(REWF.Options):
     img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
     aux_shift: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
-    aux_shift_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
+    chempot_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
@@ -69,12 +69,12 @@ class REGF(REWF):
         super().kernel()
         couplings = []
         energies = []
-        self.static_self_energy = np.zeros_like(self.get_fock())
+        self.static_self_energy = make_static_self_energy(self, proj=self.opts.proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
 
         if self.opts.se_mode == 'lehmann':
-            self.static_self_energy, self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
+            self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
         elif self.opts.se_mode == 'moments':
-            self.static_self_energy, self.self_energy = self.make_self_energy_moments(self.opts.proj, non_local_se=self.opts.non_local_se)
+            self.self_energy = self.make_self_energy_moments(self.opts.proj, non_local_se=self.opts.non_local_se)
 
         self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, aux_shift=self.opts.aux_shift)
 
@@ -104,14 +104,14 @@ class REGF(REWF):
         self_energy : Lehmann
             Self-energy in Lehmann representation
         """
-        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
+        
         if proj == 1:
-            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, aux_shift_clus=self.opts.aux_shift_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
-            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, aux_shift_clus=self.opts.aux_shift_clus)
+            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         else:
             raise NotImplementedError()
-        return static_self_energy, self_energy
+        return self_energy
         
 
     def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=False, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
@@ -142,45 +142,51 @@ class REGF(REWF):
             Self-energy in Lehmann representation
         """
         static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
-        self_energy_moments, = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, eta=self.opts.eta)
+        self_energy_moments = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
         if non_local_se is not None:
-            if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
-                try:
-                    from momentGW import GW
-                    gw = GW(self.mf)
-                    if non_local_se.upper() == 'GW-dRPA':
-                        gw.polarizability = 'drpa'
-                    elif non_local_se.upper() == 'GW-dTDA':
-                        gw.polarizability = 'dtda'
-                    integrals = gw.ao2mo()
-                    non_local_se_static = gw.build_se_static(integrals)
-                    seh, sep = gw.build_se_moments(nmom_se-1, integrals, mo_energy=dict(g=gw.mo_energy, w=gw.mo_energy))
-                    non_local_se_moms = seh + sep
-                except ImportError:
-                    raise ImportError("momentGW required for non-local GW self-energy contribution")
-            elif non_local_se == 'FCI' or non_local_se == 'CCSD':
-                EXPR = FCI if non_local_se == 'FCI' else CCSD
-                expr = FCI["1h"](self.mf)
-                th = expr.build_gf_moments(nmom_se)
-                expr = FCI["1p"](self.mf)
-                tp = expr.build_gf_moments(nmom_se)
+            raise NotImplementedError()
+            # if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
+            #     try:
+            #         from momentGW import GW
+            #         gw = GW(self.mf)
+            #         if non_local_se.upper() == 'GW-dRPA':
+            #             gw.polarizability = 'drpa'
+            #         elif non_local_se.upper() == 'GW-dTDA':
+            #             gw.polarizability = 'dtda'
+            #         integrals = gw.ao2mo()
+            #         non_local_se_static = gw.build_se_static(integrals)
+            #         seh, sep = gw.build_se_moments(nmom_se-1, integrals, mo_energy=dict(g=gw.mo_energy, w=gw.mo_energy))
+            #         non_local_se_moms = seh + sep
+            #     except ImportError:
+            #         raise ImportError("momentGW required for non-local GW self-energy contribution")
+            # elif non_local_se == 'FCI' or non_local_se == 'CCSD':
+            #     EXPR = FCI if non_local_se == 'FCI' else CCSD
+            #     expr = FCI["1h"](self.mf)
+            #     th = expr.build_gf_moments(nmom_se)
+            #     expr = FCI["1p"](self.mf)
+            #     tp = expr.build_gf_moments(nmom_se)
                 
-                solverh = MBLGF(th, hermitian=hermitian_mblgf, log=NullLogger())
-                solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
-                solver = MixedMBLGF(solverh, solverp)
-                solver.kernel()
-                non_local_se_static = th[1] + tp[1]
-                non_local_se = solver.get_self_energy()
-                non_local_se_moms = np.array([non_local_se.moment(i) for i in range(nmom_se)])
-            else:
-                raise NotImplementedError()
-            static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
-            self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
+            #     solverh = MBLGF(th, hermitian=hermitian_mblgf, log=NullLogger())
+            #     solverp = MBLGF(tp, hermitian=hermitian_mblgf, log=NullLogger())
+            #     solver = MixedMBLGF(solverh, solverp)
+            #     solver.kernel()
+            #     non_local_se_static = th[1] + tp[1]
+            #     non_local_se = solver.get_self_energy()
+            #     non_local_se_moms = np.array([non_local_se.moment(i) for i in range(nmom_se)])
+            # else:
+            #     raise NotImplementedError()
+            # static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
+            # self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
         phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
-        solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse, log=self.log)
+        if type(self_energy_moments) is tuple:
+            solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse, log=self.log)
+            solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse, log=self.log)
+            solver = MixedMBLSE(solverh, solverp)
+        else:
+            solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse, log=self.log)
         solver.kernel()
         self_energy = solver.get_self_energy()
-        return static_self_energy, self_energy
+        return self_energy
 
     def make_greens_function(self, static_self_energy, self_energy, aux_shift=None):
         """
