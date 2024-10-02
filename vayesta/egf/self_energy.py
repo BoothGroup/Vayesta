@@ -55,7 +55,7 @@ def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=
 
         if proj == 1:
             static_self_energy_frag = cfc @ static_self_energy_clus
-            static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
+            static_self_energy_frag = 0.5 * (cfc @ static_self_energy_clus + static_self_energy_clus @ cfc)
             static_self_energy += mc @ static_self_energy_frag @ mc.T
 
             if use_sym:
@@ -199,7 +199,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
 
 
-def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, eta=1e-1, debug_gf_moms=None, debug_se_moms=None):
+def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, use_sym=True, proj=1, hermitian=True, sym_moms=True, debug_gf_moms=None, debug_se_moms=None):
     """
     Construct full system self-energy moments from Green's function moments
 
@@ -217,8 +217,6 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
         Use symmetry to reconstruct self-energy
     proj : int
         Number of projectors to use (1 or 2)
-    eta : float
-        Broadening factor for static potential
 
     Returns
     -------
@@ -365,7 +363,7 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
-def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, eta=1e-1, nmom_gf=None, aux_shift_clus=False, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, use_svd=True, nmom_gf=None, aux_shift_clus=False, remove_degeneracy=True, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -375,26 +373,26 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     ----------
     emb : EWF object
         Embedding object
-    use_sym : bool
-        Use symmetry to reconstruct self-energy
-    sym_moms : bool
-        Symmetrise moments
     hermitian : bool
         Use Hermitian block Lanczos solver
+    remove_degeneracy : bool
+        Combine degenerate poles in full system self-energy
     nmom_gf : int
         Number of Green's function moments to use for block Lanczos
     use_svd : bool
         Use SVD to decompose the self-energy as outer product
     img_space : bool
         Use image space for SVD or diagonalisation
+    use_sym : bool
+        Use symmetry to reconstruct self-energy
+    sym_moms : bool
+        Symmetrise moments
     se_degen_tol : float
         Tolerance for degeneracy in Lehmann representation
     se_eval_tol : float
         Tolerance for self-energy eigenvalues assumed to be kept
     drop_non_causal : bool
         Drop non-causal poles (negative eigenvalues) of self-energy
-    eta : float
-        Broadening factor for static potential
 
     Returns
     -------
@@ -469,10 +467,11 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
     self_energy = Lehmann(energies, couplings)
     emb.log.info("Removing SE degeneracy. Naux:    %s"%len(energies))
 
-    if hermitian:
-        self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
-    else:
-        self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
+    if remove_degeneracy:
+        if hermitian:
+            self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+        else:
+            self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
 
     emb.log.info("Removed SE degeneracy, new Naux: %s"%len(self_energy.energies)) 
     return self_energy
@@ -582,7 +581,7 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
 
 
     
-def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, use_sym=True, aux_shift_clus=None, eta=1e-1):
+def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, remove_degeneracy=True, use_sym=True, aux_shift_clus=None):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors
 
@@ -598,10 +597,10 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
         Symmetrise moments
     hermitian : bool
         Use Hermitian block Lanczos solver
+    remove_degeneracy : bool
+        Combine degenerate poles in full system self-energy
     use_sym : bool
         Use symmetry to reconstruct self-energy
-    eta : float
-        Broadening factor for static potential
 
     Returns
     -------
@@ -664,8 +663,11 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, us
         couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
-    self_energy = remove_se_degeneracy_sym( self_energy, dtol=emb.opts.se_degen_tol, etol=emb.opts.se_eval_tol, log=emb.log)
-
+    if remove_degeneracy:
+        if hermitian:
+            self_energy = remove_se_degeneracy_sym(self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal, log=emb.log)
+        else:
+            self_energy = remove_se_degeneracy_nsym(self_energy, dtol=se_degen_tol, etol=se_eval_tol,  log=emb.log)
     return self_energy
 
 def drop_and_reweight(se, tol=1e-12):
@@ -986,7 +988,7 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
     return Lehmann(np.array(energies), couplings)
 
 
-def get_unique(array, atol=1e-15):
+def get_unique(array, atol=1e-15): 
     
     # Find elements of a sorted float array which are unique up to a tolerance
     
