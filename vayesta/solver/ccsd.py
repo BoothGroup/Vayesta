@@ -69,22 +69,25 @@ class RCCSD_Solver(ClusterSolver):
         else:
             self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
             l1, l2 = mycc.t1, mycc.t2
+            
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
-        # In-cluster Moments
+        # Cluster spectral moments
         nmom = self.opts.n_moments
+        if type(nmom) is int:
+            nmom = (nmom, nmom)
         if nmom is not None:
             try:
                 from dyson.expressions import CCSD
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
-                self.log.info("Skipping in-cluster moment calculations")
+                self.log.info("Skipping cluster moment calculations")
                 return
-            self.log.info("Calculating in-cluster CCSD moments %s" % str(nmom))
+            self.log.info("Calculating cluster CCSD spectral moments %s" % str(nmom))
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-                self.hole_moments = expr.build_gf_moments(nmom[0])
+                expr = CCSD["1h"](mf_clus, ccsd=mycc)
+                self.gf_hole_moments = expr.build_gf_moments(nmom[0])
             
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
                 # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
@@ -93,8 +96,8 @@ class RCCSD_Solver(ClusterSolver):
                 # self.ip_moment_amplitudes = (amps_bra, amps_ket)
             
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-                self.particle_moments = expr.build_gf_moments(nmom[1])
+                expr = CCSD["1p"](mf_clus, ccsd=mycc)
+                self.gf_particle_moments = expr.build_gf_moments(nmom[1])
                 
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
                 # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
