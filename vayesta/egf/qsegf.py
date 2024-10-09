@@ -98,13 +98,11 @@ class QSEGF_RHF(SCMF):
         mo_coeff : ndarray
             New MO coefficients.
         """
-        
-        
-        self.emb.update_mf(mo_coeff)
-        self.emb.kernel_orig()
 
         if self.global_static_potential:
             self.static_potential = self.emb.mo_coeff @ self.emb.self_energy.as_static_potential(self.emb.mf.mo_energy, eta=self.eta)  @ self.emb.mo_coeff.T
+        else:
+            raise NotImplementedError()
 
         v_old = self.static_potential.copy()
         sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
@@ -120,13 +118,18 @@ class QSEGF_RHF(SCMF):
         self.gf = self.emb.gf
 
         if self.sc:
-            e, mo_coeff = self.fock_scf(self.static_potential)
+            #e, mo_coeff = self.fock_scf(self.static_potential)
+            raise NotImplementedError()
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
 
-
-        self.gf_qp = Lehmann(e, np.eye(len(e)))
-
+        nelec = self.emb.mf.mol.nelectron
+        chempot_qp = (e[nelec//2-1] + e[nelec//2] ) / 2
+        self.gf_qp = Lehmann(e, np.eye(len(e)), chempot=chempot_qp)
+        nelec_gf_qp = 2*np.trace(self.gf_qp.occupied().moment(0))
+        self.emb.log.info("QP GF nelec = %f"%nelec_gf_qp)
+        #assert np.allclose(np.trace(self.gf_qp.occupied().moment(0)), nelec)
+        
 
         gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
         dynamic_gap = gap(self.gf)

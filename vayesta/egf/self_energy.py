@@ -1051,7 +1051,7 @@ def fit_hermitian(se):
     couplings_l, couplings_r = se._unpack_couplings()
     couplings_l, couplings_r = couplings_l.copy(), couplings_r.copy().conj()
     def f(w):
-        denom = 1 / (1j*w - energies + 1j * eta)
+        denom = 1 / (1j*w - energies + 1j)
         return np.einsum('pa,qa,a->pq', couplings_l, couplings_r, denom)
 
     def obj(x):

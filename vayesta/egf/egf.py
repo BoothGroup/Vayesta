@@ -31,8 +31,8 @@ from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, Mixe
 @dataclasses.dataclass
 class Options(REWF.Options):
     """Options for EGF calculations."""
-    eta: float = 1e-1 # Broadening factor
     proj: int = 2     # Number of projectors used on self-energy (1, 2)
+    proj_static_se: int = None # Number of projectors used on static self-energy (same as proj if None)
     use_sym: bool = True # Use symmetry for self-energy reconstruction
     se_degen_tol: float = 1e-6 # Tolerance for degeneracy of self-energy poles
     se_eval_tol: float = 1e-6  # Tolerance for self-energy eignvalues
@@ -57,6 +57,9 @@ class REGF(REWF):
     def __init__(self, mf, solver="CCSD", log=None, **kwargs):
         super().__init__(mf, solver=solver, log=log, **kwargs)
 
+        if self.opts.proj_static_se is None:
+            self.opts.proj_static_se = self.opts.proj
+            
         # Logging
         with self.log.indent():
             # Options
@@ -69,12 +72,14 @@ class REGF(REWF):
         super().kernel()
         couplings = []
         energies = []
-        self.static_self_energy = make_static_self_energy(self, proj=self.opts.proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
+        self.static_self_energy = self.make_static_self_energy(proj=self.opts.proj_static_se, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
 
         if self.opts.se_mode == 'lehmann':
             self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
         elif self.opts.se_mode == 'moments':
             self.self_energy = self.make_self_energy_moments(self.opts.proj, non_local_se=self.opts.non_local_se)
+        else:
+            raise NotImplementedError()
 
         self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, aux_shift=self.opts.aux_shift)
 
@@ -84,6 +89,9 @@ class REGF(REWF):
         self.log.info("IP  = %8f"%ip)
         self.log.info("EA  = %8f"%ea)
         self.log.info("Gap = %8f"%gap)
+
+    def make_static_self_energy(self, proj, sym_moms=False, with_mf=False, use_sym=True):
+        return make_static_self_energy(self, proj=proj, sym_moms=sym_moms, with_mf=with_mf, use_sym=use_sym)
 
     def make_self_energy_lehmann(self, proj, nmom_gf=None):
         """
@@ -177,7 +185,8 @@ class REGF(REWF):
             #     raise NotImplementedError()
             # static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
             # self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
-        phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
+
+        phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + self.static_self_energy
         if type(self_energy_moments) is tuple:
             solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse, log=self.log)
             solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse, log=self.log)
