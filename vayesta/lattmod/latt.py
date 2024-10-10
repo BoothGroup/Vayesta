@@ -7,12 +7,14 @@ import pyscf.pbc
 import pyscf.pbc.gto
 import pyscf.scf
 import pyscf.lib
-from pyscf.lib.parameters import BOHR
+#from pyscf.lib.parameters import BOHR
 
 from vayesta.core.util import einsum
 
 log = logging.getLogger(__name__)
 
+
+BOHR = 1
 
 class LatticeMole(pyscf.pbc.gto.Cell):
     """For PySCF compatibility
