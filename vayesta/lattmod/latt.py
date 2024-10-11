@@ -73,6 +73,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     def atom_pure_symbol(self, site):
         return "S"
 
+    def ewald(self):
+        return 0
     # def build(self):
     #    pass
 
