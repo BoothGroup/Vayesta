@@ -1,0 +1,69 @@
+vayesta.core.qemb
+=================
+
+Submodules
+----------
+
+vayesta.core.qemb.corrfunc
+--------------------------
+
+.. automodule:: vayesta.core.qemb.corrfunc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.fragment
+--------------------------
+
+.. automodule:: vayesta.core.qemb.fragment
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.qemb
+----------------------
+
+.. automodule:: vayesta.core.qemb.qemb
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.register
+--------------------------
+
+.. automodule:: vayesta.core.qemb.register
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.self\_energy
+------------------------------
+
+.. automodule:: vayesta.core.qemb.self_energy
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.ufragment
+---------------------------
+
+.. automodule:: vayesta.core.qemb.ufragment
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.qemb.uqemb
+-----------------------
+
+.. automodule:: vayesta.core.qemb.uqemb
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.qemb
+   :members:
+   :undoc-members:
+   :show-inheritance:
