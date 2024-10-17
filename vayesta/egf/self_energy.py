@@ -256,6 +256,8 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
         se_static_clus = th[1] + tp[1]
             
         se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
+        f.results.se = se
+        f.results.gf = gf
 
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
@@ -428,7 +430,9 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         se_static = th[1] + tp[1]
             
         se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
-        
+        f.results.se = se
+        f.results.gf = gf
+
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
@@ -633,7 +637,9 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
         se_static = th[1] + tp[1]
             
         se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
-
+        f.results.se = se
+        f.results.gf = gf
+        
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
