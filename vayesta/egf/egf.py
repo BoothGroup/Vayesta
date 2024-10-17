@@ -41,7 +41,7 @@ class Options(REWF.Options):
     chempot_global: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
     chempot_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
-    nmom_se: int = np.inf # Number of conserved moments for self-energy
+    nmom_se: int = None      # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
     sym_moms: bool = True # Use symmetrized moments
     hermitian_mblgf: bool = True # Use hermitian MBLGF
@@ -77,7 +77,7 @@ class REGF(REWF):
         if self.opts.se_mode == 'lehmann':
             self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
         elif self.opts.se_mode == 'moments':
-            self.self_energy = self.make_self_energy_moments(self.opts.proj, non_local_se=self.opts.non_local_se)
+            self.self_energy = self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
         else:
             raise NotImplementedError()
 
