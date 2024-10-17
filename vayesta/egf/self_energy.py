@@ -123,11 +123,20 @@ def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=No
     if shift is not None:
         if nelec is None:
             raise ValueError("Number of electrons must be provided for shift")
-        Shift = AuxiliaryShift if shift == 'aux' else AufbauPrinciple
+        if shift == 'aux':
+            Shift = AuxiliaryShift
+        elif shift == 'auf':
+            Shift = AufbauPrinciple
+        else:
+            raise ValueError("Invalid cluster chempot optimisation method")
         shift = Shift(th[1]+tp[1], se, nelec, occupancy=2, log=log)
         shift.kernel()
         se = shift.get_self_energy()
         gf = shift.get_greens_function()
+
+        if log is not None:
+            log.info("Shifted self-energy with %s"%shift.__class__.__name__)
+            log.info("Chempot: %f"%se.chempot)
     
     return se, gf
 
@@ -189,7 +198,12 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
     if shift is not None:
         if nelec is None:
             raise ValueError("Number of electrons must be provided for shift")
-        Shift = AuxiliaryShift if shift == 'aux' else AufbauPrinciple
+        if shift == 'aux':
+            Shift = AuxiliaryShift
+        elif shift == 'auf':
+            Shift = AufbauPrinciple
+        else:
+            raise ValueError("Invalid cluster chempot optimisation method")
         shift = Shift(se_static, se, nelec, occupancy=2, log=log)
         shift.kernel()
         se = shift.get_self_energy()
@@ -253,9 +267,9 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
             assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
             
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
-        se_static_clus = th[1] + tp[1]
-            
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
+        
+        nelec = 2 * f.cluster.nocc
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
         f.results.se = se
         f.results.gf = gf
 
@@ -427,9 +441,9 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
             assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
             
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
-        se_static = th[1] + tp[1]
-            
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
+
+        nelec = 2 * f.cluster.nocc
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
         f.results.se = se
         f.results.gf = gf
 
@@ -635,11 +649,12 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
             
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         se_static = th[1] + tp[1]
-            
-        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=f.nelectron, log=emb.log)
+        
+        nelec = 2 * f.cluster.nocc
+        se, gf = gf_moments_block_lanczos((th,tp), hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
         f.results.se = se
         f.results.gf = gf
-        
+
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))

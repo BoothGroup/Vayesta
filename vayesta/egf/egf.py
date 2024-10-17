@@ -38,7 +38,7 @@ class Options(REWF.Options):
     se_eval_tol: float = 1e-6  # Tolerance for self-energy eignvalues
     img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
-    aux_shift: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
+    chempot_global: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
     chempot_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = np.inf # Number of conserved moments for self-energy
@@ -81,7 +81,7 @@ class REGF(REWF):
         else:
             raise NotImplementedError()
 
-        self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, aux_shift=self.opts.aux_shift)
+        self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, chempot_global=self.opts.chempot_global)
 
         ea = self.gf.physical().virtual().energies[0] 
         ip = self.gf.physical().occupied().energies[-1]
@@ -122,7 +122,7 @@ class REGF(REWF):
         return self_energy
         
 
-    def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=False, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
+    def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=True, hermitian_mblse=True, from_gf_moms=True, non_local_se=None):
         """
         Reconstruct self-energy moments from fragment self-energy moments and perform block Lanczos
         on full system to obtain a Lehmann self-energy.
@@ -149,8 +149,9 @@ class REGF(REWF):
         self_energy : MBLSE
             Self-energy in Lehmann representation
         """
-        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
-        self_energy_moments = make_self_energy_moments(self, nmom_se=nmom_se, proj=proj, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
+        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
+        self_energy_moments = make_self_energy_moments(self, ph_separation=ph_separation, nmom_se=nmom_se, proj=proj, chempot_clus=self.opts.chempot_clus, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
+        self.self_energy_moments = self_energy_moments
         if non_local_se is not None:
             raise NotImplementedError()
             # if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
@@ -197,7 +198,7 @@ class REGF(REWF):
         self_energy = solver.get_self_energy()
         return self_energy
 
-    def make_greens_function(self, static_self_energy, self_energy, aux_shift=None):
+    def make_greens_function(self, static_self_energy, self_energy, chempot_global=None):
         """
         Calculate Green's function from self-energy using Dyson equation.
 
@@ -207,7 +208,7 @@ class REGF(REWF):
             Static part of the self-energy
         self_energy : Lehmann
             Self-energy in Lehmann representation
-        aux_shift : (None, 'auf', 'aux')
+        chempot_global : (None, 'auf', 'aux')
             Type of chemical potential optimisation for full system Green's function. AufbauPrinciple or AuxiliaryShift.
         
         Returns
@@ -216,15 +217,20 @@ class REGF(REWF):
             Green's function
         """
 
-        if aux_shift is None:
-           aux_shift = self.opts.aux_shift
+        if chempot_global is None:
+           chempot_global = self.opts.chempot_global
         SC = self.get_ovlp() @ self.mo_coeff
         phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
-        if aux_shift is None:
+        if chempot_global is None:
             gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
         else:
             self.log.info("Performing %s on self-energy"%str(type(AufbauPrinciple)))
-            Shift = AuxiliaryShift if aux_shift=='aux' else AufbauPrinciple
+            if chempot_global == 'aux':
+                Shift = AuxiliaryShift
+            elif chempot_global == 'auf':
+                Shift = AufbauPrinciple
+            else:
+                raise ValueError("Invalid global chempot optimisation method")
             shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
             shift.kernel()
             self_energy = shift.get_self_energy()
