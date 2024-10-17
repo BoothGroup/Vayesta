@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg
+from sympy import N
 
 import pyscf.scf
 
@@ -7,23 +8,26 @@ import vayesta
 from vayesta.core.scmf.scmf import SCMF
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
-from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
-from dyson import Lehmann, AuxiliaryShift
+from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj, make_self_energy_moments, remove_fragments_from_full_moments
+from dyson import Lehmann, AuxiliaryShift, AufbauPrinciple, MBLSE, MBLGF, MixedMBLGF, CCSD, FCI, NullLogger
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=True, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, non_local_se=None, hermitian_mblgf=True, hermitian_mblse=True, sym_moms=False, nmom_se=np.inf, static_potential_conv_tol=1e-5, global_static_potential=True, eta=1e-2, damping=0, sc=False, aux_shift=False, aux_shift_frag=False, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
         Parameters
         ----------
-        emb : QEmbedding o
+        emb : QEmbedding 
             Embedding object on which self consitency is based
         proj : int 
             Number of fragment projectors applied to cluster self-energy
+        nmom_se : int
+            Number of cluster self energy moments used for global self energy reconstruction
+            Default: np.inf (Use Lehmann representation of self-energy)
         static_potential_conv_tol : float
             Convergence threshold for static potential
         eta : float
@@ -38,6 +42,9 @@ class QPEWDMET_RHF(SCMF):
             Use fragment symmetry
         static_potential_init : ndarray
             Inital static potential
+        with_non_local_se : str
+            Method for non-local self-energy
+            Default: None (no non-local self-energy contribution)
         """
         
         self.sc_fock = emb.get_fock()
@@ -59,6 +66,11 @@ class QPEWDMET_RHF(SCMF):
         self.aux_shift = aux_shift
         self.aux_shift_frag = aux_shift_frag
         self.global_static_potential = global_static_potential
+        self.nmom_se = nmom_se
+        self.non_local_se = non_local_se
+        self.sym_moms = sym_moms
+        self.hermitian_mblgf = hermitian_mblgf
+        self.hermitian_mblse = hermitian_mblse
         
         super().__init__(emb, *args, **kwargs)
 
@@ -119,26 +131,67 @@ class QPEWDMET_RHF(SCMF):
         self.static_potential = np.zeros_like(self.fock)
         self.static_self_energy = np.zeros_like(self.fock)
 
-        if self.proj == 1:
-            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
-        elif self.proj == 2:
-            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
+        
+
+        if self.nmom_se == np.inf:
+            if self.proj == 1:
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta,aux_shift_frag=self.aux_shift_frag, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+            elif self.proj == 2:
+                self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
+            else:
+                return NotImplementedError()
         else:
-            return NotImplementedError()
+            self.self_energy_moments, self.static_self_energy, self.static_potential = make_self_energy_moments(self.emb, self.nmom_se, proj=self.proj, hermitian=self.hermitian_mblgf, sym_moms=self.sym_moms, use_sym=self.use_sym, eta=self.eta)
+            if self.non_local_se is not None:
+                self.non_local_se = self.non_local_se.upper()
+                if self.non_local_se == 'GW':
+                    try:
+                        from momentGW import GW
+                        gw = GW(self.emb.mf)
+                        gw.polarizability = 'dtda'
+                        integrals = gw.ao2mo()
+                        non_local_se_static = gw.build_se_static(integrals)
+                        seh, sep = gw.build_se_moments(self.nmom_se-1, integrals, mo_energy=dict(g=gw.mo_energy, w=gw.mo_energy))
+                        non_local_se_moms = seh + sep
+                    except ImportError:
+                        raise ImportError("momentGW required for non-local GW self-energy contribution")
+                elif self.non_local_se == 'FCI' or self.non_local_se == 'CCSD':
+                    EXPR = FCI if self.non_local_se == 'FCI' else CCSD
+                    expr = FCI["1h"](self.emb.mf)
+                    th = expr.build_gf_moments(self.nmom_se)
+                    expr = FCI["1p"](self.emb.mf)
+                    tp = expr.build_gf_moments(self.nmom_se)
+                    
+                    solverh = MBLGF(th, hermitian=self.hermitian_mblgf, log=NullLogger())
+                    solverp = MBLGF(tp, hermitian=self.hermitian_mblgf, log=NullLogger())
+                    solver = MixedMBLGF(solverh, solverp)
+                    solver.kernel()
+                    non_local_se_static = th[1] + tp[1]
+                    non_local_se = solver.get_self_energy()
+                    non_local_se_moms = np.array([non_local_se.moment(i) for i in range(self.nmom_se)])
+                else:
+                    raise NotImplementedError()
+                self.static_self_energy = remove_fragments_from_full_moments(self.emb, non_local_se_static) + self.static_self_energy
+                self.self_energy_moments = remove_fragments_from_full_moments(self.emb, non_local_se_moms, proj=self.proj) + self.self_energy_moments
+            phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
+            solver = MBLSE(phys, self.self_energy_moments, hermitian=self.hermitian_mblse, log=self.log)
+            solver.kernel()
+            self.self_energy = solver.get_self_energy()
+
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy 
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         self.emb.log.info('Number of electrons in GF: %f'%nelec_gf)
-        if self.aux_shift:
-            aux = AuxiliaryShift(phys, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
-            aux.kernel()
-            self.self_energy = aux.get_self_energy()
-            gf = aux.get_greens_function()
-            dm = gf.occupied().moment(0) * 2.0
-            nelec_gf = np.trace(dm)
-            self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
-        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
+        Shift = AuxiliaryShift if self.aux_shift else AufbauPrinciple
+        shift = Shift(phys, self.self_energy, self.emb.mf.mol.nelectron, occupancy=2, log=self.log)
+        shift.kernel()
+        self.self_energy = shift.get_self_energy()
+        gf = shift.get_greens_function()
+        dm = gf.occupied().moment(0) * 2.0
+        nelec_gf = np.trace(dm)
+        self.emb.log.info('Number of electrons in (shifted) GF: %f'%nelec_gf)
+        
         
 
         v_old = self.static_potential.copy()
@@ -159,9 +212,13 @@ class QPEWDMET_RHF(SCMF):
             e, mo_coeff = self.fock_scf(self.static_potential)
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
-        
+
+        gap = lambda gf: gf.physical().virtual().energies[0] - gf.physical().occupied().energies[-1]
         dynamic_gap = gap(self.gf)
         static_gap = gap(self.gf_qp)
+        self.log.info("Dynamic Gap = %f"%dynamic_gap)
+        self.log.info("Static Gap = %f"%static_gap)
+            
         if self.store_hist:        
             #self.static_potential_frag_hist.append(v_frag.copy())
             self.static_potential_hist.append(self.static_potential.copy())
@@ -170,8 +227,7 @@ class QPEWDMET_RHF(SCMF):
             self.dynamic_gap_hist.append(dynamic_gap)
             self.mo_coeff_hist.append(mo_coeff.copy())
 
-        self.log.info("Dynamic Gap = %f"%dynamic_gap)
-        self.log.info("Static Gap = %f"%static_gap)
+        
         return mo_coeff
 
     def fock_scf(self, v):
@@ -252,7 +308,8 @@ class QPEWDMET_RHF(SCMF):
         # Shift final auxiliaries to ensure right particle number
         phys = self.emb.mf.mo_coeff.T @ self.emb.mf.get_fock() @ self.emb.mf.mo_coeff + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(phys, self.self_energy, nelec, occupancy=2, log=self.emb.log)
+        Kernel = AuxiliaryShift if self.aux_shift else AufbauPrinciple
+        shift = Kernel(phys, self.self_energy, nelec, occupancy=2, log=self.emb.log)
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))

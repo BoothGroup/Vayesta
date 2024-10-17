@@ -79,7 +79,7 @@ class FCI_Solver(ClusterSolver):
         self.converged = self.solver.converged
         self.wf = FCI_WaveFunction(self.hamil.mo, self.civec)
 
-        # In-cluster Moments
+        # Cluster spectral moments
         nmom = self.opts.n_moments
         if nmom is not None:
             try:
@@ -89,15 +89,15 @@ class FCI_Solver(ClusterSolver):
                 self.log.info("Skipping cluster moment calculations")
                 return
             
-            self.log.info("Calculating cluster FCI moments %s"%str(nmom))
+            self.log.info("Calculating cluster FCI spectral moments %s"%str(nmom))
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
 
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = FCI["1h"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
-                self.hole_moments = expr.build_gf_moments(nmom[0])
+                self.gf_hole_moments = expr.build_gf_moments(nmom[0])
             with log_time(self.log.timing, "Time for hole moments: %s"):    
                 expr = FCI["1p"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
-                self.particle_moments = expr.build_gf_moments(nmom[1])
+                self.gf_particle_moments = expr.build_gf_moments(nmom[1])
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
     @dataclasses.dataclass
