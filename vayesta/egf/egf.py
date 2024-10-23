@@ -198,7 +198,7 @@ class REGF(REWF):
             # static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
             # self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
 
-        phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + self.static_self_energy
+        phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
         if type(self_energy_moments) is tuple:
             solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse, log=self.log)
             solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse, log=self.log)
