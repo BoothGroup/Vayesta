@@ -158,8 +158,8 @@ class REGF(REWF):
         self_energy : MBLSE
             Self-energy in Lehmann representation
         """
-        if hermitian_mblf is None:
-            hermitian_mblf = self.opts.hermitian_mblgf
+        if hermitian_mbglf is None:
+            hermitian_mbglf = self.opts.hermitian_mblgf
         static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
         self_energy_moments = make_self_energy_moments(self, ph_separation=ph_separation, nmom_se=nmom_se, proj=proj, chempot_clus=self.opts.chempot_clus, hermitian=hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
         self.self_energy_moments = self_energy_moments
