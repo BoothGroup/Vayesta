@@ -62,9 +62,9 @@ class REGF(REWF):
             self.opts.proj_static_se = self.opts.proj
 
         if self.opts.chempot_clus == 'auto':
-            if self.se_mode == 'moments':
+            if self.opts.se_mode == 'moments':
                 self.opts.chempot_clus = 'aux' if self.opts.chempot_global == 'aux' else 'auf'
-            elif self.se_mode == 'lehmann':
+            elif self.opts.se_mode == 'lehmann':
                 self.opts.chempot_clus = None
             else:
                 raise ValueError("Invalid self-energy mode")
