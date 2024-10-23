@@ -131,7 +131,7 @@ class REGF(REWF):
         return self_energy
         
 
-    def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=True, hermitian_mblse=True, hermitian_mblf=None, from_gf_moms=True, non_local_se=None):
+    def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=True, hermitian_mblse=True, hermitian_mbglf=None, from_gf_moms=True, non_local_se=None):
         """
         Reconstruct self-energy moments from fragment self-energy moments and perform block Lanczos
         on full system to obtain a Lehmann self-energy.
