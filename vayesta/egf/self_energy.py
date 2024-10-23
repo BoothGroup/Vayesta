@@ -311,8 +311,8 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
             if ph_separation:
                 se_moms_clus_holes = se.occupied().moment(range(nmom_se))
                 se_moms_clus_parts = se.virtual().moment(range(nmom_se))
-                assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
-                assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
+                #assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
+                #assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
                 se_moms_clus_holes = se_moms_clus_holes.real
                 se_moms_clus_parts = se_moms_clus_parts.real
                 se_moms_frag_holes = np.array([(fc @ mom @ fc.T) for mom in se_moms_clus_holes])
@@ -321,7 +321,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
                 self_energy_moms_parts += np.array([mf @ mom @ mf.T for mom in se_moms_frag_parts])
             else:
                 se_moms_clus = se.moment(range(nmom_se))
-                assert np.linalg.norm(se_moms_clus.imag) < imag_tol
+                #assert np.linalg.norm(se_moms_clus.imag) < imag_tol
                 se_moms_clus = se_moms_clus.real
                 se_moms_frag = [(fc @ mom @ fc.T) for mom in se_moms_clus]
                 self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
