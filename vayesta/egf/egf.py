@@ -1,5 +1,6 @@
 # --- Standard
 import dataclasses
+from multiprocessing import Value
 
 # --- External
 import numpy as np
@@ -38,8 +39,8 @@ class Options(REWF.Options):
     se_eval_tol: float = 1e-6  # Tolerance for self-energy eignvalues
     img_space : bool = True    # Use image space for self-energy reconstruction
     drop_non_causal: bool = False # Drop non-causal poles
-    chempot_global: str = False # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
-    chempot_clus: str = None # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
+    chempot_global: str = None # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
+    chempot_clus: str = 'auto' # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
     se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
     nmom_se: int = None      # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
@@ -59,6 +60,14 @@ class REGF(REWF):
 
         if self.opts.proj_static_se is None:
             self.opts.proj_static_se = self.opts.proj
+
+        if self.opts.chempot_clus == 'auto':
+            if self.se_mode == 'moments':
+                self.opts.chempot_clus = 'aux' if self.opts.chempot_global == 'aux' else 'auf'
+            elif self.se_mode == 'lehmann':
+                self.opts.chempot_clus = None
+            else:
+                raise ValueError("Invalid self-energy mode")
             
         # Logging
         with self.log.indent():
