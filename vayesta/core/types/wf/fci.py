@@ -560,7 +560,6 @@ class UFCI_WaveFunction_w_dummy(UFCI_WaveFunction):
         return (dm2[0][np.ix_(sa, sa, sa, sa)], dm2[1][np.ix_(sa, sa, sb, sb)], dm2[2][np.ix_(sb, sb, sb, sb)])
 
     def as_cisd(self, *args, **kwargs):
-        self.check_norb()
         with replace_attr(self, mo=self.dummy_mo):
             wf_cisd = super().as_cisd(*args, **kwargs)
             va, vb = self._phys_ind_vir()
