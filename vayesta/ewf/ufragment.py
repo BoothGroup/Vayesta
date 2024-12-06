@@ -47,7 +47,6 @@ class Fragment(RFragment, BaseFragment):
             pxa, pxb = self.get_overlap("proj|cluster-occ")
             oaf, obf = np.s_[: pxa.shape[0]], np.s_[: pxb.shape[0]]
 
-
         # Doubles energy
         # TODO: loop to reduce memory?
         if hamil is None:
@@ -66,25 +65,12 @@ class Fragment(RFragment, BaseFragment):
             assert len(c2) == 4
             caa, cab, cba, cbb = c2
 
-            print('caa: ', caa.shape)
-            print('cab: ', cab.shape)
-            print('cba: ', cba.shape)
-            print('cbb: ', cbb.shape)
-
             # Remove padding
             caa = caa[oaf, oa, va, va]
             cab = cab[oaf, ob, va, vb]
             cba = cba[obf, oa, vb, va]
             cbb = cbb[obf, ob, vb, vb]
 
-            print("pxa: ", pxa.shape)
-            print("gaa: ", gaa.shape)
-            print("caa: ", caa.shape)
-            print("gab: ", gab.shape)
-            print("cab: ", cab.shape)
-            print("gbb: ", gbb.shape)
-            print("cbb: ", cbb.shape)
-            print("pxb: ", pxb.shape)
             if c2ba_order == "ab":
                 cba = cba.transpose(1, 0, 3, 2)
             e_doubles = (
@@ -95,6 +81,7 @@ class Fragment(RFragment, BaseFragment):
                 + einsum("xi,xjab,iajb", pxa, cab, gab) / 2
                 + einsum("xi,xjab,jbia", pxb, cba, gab) / 2
             )
+
         else:
             assert len(c2) == 3
             caa, cab, cbb = c2
