@@ -43,13 +43,61 @@ class Fragment(RFragment, BaseFragment):
         e_corr: float
             Total fragment correlation energy contribution.
         """
-        nocc = (c2[0].shape[1], c2[-1].shape[1])
-        nvir = (c2[0].shape[2], c2[-1].shape[2])
-        self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
-        oa, ob = np.s_[: nocc[0]], np.s_[: nocc[1]]
-        va, vb = np.s_[nocc[0] :], np.s_[nocc[1] :]
         if axis1 == "fragment":
             pxa, pxb = self.get_overlap("proj|cluster-occ")
+            oaf, obf = np.s_[: pxa.shape[0]], np.s_[: pxb.shape[0]]
+
+        # Doubles energy
+        # TODO: loop to reduce memory?
+        if hamil is None:
+            hamil = self.hamil
+        gaa = hamil.get_eris_bare(block="ovov")
+        gab = hamil.get_eris_bare(block="ovOV")
+        gbb = hamil.get_eris_bare(block="OVOV")
+
+        nocc = gab.shape[0], gab.shape[2]
+        nvir = gab.shape[1], gab.shape[3]
+        self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
+        oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
+        va, vb = np.s_[:nvir[0]], np.s_[:nvir[1]]
+
+        if axis1 == "fragment":
+            assert len(c2) == 4
+            caa, cab, cba, cbb = c2
+
+            # Remove padding
+            caa = caa[oaf, oa, va, va]
+            cab = cab[oaf, ob, va, vb]
+            cba = cba[obf, oa, vb, va]
+            cbb = cbb[obf, ob, vb, vb]
+
+            if c2ba_order == "ab":
+                cba = cba.transpose(1, 0, 3, 2)
+            e_doubles = (
+                einsum("xi,xjab,iajb", pxa, caa, gaa) / 4
+                - einsum("xi,xjab,ibja", pxa, caa, gaa) / 4
+                + einsum("xi,xjab,iajb", pxb, cbb, gbb) / 4
+                - einsum("xi,xjab,ibja", pxb, cbb, gbb) / 4
+                + einsum("xi,xjab,iajb", pxa, cab, gab) / 2
+                + einsum("xi,xjab,jbia", pxb, cba, gab) / 2
+            )
+
+        else:
+            assert len(c2) == 3
+            caa, cab, cbb = c2
+
+            # Remove padding
+            caa = caa[oa, oa, va, va]
+            cab = cab[oa, ob, va, vb]
+            cbb = cbb[ob, ob, vb, vb]
+            
+            e_doubles = (
+                einsum("ijab,iajb", caa, gaa) / 4
+                - einsum("ijab,ibja", caa, gaa) / 4
+                + einsum("ijab,iajb", cbb, gbb) / 4
+                - einsum("ijab,ibja", cbb, gbb) / 4
+                + einsum("ijab,iajb", cab, gab)
+            )
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:
@@ -66,43 +114,27 @@ class Fragment(RFragment, BaseFragment):
             fovb = dot(self.cluster.c_active_occ[1].T, fock[1], self.cluster.c_active_vir[1])
             assert len(c1) == 2
             ca, cb = c1
-            if axis1 == "fragment":
-                e_singles = einsum("ia,xi,xa->", fova, pxa, ca) + einsum("ia,xi,xa->", fovb, pxb, cb)
-            else:
-                e_singles = np.sum(fova * ca) + np.sum(fovb * cb)
+
+            # Remove padding
+            ca = ca[oaf, va]
+            cb = cb[obf, vb]
+
+            e_singles = 0
+
+            if fova.shape[0] != 0 and fova.shape[1] != 0:
+                if axis1 == "fragment":
+                    e_singles += einsum("ia,xi,xa->", fova, pxa, ca)
+                else:
+                    e_singles += np.sum(fova * ca)
+
+            if fovb.shape[0] != 0 and fovb.shape[1] != 0:
+                if axis1 == "fragment":
+                    e_singles += einsum("ia,xi,xa->", fovb, pxb, cb)
+                else:
+                    e_singles += np.sum(fovb * cb)
+
         else:
             e_singles = 0
-        # Doubles energy
-        # TODO: loop to reduce memory?
-        if hamil is None:
-            hamil = self.hamil
-        gaa = hamil.get_eris_bare(block="ovov")
-        gab = hamil.get_eris_bare(block="ovOV")
-        gbb = hamil.get_eris_bare(block="OVOV")
-
-        if axis1 == "fragment":
-            assert len(c2) == 4
-            caa, cab, cba, cbb = c2
-            if c2ba_order == "ab":
-                cba = cba.transpose(1, 0, 3, 2)
-            e_doubles = (
-                einsum("xi,xjab,iajb", pxa, caa, gaa) / 4
-                - einsum("xi,xjab,ibja", pxa, caa, gaa) / 4
-                + einsum("xi,xjab,iajb", pxb, cbb, gbb) / 4
-                - einsum("xi,xjab,ibja", pxb, cbb, gbb) / 4
-                + einsum("xi,xjab,iajb", pxa, cab, gab) / 2
-                + einsum("xi,xjab,jbia", pxb, cba, gab) / 2
-            )
-        else:
-            assert len(c2) == 3
-            caa, cab, cbb = c2
-            e_doubles = (
-                einsum("ijab,iajb", caa, gaa) / 4
-                - einsum("ijab,ibja", caa, gaa) / 4
-                + einsum("ijab,iajb", cbb, gbb) / 4
-                - einsum("ijab,ibja", cbb, gbb) / 4
-                + einsum("ijab,iajb", cab, gab)
-            )
 
         e_singles = self.sym_factor * e_singles
         e_doubles = self.sym_factor * e_doubles
