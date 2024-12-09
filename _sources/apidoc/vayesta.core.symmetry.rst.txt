@@ -1,0 +1,45 @@
+vayesta.core.symmetry
+=====================
+
+Submodules
+----------
+
+vayesta.core.symmetry.group
+---------------------------
+
+.. automodule:: vayesta.core.symmetry.group
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.symmetry.operation
+-------------------------------
+
+.. automodule:: vayesta.core.symmetry.operation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.symmetry.symmetry
+------------------------------
+
+.. automodule:: vayesta.core.symmetry.symmetry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.symmetry.tsymmetry
+-------------------------------
+
+.. automodule:: vayesta.core.symmetry.tsymmetry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.symmetry
+   :members:
+   :undoc-members:
+   :show-inheritance:

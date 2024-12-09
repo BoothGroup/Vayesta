@@ -1,0 +1,101 @@
+vayesta.core.types.wf
+=====================
+
+Submodules
+----------
+
+vayesta.core.types.wf.ccsd
+--------------------------
+
+.. automodule:: vayesta.core.types.wf.ccsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.ccsdtq
+----------------------------
+
+.. automodule:: vayesta.core.types.wf.ccsdtq
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.cisd
+--------------------------
+
+.. automodule:: vayesta.core.types.wf.cisd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.cisdtq
+----------------------------
+
+.. automodule:: vayesta.core.types.wf.cisdtq
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.fci
+-------------------------
+
+.. automodule:: vayesta.core.types.wf.fci
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.hf
+------------------------
+
+.. automodule:: vayesta.core.types.wf.hf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.mp2
+-------------------------
+
+.. automodule:: vayesta.core.types.wf.mp2
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.project
+-----------------------------
+
+.. automodule:: vayesta.core.types.wf.project
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.rdm
+-------------------------
+
+.. automodule:: vayesta.core.types.wf.rdm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.t\_to\_c
+------------------------------
+
+.. automodule:: vayesta.core.types.wf.t_to_c
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.types.wf.wf
+------------------------
+
+.. automodule:: vayesta.core.types.wf.wf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.types.wf
+   :members:
+   :undoc-members:
+   :show-inheritance:
