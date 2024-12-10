@@ -71,6 +71,9 @@ ebcc = [
 pygnme = [
     "pygnme @ git+https://github.com/BoothGroup/pygnme@master" 
 ]
+block2 = [
+    "block2 @ git+https://github.com/block-hczhai/block2-preview.git"
+]
 dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",

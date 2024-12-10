@@ -150,6 +150,16 @@ class Options(OptionsBase):
         lindep=None,
         davidson_only=True,
         init_guess="default",
+        # DMRG
+        localiser = None,
+        bond_dims = None,
+        noises = None,
+        thrds = None,
+        n_sweeps = 2,
+        bond_dims_moments = None,
+        noises_moments = None,
+        thrds_moments = None,
+        n_sweeps_moments = None,
         # EBFCI/EBCCSD
         max_boson_occ=2,
         # EBCC

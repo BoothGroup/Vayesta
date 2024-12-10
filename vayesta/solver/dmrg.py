@@ -42,6 +42,9 @@ class DMRG_Solver(ClusterSolver):
             self.opts.n_sweeps_moments = self.opts.n_sweeps 
 
 
+        
+
+
     def kernel(self):
         try:
             from pyblock2._pyscf.ao2mo import integrals as itg
@@ -59,19 +62,19 @@ class DMRG_Solver(ClusterSolver):
 
         mf_clus = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)[0]
         ncas, n_elec, spin, ecore, h1e, g2e, orb_sym = itg.get_rhf_integrals(mf_clus, ncore=0, ncas=None, g2e_symm=1)
-        self.driver = DMRGDriver(scratch="./tmp", symm_type=SymmetryTypes.SU2, n_threads=4)
-        self.driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)        
+        driver = DMRGDriver(scratch="./tmp", symm_type=SymmetryTypes.SZ, n_threads=4)
+        driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)        
 
-        self.mpo = self.driver.get_qc_mpo(h1e=h1e, g2e=g2e, ecore=ecore, integral_cutoff=1E-8, iprint=1)
-        self.ket = self.driver.get_random_mps(tag="KET", bond_dim=100, nroots=1)
+        mpo = driver.get_qc_mpo(h1e=h1e, g2e=g2e, ecore=ecore, integral_cutoff=1E-8, iprint=1)
+        ket = driver.get_random_mps(tag="KET", bond_dim=100, nroots=1)
         
         with log_time(self.log.timing, "Time for DMRG: %s"):
-            self.energy = self.driver.dmrg(self.mpo, self.ket, n_sweeps=self.opts.n_sweeps, bond_dims=self.opts.bond_dims, noises=self.opts.noises, thrds=self.opts.thrds, iprint=1)
+            self.energy = driver.dmrg(mpo, ket, n_sweeps=self.opts.n_sweeps, bond_dims=self.opts.bond_dims, noises=self.opts.noises, thrds=self.opts.thrds, iprint=1)
 
         #self.converged = self.driver.converged
 
-        dm1 = self.driver.get_1pdm(self.ket)
-        dm2 = self.driver.get_2pdm(self.ket).transpose(0, 3, 1, 2)
+        dm1 = np.sum(driver.get_1pdm(ket), axis=0)
+        dm2 = np.sum(driver.get_2pdm(ket), axis=0).transpose(0, 3, 1, 2)
         self.wf = RRDM_WaveFunction(self.hamil.mo, dm1, dm2)
 
         # Cluster Moments
@@ -84,11 +87,11 @@ class DMRG_Solver(ClusterSolver):
             
             
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-
+            nmom = self.opts.n_moments
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = FCI["1h"](mf_clus,)
+                expr = DMRG["1h"](mf_clus, mo_coeff=mf_clus.mo_coeff, driver=driver, mpo=mpo, ket=ket, bond_dims=self.opts.bond_dims_moments, noises=self.opts.noises_moments, thrds=self.opts.thrds_moments, n_sweeps=self.opts.n_sweeps_moments)
                 self.hole_moments = expr.build_gf_moments(nmom[0])
             with log_time(self.log.timing, "Time for hole moments: %s"):    
-                expr = FCI["1p"](mf_clus, )
+                expr = DMRG["1p"](mf_clus, )
                 self.particle_moments = expr.build_gf_moments(nmom[1])            
 
