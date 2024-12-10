@@ -66,16 +66,19 @@ dyson = [
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
 ]
 ebcc = [
-    "ebcc",
+    "ebcc<=1.5.0",
 ]
 pygnme = [
     "pygnme @ git+https://github.com/BoothGroup/pygnme@master" 
+]
+block2 = [
+    "block2 @ git+https://github.com/block-hczhai/block2-preview.git"
 ]
 dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
-    "ebcc",
+    "ebcc<=1.5.0",
     "black>=22.6.0",
     "pytest",
     "pytest-cov",

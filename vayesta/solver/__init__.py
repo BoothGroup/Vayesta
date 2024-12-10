@@ -9,6 +9,7 @@ from vayesta.solver.callback import CallbackSolver
 from vayesta.solver.ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from vayesta.solver.ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
+from vayesta.solver.dmrg import DMRG_Solver
 from vayesta.solver.hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
 from vayesta.solver.mp2 import RMP2_Solver, UMP2_Solver
 from vayesta.solver.tccsd import TRCCSD_Solver
@@ -65,6 +66,7 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
     ('FCI', True, False): UFCI_Solver,
     ('FCI', False, True): EB_EBFCI_Solver,
     ('FCI', True, True): EB_UEBFCI_Solver,
+    ('DMRG', False, False): DMRG_Solver,
     ('DUMP', False, False): DumpSolver,
     ('DUMP', True, False): DumpSolver,
     ('CALLBACK', False, False): CallbackSolver,
