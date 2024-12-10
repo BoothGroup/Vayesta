@@ -81,6 +81,7 @@ class DMRG_Solver(ClusterSolver):
         if self.opts.n_moments is not None:
             try:
                 from dyson.expressions import DMRG
+                from dyson.util import shift_moments
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
                 self.log.info("Skipping cluster moment calculations")
@@ -90,8 +91,10 @@ class DMRG_Solver(ClusterSolver):
             nmom = self.opts.n_moments
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = DMRG["1h"](mf_clus, mo_coeff=mf_clus.mo_coeff, driver=driver, mpo=mpo, ket=ket, bond_dims=self.opts.bond_dims_moments, noises=self.opts.noises_moments, thrds=self.opts.thrds_moments, n_sweeps=self.opts.n_sweeps_moments)
-                self.hole_moments = expr.build_gf_moments(nmom[0])
+                hole_moms = expr.build_gf_moments(nmom[0])
+                self.gf_hole_moments = shift_moments(hole_moms, self.energy, flip=True)
             with log_time(self.log.timing, "Time for hole moments: %s"):    
-                expr = DMRG["1p"](mf_clus, )
-                self.particle_moments = expr.build_gf_moments(nmom[1])            
+                expr = DMRG["1p"](mf_clus, mo_coeff=mf_clus.mo_coeff, driver=driver, mpo=mpo, ket=ket, bond_dims=self.opts.bond_dims_moments, noises=self.opts.noises_moments, thrds=self.opts.thrds_moments, n_sweeps=self.opts.n_sweeps_moments)
+                particle_moms = expr.build_gf_moments(nmom[1])
+                self.gf_particle_moments = shift_moments(particle_moms, -self.energy, flip=False)
 
