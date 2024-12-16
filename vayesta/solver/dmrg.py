@@ -10,6 +10,40 @@ from vayesta.solver.solver import ClusterSolver, UClusterSolver
 from vayesta.core.types.wf import RRDM_WaveFunction
 
 
+
+
+
+from functools import reduce
+from pyscf.lo import EdmistonRuedenberg
+from pyscf.lib import unpack_tril
+
+
+class ClusterEdmistonRuedenberg(EdmistonRuedenberg):
+    """
+    Edmiston-Ruedenberg localization for cluster Hamiltonians
+    """
+
+    def __init__(self, clustermf):
+        super().__init__(clustermf.mol, clustermf.mo_coeff)
+        if hasattr(clustermf, 'with_df') and clustermf.with_df is not None:
+            cderi = clustermf.with_df._cderi
+            cderi = unpack_tril(cderi)
+            self.eri = np.einsum('Lpq,Lrs->pqrs', cderi, cderi)
+        else:
+            self.eri = clustermf._eri
+
+    def get_jk(self, u):
+        mo_coeff = np.dot(self.mo_coeff, u)
+        nmo = mo_coeff.shape[1]
+        dms = [np.einsum('i,j->ij', mo_coeff[:,i], mo_coeff[:,i]) for i in range(nmo)]
+        vj = [np.einsum('ijkl,kl->il', self.eri, dm) for dm in dms]
+        vk = [np.einsum('ijkl,jk->il', self.eri, dm) for dm in dms]
+        vj = np.asarray([reduce(np.dot, (mo_coeff.T, v, mo_coeff)) for v in vj])
+        vk = np.asarray([reduce(np.dot, (mo_coeff.T, v, mo_coeff)) for v in vk])
+        return vj, vk
+
+
+
 class DMRG_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options): 
@@ -52,17 +86,27 @@ class DMRG_Solver(ClusterSolver):
         except ImportError:
             self.log.error("Block2 not found - required for DMRG calculations")
 
+        mf_clus = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)[0]
         if self.opts.localiser is not None:
             if self.opts.localiser.lower() == "lowdin":
-                mo_coeff_old = self.mf.mo_coeff.copy()
-                self.mf.mo_coeff = lo.orth.lowdin(self.mf.get_ovlp())
+                mo_coeff_old = mf_clus.mo_coeff.copy()
+                mf_clus.mo_coeff = pyscf.lo.orth.lowdin(self.mf.get_ovlp())
             elif self.opts.localiser.lower() == "er":
-                mo_coeff_old = self.mf.mo_coeff.copy()
-                self.mf.mo_coeff = lo.orth.ER(self.mf.get_ovlp())
 
-        mf_clus = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)[0]
+                localizer = ClusterEdmistonRuedenberg(mf_clus)
+                loc_basis = localizer.kernel()
+                mo_coeff_old = mf_clus.mo_coeff.copy()
+                mo_coeff = np.dot(loc_basis.T, mf_clus.mo_coeff)
+                
+                mf_clus.mo_coeff = mo_coeff
+
+                back_to_mo = mo_coeff.T
+
+                # NEED TO TRFM BACK TO CANONICAL BASIS
+
+        
         ncas, n_elec, spin, ecore, h1e, g2e, orb_sym = itg.get_rhf_integrals(mf_clus, ncore=0, ncas=None, g2e_symm=1)
-        driver = DMRGDriver(scratch="./tmp", symm_type=SymmetryTypes.SZ, n_threads=4)
+        driver = DMRGDriver(scratch="./tmp", symm_type=SymmetryTypes.SZ, n_threads=32)
         driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)        
 
         mpo = driver.get_qc_mpo(h1e=h1e, g2e=g2e, ecore=ecore, integral_cutoff=1E-8, iprint=1)
@@ -74,7 +118,7 @@ class DMRG_Solver(ClusterSolver):
         #self.converged = self.driver.converged
 
         dm1 = np.sum(driver.get_1pdm(ket), axis=0)
-        dm2 = np.sum(driver.get_2pdm(ket), axis=0).transpose(0, 3, 1, 2)
+        dm2 = np.sum(driver.get_2pdm(ket), axis=0)#.transpose(0, 3, 1, 2)
         self.wf = RRDM_WaveFunction(self.hamil.mo, dm1, dm2)
 
         # Cluster Moments
@@ -91,10 +135,12 @@ class DMRG_Solver(ClusterSolver):
             nmom = self.opts.n_moments
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = DMRG["1h"](mf_clus, mo_coeff=mf_clus.mo_coeff, driver=driver, mpo=mpo, ket=ket, bond_dims=self.opts.bond_dims_moments, noises=self.opts.noises_moments, thrds=self.opts.thrds_moments, n_sweeps=self.opts.n_sweeps_moments)
-                hole_moms = expr.build_gf_moments(nmom[0])
+                hole_moms = expr.build_gf_moments(nmom[0])/2
                 self.gf_hole_moments = shift_moments(hole_moms, self.energy, flip=True)
+                #self.gf_hole_moments = np.array([back_to_mo.T @ m @ back_to_mo for m in self.gf_hole_moments])
             with log_time(self.log.timing, "Time for hole moments: %s"):    
                 expr = DMRG["1p"](mf_clus, mo_coeff=mf_clus.mo_coeff, driver=driver, mpo=mpo, ket=ket, bond_dims=self.opts.bond_dims_moments, noises=self.opts.noises_moments, thrds=self.opts.thrds_moments, n_sweeps=self.opts.n_sweeps_moments)
-                particle_moms = expr.build_gf_moments(nmom[1])
+                particle_moms = expr.build_gf_moments(nmom[1])/2
                 self.gf_particle_moments = shift_moments(particle_moms, -self.energy, flip=False)
+                #self.gf_particle_moments = np.array([back_to_mo.T @ m @ back_to_mo for m in self.gf_particle_moments])
 
