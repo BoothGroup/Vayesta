@@ -66,7 +66,7 @@ class RMA_Dict:
         def size(self):
             if self.shape is None:
                 return 0
-            return np.product(self.shape)
+            return np.prod(self.shape)
 
         # @property
         # def itemsize(self):

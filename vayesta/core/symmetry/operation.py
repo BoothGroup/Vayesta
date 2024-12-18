@@ -337,7 +337,7 @@ class SymmetryTranslation(SymmetryOperation):
                 if self.group.dimension == 1 and (dy != 0):
                     continue
                 dr = np.asarray([dx, dy, dz])
-                phase = np.product(self.boundary_phases[dr != 0])
+                phase = np.prod(self.boundary_phases[dr != 0])
                 dists = np.linalg.norm(atom_coords_abc + dr - pos, axis=1)
                 idx = np.argmin(dists)
                 if dists[idx] < self.xtol:
