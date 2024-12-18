@@ -1,0 +1,37 @@
+vayesta.mpi
+===========
+
+Submodules
+----------
+
+vayesta.mpi.interface
+---------------------
+
+.. automodule:: vayesta.mpi.interface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.mpi.rma
+---------------
+
+.. automodule:: vayesta.mpi.rma
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.mpi.scf
+---------------
+
+.. automodule:: vayesta.mpi.scf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.mpi
+   :members:
+   :undoc-members:
+   :show-inheritance:

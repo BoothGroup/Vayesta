@@ -1,0 +1,53 @@
+vayesta.ewf
+===========
+
+Submodules
+----------
+
+vayesta.ewf.ewf
+---------------
+
+.. automodule:: vayesta.ewf.ewf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.ewf.fragment
+--------------------
+
+.. automodule:: vayesta.ewf.fragment
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.ewf.helper
+------------------
+
+.. automodule:: vayesta.ewf.helper
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.ewf.uewf
+----------------
+
+.. automodule:: vayesta.ewf.uewf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.ewf.ufragment
+---------------------
+
+.. automodule:: vayesta.ewf.ufragment
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.ewf
+   :members:
+   :undoc-members:
+   :show-inheritance:
