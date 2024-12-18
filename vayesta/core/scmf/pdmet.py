@@ -14,7 +14,10 @@ class PDMET_RHF(SCMF):
         """DM1 in MO basis."""
         dm_type = self.dm_type
         if dm_type.startswith("default"):
-            dm1 = self.emb.make_rdm1()
+            try:
+                dm1 = self.emb.make_rdm1()
+            except NotImplementedError:
+                dm1 = self.emb.make_rdm1_demo()
         elif dm_type.startswith("demo"):
             dm1 = self.emb.make_rdm1_demo()
         else:
