@@ -38,7 +38,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.19.0",
-    "scipy>=1.11.0",
+    "scipy>=1.1.0,<=1.10.0",
     "h5py>=2.7",
     "cvxpy>=1.1",
     "pyscf @ git+https://github.com/pyscf/pyscf@master",
@@ -121,11 +121,10 @@ markers = [
 [tool.black]
 line-length = 120
 target-version = [
+    "py38",
     "py39",
     "py310",
     "py311",
-    "py312",
-    "py313",
 ]
 include="\\.py"
 extend-exclude = """
