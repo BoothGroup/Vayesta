@@ -39,8 +39,8 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.19.0",
-    "scipy>=1.1.0,",
-    "h5py>=2.7",
+    "scipy>=1.11.0,",
+    "h5py>=3.0.0",
     "cvxpy>=1.1",
     "pyscf @ git+https://github.com/pyscf/pyscf@master",
 ]
