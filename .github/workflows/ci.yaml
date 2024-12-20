@@ -32,7 +32,7 @@ jobs:
       - name: Install GCC, GFortran, and OpenBLAS
         run: |
           apt-get update
-          apt-get install -y gfortran libopenblas-dev
+          apt-get install -y gfortran gcc libopenblas-dev
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip 
