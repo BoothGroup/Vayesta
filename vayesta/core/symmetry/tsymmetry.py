@@ -171,7 +171,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit="Ang", check_basis=True):
             if cell.dimension == 1 and (dy != 0):
                 continue
             dr = np.asarray([dx, dy, dz])
-            phase = np.product(boundary[dr != 0])
+            phase = np.prod(boundary[dr != 0])
             # log.debugv("dx= %d dy= %d dz= %d phase= %d", dx, dy, dz, phase)
             # print(atom_coords.shape, dr.shape, pos.shape)
             dists = np.linalg.norm(atom_coords + dr - pos, axis=1)

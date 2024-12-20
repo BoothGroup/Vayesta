@@ -29,7 +29,7 @@ class Update:
 
         def get_nonflat(flat_params, shapes, x):
             if type(shapes[0]) == int:
-                return flat_params[x : x + np.product(shapes)].reshape(shapes), x + np.product(shapes)
+                return flat_params[x : x + np.prod(shapes)].reshape(shapes), x + np.prod(shapes)
             else:
                 finres = []
                 for shape in shapes:
