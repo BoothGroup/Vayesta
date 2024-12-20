@@ -32,6 +32,10 @@ jobs:
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip 
+      - name Install GCC, GFortran, and OpenBLAS
+        run: |
+          apt update
+          apt install -y gfortran libopenblas-dev
       - name: Install Vayesta along with dependencies
         run: |
           python -m pip install wheel --user
