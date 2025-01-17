@@ -105,7 +105,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip 
       - name: Install Intel oneAPI
-        run: scripts/install_intel.sh $LINUX_HPCKIT_URL $LINUX_FORTRAN_COMPONENTS_WEB
+        run: install_intel.sh $LINUX_HPCKIT_URL $LINUX_FORTRAN_COMPONENTS_WEB
       - name: Install Vayesta along with dependencies
         run: |
           python -m pip install wheel --user
