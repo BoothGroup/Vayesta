@@ -106,10 +106,11 @@ jobs:
           python -m pip install --upgrade pip 
       - name: Install Intel oneAPI
         run: |
+          bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB
           bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_FORTRAN_COMPONENTS_WEB
-          source /opt/intel/oneapi/setvars.sh
       - name: Install Vayesta along with dependencies
         run: |
+          source /opt/intel/oneapi/setvars.sh
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
