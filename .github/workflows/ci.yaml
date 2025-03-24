@@ -39,9 +39,9 @@ jobs:
     env:
       # Manually set CPATH because MKL cmake support is broken
       CPATH: /opt/intel/oneapi/mkl/latest/include
-      CC: /opt/intel/oneapi/compiler/latest/linux/bin/icx
-      CXX: /opt/intel/oneapi/compiler/latest/linux/bin/icpx
-      FC: /opt/intel/oneapi/compiler/latest/linux/bin/ifx
+      CC: icx
+      CXX: icpx
+      FC: ifx
       # fortran needs this because libimf does not have RPATH to find libintlc.so
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin
     steps:
