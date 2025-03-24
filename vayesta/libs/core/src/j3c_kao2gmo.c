@@ -18,7 +18,7 @@
 #define omp_get_thread_num() 0
 #define omp_get_num_threads() 1
 #endif
-#include "cblas.h"
+#include "mkl.h"
 
 /* NOT USED ANYMORE */
 int64_t j3c_k2gamma(
