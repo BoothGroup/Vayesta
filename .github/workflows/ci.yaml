@@ -59,11 +59,13 @@ jobs:
           bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB $LINUX_FORTRAN_COMPONENTS_WEB
       - name: Install Vayesta along with dependencies
         run: |
-          ls /opt/intel/oneapi/compiler/latest/linux/bin/
+          find /opt/intel/oneapi
           echo $FC
           echo $CC
           echo $CXX
           source /opt/intel/oneapi/setvars.sh
+          echo $LD_LIBRARY_PATH
+          ls /opt/intel/oneapi/compiler/latest/linux/bin/
           printenv >> $GITHUB_ENV
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
