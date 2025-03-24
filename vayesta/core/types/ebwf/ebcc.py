@@ -104,7 +104,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         self.lambdas.l2 = value.transpose((2, 3, 0, 1))
 
     def _get_amps(self, amplitudes=False):
-        return self.amplitudes 
+        return self.amplitudes
 
     def _get_lams(self, lambdas=False, amplitudes=False):
         return self.lambdas

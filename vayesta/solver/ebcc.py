@@ -40,6 +40,7 @@ class RERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseRHamiltonian):
         Returns:
             ERIs for the given spaces.
         """
+
         if self.array is None:
             if key not in self._members.keys():
                 coeffs = [
@@ -128,6 +129,7 @@ class UERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseUHamiltonian):
                 array=array,
             )
         return self._members[key]
+
 
 
 class REBCC_Solver(ClusterSolver):
