@@ -21,8 +21,8 @@ def mol_supercell(mol, charges, spins):
     mol = pyscf.pbc.tools.super_cell(mol, images)
     # mol = pyscf.pbc.tools.cell_plus_imgs(mol, images)
     # nimages = images[0]*images[1]*images[2]
-    # ncells = np.product(2*np.asarray(images)+1)
-    ncells = np.product(images)
+    # ncells = np.prod(2*np.asarray(images)+1)
+    ncells = np.prod(images)
     if charges is not None:
         charges = ncells * list(charges)
     if spins is not None:

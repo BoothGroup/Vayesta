@@ -71,7 +71,7 @@ class RPA_BNO_Bath(BNO_Bath):
         # This is of size O(N), so this whole procedure scales as O(N^4)
 
         target_rot = einsum("ij,ab->iajb", rot_occ, rot_vir)
-        target_rot = target_rot.reshape(np.product(target_rot.shape[:2]), np.product(target_rot.shape[2:]))
+        target_rot = target_rot.reshape(np.prod(target_rot.shape[:2]), np.prod(target_rot.shape[2:]))
 
         t0 = timer()
         myrpa = ssRIdRRPA(self.base.mf, lov=cderis)

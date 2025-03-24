@@ -19,7 +19,7 @@ authors = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -28,18 +28,19 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: C",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
     "numpy>=1.19.0",
-    "scipy>=1.1.0,<=1.10.0",
-    "h5py>=2.7",
+    "scipy>=1.11.0,",
+    "h5py>=3.0.0",
     "cvxpy>=1.1",
     "pyscf @ git+https://github.com/pyscf/pyscf@master",
 ]
@@ -66,7 +67,7 @@ dyson = [
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
 ]
 ebcc = [
-    "ebcc",
+    "ebcc>=1.4.0",
 ]
 pygnme = [
     "pygnme @ git+https://github.com/BoothGroup/pygnme@master" 
@@ -75,7 +76,7 @@ dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
-    "ebcc",
+    "ebcc>=1.4.0",
     "black>=22.6.0",
     "pytest",
     "pytest-cov",
@@ -121,10 +122,11 @@ markers = [
 [tool.black]
 line-length = 120
 target-version = [
-    "py38",
     "py39",
     "py310",
     "py311",
+    "py312",
+    "py313",
 ]
 include="\\.py"
 extend-exclude = """

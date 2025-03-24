@@ -2,6 +2,7 @@ import contextlib
 import numpy as np
 import scipy
 import scipy.linalg
+import re
 
 from vayesta.core.util import dot, fix_orbital_sign, time_string, timer
 from vayesta.core.fragmentation import helper
@@ -420,6 +421,10 @@ class Fragmentation:
         indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
         # Filter orbital types
         if orbital_filter is not None:
+            if isinstance(orbital_filter, list):
+                orbital_filter = [re.escape(x) for x in orbital_filter]
+            elif isinstance(orbital_filter, str):
+                orbital_filter = re.escape(orbital_filter)
             keep = self.search_labels(orbital_filter)
             indices = [i for i in indices if i in keep]
         return name, indices
