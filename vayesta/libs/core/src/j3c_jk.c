@@ -4,7 +4,7 @@
 #include<complex.h>
 #include<string.h>
 #include<math.h>
-#include "cblas.h"
+#include "mkl.h"
 
 #ifdef _OPENMP
 #include<omp.h>
