@@ -98,7 +98,14 @@ jobs:
           - {python-version: "3.9", os: ubuntu-latest, documentation: False}
           - {python-version: "3.10", os: ubuntu-latest, documentation: False}
           - {python-version: "3.11", os: ubuntu-latest, documentation: False}
-
+    env:
+      # Manually set CPATH because MKL cmake support is broken
+      CPATH: /opt/intel/oneapi/mkl/latest/include
+      CC: /opt/intel/oneapi/compiler/latest/linux/bin/icx
+      CXX: /opt/intel/oneapi/compiler/latest/linux/bin/icpx
+      FC: /opt/intel/oneapi/compiler/latest/linux/bin/ifx
+      # fortran needs this because libimf does not have RPATH to find libintlc.so
+      LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
