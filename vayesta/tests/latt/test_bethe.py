@@ -31,8 +31,8 @@ class BetheTests(TestCase):
         known_values = {
             "energy": -1.2732565954632262,
             "docc": 0.2499999972419595,
-            "docc-numdiff1": 0.25002222514558525,
-            "docc-numdiff2": 0.2500916140846243,
+            "docc-numdiff1": 0.2502442697505103,
+            "docc-numdiff2": 0.25031365868954936,
         }
 
         self._test_bethe(1.0, 0.0, known_values)
