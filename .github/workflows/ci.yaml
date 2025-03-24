@@ -17,6 +17,7 @@ env:
   LINUX_CPP_COMPONENTS_WEB: intel.oneapi.lin.dpcpp-cpp-compiler
   LINUX_FORTRAN_COMPONENTS_WEB: intel.oneapi.lin.ifort-compiler
   LINUX_DPCPP_COMPONENTS_WEB: intel.oneapi.lin.dpcpp-cpp-compiler
+  LINUX_MKL_COMPONENTS_WEB: intel.oneapi.lin.mkl.devel
   CACHE_NUMBER: 5
   SAMPLES_TAG: 2025.0.0
   AI_SAMPLES_TAG: 2025.0.0
@@ -55,11 +56,13 @@ jobs:
           python -m pip install --upgrade pip 
       - name: Install Intel oneAPI
         run: |
-          bash .github/workflows/install_intel.sh $LINUX_BASEKIT_URL
-          bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB $LINUX_FORTRAN_COMPONENTS_WEB
+          bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB $LINUX_FORTRAN_COMPONENTS_WEB $LINUX_MKL_COMPONENTS_WEB
       - name: Install Vayesta along with dependencies
         run: |
           source /opt/intel/oneapi/setvars.sh
+          $CC -v
+          $FC -v 
+          $CXX -v
           printenv >> $GITHUB_ENV
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
