@@ -82,7 +82,7 @@ class TestEBCCActSpace(TestCase):
         embfull.kernel()
 
         embact = vayesta.ewf.EWF(
-            mymf, solver=f"EB{actansatz}", bath_options=dict(bathtype=bathtype), solver_options=dict(solve_lambda=False)
+            mymf, solver=f"EB{actansatz}", bath_options=dict(bathtype=bathtype), solver_options=dict(solve_lambda=False, conv_tol=1e-14)
         )
         if setcas:
             # Set up fragmentation, then set CAS to complete cluster space in previous calculation.
