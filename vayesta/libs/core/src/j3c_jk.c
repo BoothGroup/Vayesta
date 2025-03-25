@@ -5,10 +5,7 @@
 #include<string.h>
 #include<math.h>
 
-#include "mkl.h"
-#ifndef __INTEL_MKL__
-    #include "cblas.h"
-#endif
+#include "cblas.h"
 
 
 #ifdef _OPENMP
