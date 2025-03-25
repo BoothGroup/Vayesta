@@ -61,6 +61,7 @@ jobs:
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install .[dmet,ebcc] --user
+          python -c 'import numpy as np; np.__config__.show()'
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
@@ -129,10 +130,12 @@ jobs:
           ifx -v 
           icpx -v
           printenv >> $GITHUB_ENV
+          python -m pip install -i https://pypi.anaconda.org/intel/simple scipy numpy
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install .[dmet,ebcc] --user
+          python -c 'import numpy as np; np.__config__.show()'
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
