@@ -130,7 +130,7 @@ jobs:
           ifx -v 
           icpx -v
           printenv >> $GITHUB_ENV
-          python -m pip install -i https://pypi.anaconda.org/intel/simple scipy numpy
+          python -m pip install -i https://software.repos.intel.com/python/pypi numpy scipy
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
