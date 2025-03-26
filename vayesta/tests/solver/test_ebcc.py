@@ -109,7 +109,7 @@ class TestEBCCActSpace(TestCase):
     def test_uccsdtprime_water_sto3g_dmet(self):
         return self._test("water_sto3g", "uhf", "CCSDt'", "CCSDT", bathtype="dmet", setcas=False)
 
-    #CCSDt disabled in EBCC
+    # CCSDt disabled in EBCC
     # def test_uCCSDt_water_sto3g_dmet(self):
     #     return self._test("water_sto3g", "uhf", "CCSDt", "CCSDT", bathtype="dmet", setcas=False)
 
