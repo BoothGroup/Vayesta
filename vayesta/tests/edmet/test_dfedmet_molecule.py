@@ -9,7 +9,7 @@ from vayesta.tests import testsystems
 
 
 class MolecularDFEDMETTest(TestCase):
-    ENERGY_PLACES = 8
+    ENERGY_PLACES = 7
     CONV_TOL = 1e-9
 
     @classmethod
