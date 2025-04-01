@@ -1,0 +1,141 @@
+vayesta.solver package
+======================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.solver.eb_fci
+
+Submodules
+----------
+
+vayesta.solver.callback module
+------------------------------
+
+.. automodule:: vayesta.solver.callback
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.ccsd module
+--------------------------
+
+.. automodule:: vayesta.solver.ccsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.ccsdtq module
+----------------------------
+
+.. automodule:: vayesta.solver.ccsdtq
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.cisd module
+--------------------------
+
+.. automodule:: vayesta.solver.cisd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.coupled\_ccsd module
+-----------------------------------
+
+.. automodule:: vayesta.solver.coupled_ccsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.coupling module
+------------------------------
+
+.. automodule:: vayesta.solver.coupling
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.dump module
+--------------------------
+
+.. automodule:: vayesta.solver.dump
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.ebcc module
+--------------------------
+
+.. automodule:: vayesta.solver.ebcc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.ebfci module
+---------------------------
+
+.. automodule:: vayesta.solver.ebfci
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.ext\_ccsd module
+-------------------------------
+
+.. automodule:: vayesta.solver.ext_ccsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.fci module
+-------------------------
+
+.. automodule:: vayesta.solver.fci
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.hamiltonian module
+---------------------------------
+
+.. automodule:: vayesta.solver.hamiltonian
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.mp2 module
+-------------------------
+
+.. automodule:: vayesta.solver.mp2
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.solver module
+----------------------------
+
+.. automodule:: vayesta.solver.solver
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.tccsd module
+---------------------------
+
+.. automodule:: vayesta.solver.tccsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.solver
+   :members:
+   :undoc-members:
+   :show-inheritance:
