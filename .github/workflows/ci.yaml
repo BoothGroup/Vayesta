@@ -21,7 +21,8 @@ jobs:
           - {python-version: "3.11", os: ubuntu-latest, documentation: False}
           - {python-version: "3.12", os: ubuntu-latest, documentation: False}
           - {python-version: "3.13", os: ubuntu-latest, documentation: False}
-
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -75,7 +76,8 @@ jobs:
 
     strategy:
       fail-fast: false
-
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.9
