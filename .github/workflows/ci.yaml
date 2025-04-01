@@ -40,7 +40,8 @@ jobs:
           - {python-version: "3.11", os: ubuntu-latest, documentation: False}
           - {python-version: "3.12", os: ubuntu-latest, documentation: False}
           - {python-version: "3.13", os: ubuntu-latest, documentation: False}
-
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -107,6 +108,7 @@ jobs:
       FC: ifx
       # fortran needs this because libimf does not have RPATH to find libintlc.so
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -166,7 +168,8 @@ jobs:
 
     strategy:
       fail-fast: false
-
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.9
