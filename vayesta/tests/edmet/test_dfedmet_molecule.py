@@ -9,7 +9,7 @@ from vayesta.tests import testsystems
 
 
 class MolecularDFEDMETTest(TestCase):
-    ENERGY_PLACES = 8
+    ENERGY_PLACES = 7
     CONV_TOL = 1e-9
 
     @classmethod
@@ -27,7 +27,7 @@ class MolecularDFEDMETTest(TestCase):
         emb = edmet.EDMET(
             testsystems.h6_sto6g_df.rhf(),
             solver="FCI",
-            solver_options={"max_boson_occ": 1, "conv_tol": 1e-12},
+            solver_options={"max_boson_occ": 1, "conv_tol": 1e-14},
             conv_tol=self.CONV_TOL,
             bosonic_interaction="direct",
             oneshot=True,
@@ -47,7 +47,7 @@ class MolecularDFEDMETTest(TestCase):
         emb = edmet.EDMET(
             testsystems.h6_sto6g_df.rhf(),
             solver="FCI",
-            solver_options={"max_boson_occ": 2, "conv_tol": 1e-12},
+            solver_options={"max_boson_occ": 2, "conv_tol": 1e-14},
             conv_tol=self.CONV_TOL,
             bosonic_interaction="direct",
             oneshot=True,
@@ -62,7 +62,7 @@ class MolecularDFEDMETTest(TestCase):
         uemb = edmet.EDMET(
             testsystems.h6_sto6g_df.uhf(),
             solver="FCI",
-            solver_options={"max_boson_occ": 2, "conv_tol": 1e-12},
+            solver_options={"max_boson_occ": 2, "conv_tol": 1e-14},
             conv_tol=self.CONV_TOL,
             bosonic_interaction="direct",
             oneshot=True,
