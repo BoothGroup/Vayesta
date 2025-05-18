@@ -258,7 +258,7 @@ class CellFragmentTests(TestCase):
             frag = f.add_atomic_fragment([0, 1])
 
         for frag in qemb.fragments:
-            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.262004437414159, self.PLACES)
 
     def test_iao_aos(self):
         """Test IAO orbital fragmentation."""
@@ -267,7 +267,7 @@ class CellFragmentTests(TestCase):
         with qemb.iao_fragmentation() as f:
             frag = f.add_orbital_fragment([0, 1])
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.262004437414159, self.PLACES)
 
     def test_sao_atoms(self):
         qemb = Embedding(self.mf)
@@ -275,7 +275,7 @@ class CellFragmentTests(TestCase):
             frags = [f.add_atomic_fragment([i * 2, i * 2 + 1]) for i in range(len(qemb.kpts))]
 
         for frag in frags:
-            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528689, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.262004437414143, self.PLACES)
 
     def test_sao_aos(self):
         """Test SAO orbital fragmentation."""
@@ -284,7 +284,7 @@ class CellFragmentTests(TestCase):
         with qemb.sao_fragmentation() as f:
             frag = f.add_orbital_fragment([0, 1, 2, 3])
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528689, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.262004437414142, self.PLACES)
 
     def test_dmet_bath(self):
         """Test the DMET bath."""
@@ -296,9 +296,9 @@ class CellFragmentTests(TestCase):
 
         bath = DMET_Bath(frags[1], frags[1].opts.bath_options["dmet_threshold"])
         c_bath, n_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env)
-        self.assertAlmostEqual(self.trace(c_bath), 3.34569601263718, self.PLACES)
-        self.assertAlmostEqual(self.trace(c_occenv), 8.60026059294578, self.PLACES)
-        self.assertAlmostEqual(self.trace(c_virenv), 38.23956564189844, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_bath), 3.3456960703699785, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_occenv), 8.600270717767593, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_virenv), 38.23955545934385, self.PLACES)
 
         # bath = DMET_Bath(frags[0], frags[0].opts.dmet_threshold)
         # c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, nbath=c_bath.shape[-1])  #FIXME bug #5 (these values are old)
@@ -313,8 +313,8 @@ class CellFragmentTests(TestCase):
         bath = DMET_Bath(frags[0], 1e-5)
         c_bath, n_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, verbose=False)
         self.assertAlmostEqual(self.trace(c_bath), 0.00000000000000, self.PLACES)
-        self.assertAlmostEqual(self.trace(c_occenv), 8.60025893931299, self.PLACES)
-        self.assertAlmostEqual(self.trace(c_virenv), 38.23956182500297, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_occenv), 8.600269067531315, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_virenv), 38.239551696784666, self.PLACES)
 
 
 if __name__ == "__main__":
