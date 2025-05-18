@@ -50,11 +50,7 @@ class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
     def setUpClass(cls):
         cls.kmf = testsystems.he2_631g_k222.uhf()
         cls.mf = foldscf.fold_scf(cls.kmf)
-        cls.scell = testsystems.he2_631g_s222.mol
-        cls.smf = scf.UHF(cls.scell)
-        cls.smf.conv_tol = 1e-12
-        cls.smf = cls.smf.density_fit()
-        cls.smf.kernel()
+        cls.smf = testsystems.he2_631g_s222.uhf()
 
 
 if __name__ == "__main__":
