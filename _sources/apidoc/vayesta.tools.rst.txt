@@ -1,0 +1,29 @@
+vayesta.tools package
+=====================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.tools.plotting
+
+Submodules
+----------
+
+vayesta.tools.eos module
+------------------------
+
+.. automodule:: vayesta.tools.eos
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
