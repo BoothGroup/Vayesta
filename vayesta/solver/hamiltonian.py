@@ -858,7 +858,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
-        if isinstance(no, int):
+        if isinstance(no, (int, np.int64)):
             noa = nob = no
         else:
             noa, nob = no

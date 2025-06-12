@@ -382,7 +382,7 @@ class EDMETFragment(DMETFragment):
 
     def get_xc_couplings(self, xc_kernel, rot):
         ov_mf = self.ov_mf
-        if isinstance(ov_mf, int):
+        if isinstance(ov_mf, (int, np.int64)):
             ov_mf = (ov_mf, ov_mf)
 
         rota, rotb = rot[:, : ov_mf[0]], rot[:, ov_mf[0] : sum(ov_mf)]
@@ -1229,7 +1229,7 @@ class EDMETFragment(DMETFragment):
     @property
     def ov_active_ab(self):
         ov = self.ov_active
-        if isinstance(ov, int):
+        if isinstance(ov, (int, np.int64)):
             return (ov, ov)
         else:
             return ov
@@ -1237,7 +1237,7 @@ class EDMETFragment(DMETFragment):
     @property
     def nocc_ab(self):
         no = self.cluster.nocc_active
-        if isinstance(no, int):
+        if isinstance(no, (int, np.int64)):
             return (no, no)
         else:
             return no
