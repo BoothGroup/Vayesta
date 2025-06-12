@@ -1,0 +1,37 @@
+vayesta.solver.eb\_fci package
+==============================
+
+Submodules
+----------
+
+vayesta.solver.eb\_fci.ebfci module
+-----------------------------------
+
+.. automodule:: vayesta.solver.eb_fci.ebfci
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.eb\_fci.ebfci\_slow module
+-----------------------------------------
+
+.. automodule:: vayesta.solver.eb_fci.ebfci_slow
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.solver.eb\_fci.uebfci\_slow module
+------------------------------------------
+
+.. automodule:: vayesta.solver.eb_fci.uebfci_slow
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.solver.eb_fci
+   :members:
+   :undoc-members:
+   :show-inheritance:
