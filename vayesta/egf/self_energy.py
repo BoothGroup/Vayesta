@@ -610,6 +610,11 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
             couplings_l_frag.append(u)
             couplings_r_frag.append(v)
         energies_frag += [se.energies[a] for e in range(u.shape[1])]
+
+        # TODO DEBUG CASE WHERE COUPLINGS ARE EMPTY!
+        # print("--------------------------------------------------------------------------------\n\n")
+        # print([x.shape for x in couplings_l_frag])
+        # print([x.shape for x in couplings_r_frag])
     return np.array(energies_frag)-se.chempot, np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
 
 
@@ -694,7 +699,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
 
     if type(couplings[0]) is tuple:
         couplings_l, couplings_r = zip(*couplings)
-        couplings = np.array([np.hstack(couplings_l), np.hstack(couplings_r)])])
+        couplings = np.array([np.hstack(couplings_l), np.hstack(couplings_r)])
     else:
         couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
