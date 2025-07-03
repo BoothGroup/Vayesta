@@ -187,15 +187,17 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
     if ph_separation:
         tp, th = se_moments[0], se_moments[1]
         solverh = MBLSE(se_static, th, hermitian=hermitian)
+        solverh.kernel()
         solverp = MBLSE(se_static, tp, hermitian=hermitian)
-        solver = MixedMBLSE(solverh, solverp)
-        solver.kernel()
+        solverp.kernel()
+        result = Spectral.combine(solverh.result, solverp.result)
     else:
         solver = MBLSE(se_static, se_moments, hermitian=hermitian)
         solver.kernel()
+        result = solver.result
 
-    gf = solver.get_greens_function()
-    se = solver.get_self_energy()
+    gf = result.get_greens_function()
+    se = result.get_self_energy()
 
     if shift is not None:
         if nelec is None:
@@ -206,10 +208,10 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
             Shift = AufbauPrinciple
         else:
             raise ValueError("Invalid cluster chempot optimisation method")
-        shift = Shift(se_static, se, nelec, occupancy=2, )
+        shift = Shift(se_static, se, nelec, occupancy=2 )
         shift.kernel()
-        se = shift.get_self_energy()
-        gf = shift.get_greens_function()
+        se = shift.result.get_self_energy()
+        gf = shift.result.get_greens_function()
     
     return se, gf
 
@@ -692,7 +694,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
 
     if type(couplings[0]) is tuple:
         couplings_l, couplings_r = zip(*couplings)
-        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+        couplings = np.array([np.hstack(couplings_l), np.hstack(couplings_r)])])
     else:
         couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
