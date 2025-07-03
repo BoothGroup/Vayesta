@@ -86,7 +86,7 @@ class RCCSD_Solver(ClusterSolver):
                 return
             self.log.info("Calculating cluster CCSD spectral moments %s" % str(nmom))
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1h"](mf_clus, ccsd=mycc)
+                expr = CCSD.hole.from_ccsd(mycc)
                 self.gf_hole_moments = expr.build_gf_moments(nmom[0])
             
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
@@ -95,8 +95,8 @@ class RCCSD_Solver(ClusterSolver):
                 # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
                 # self.ip_moment_amplitudes = (amps_bra, amps_ket)
             
-            with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = CCSD["1p"](mf_clus, ccsd=mycc)
+            with log_time(self.log.timing, "Time for particle moments: %s"):
+                expr = CCSD.particle.from_ccsd(mycc)
                 self.gf_particle_moments = expr.build_gf_moments(nmom[1])
                 
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)

@@ -26,7 +26,7 @@ from vayesta.egf.fragment import Fragment
 from vayesta.egf.self_energy import *
 from vayesta.egf.qsegf import QSEGF_RHF
 
-from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, MixedMBLGF, NullLogger, Lehmann, build_spectral_function
+from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, Lehmann
 
 
 @dataclasses.dataclass
@@ -200,13 +200,16 @@ class REGF(REWF):
 
         phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
         if type(self_energy_moments) is tuple:
-            solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse, log=self.log)
-            solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse, log=self.log)
-            solver = MixedMBLSE(solverh, solverp)
+            solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse)
+            solverh.kernel()
+            solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse)
+            solverp.kernel()
+            result = Spectral.combine(solverh.result, solverp.result)
         else:
-            solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse, log=self.log)
-        solver.kernel()
-        self_energy = solver.get_self_energy()
+            solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse)
+            solver.kernel()
+            result = solver.result
+        self_energy = result.get_self_energy()
         return self_energy
 
     def make_greens_function(self, static_self_energy, self_energy, chempot_global=None):
@@ -242,10 +245,10 @@ class REGF(REWF):
                 Shift = AufbauPrinciple
             else:
                 raise ValueError("Invalid global chempot optimisation method")
-            shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2, log=self.log)
+            shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2)
             shift.kernel()
-            self_energy = shift.get_self_energy()
-            gf = shift.get_greens_function()
+            self_energy = shift.result.get_self_energy()
+            gf = shift.result.get_greens_function()
         dm = gf.occupied().moment(0) 
         nelec_gf = np.trace(dm) * 2.0
         self.log.info('Number of electrons in GF: %f'%nelec_gf)

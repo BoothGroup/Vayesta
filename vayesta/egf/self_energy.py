@@ -5,7 +5,7 @@ import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
-    from dyson import Lehmann, MBLGF, MixedMBLGF, MBLSE, MixedMBLSE, AuxiliaryShift, AufbauPrinciple
+    from dyson import Spectral, Lehmann, MBLGF, MBLSE, AuxiliaryShift, AufbauPrinciple
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
@@ -113,12 +113,14 @@ def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=No
     else:
         th, tp = gf_moments[0].copy(), gf_moments[1].copy()
 
-    solverh = MBLGF(th, hermitian=hermitian, log=log)
-    solverp = MBLGF(tp, hermitian=hermitian, log=log)
-    solver = MixedMBLGF(solverh, solverp)
-    solver.kernel()
-    gf = solver.get_greens_function()
-    se = solver.get_self_energy()
+    solverh = MBLGF(th, hermitian=hermitian)
+    solverh.kernel()
+    solverp = MBLGF(tp, hermitian=hermitian)
+    solverp.kernel()
+    result = Spectral.combine(solverh.result, solverp.result)
+
+    gf = result.get_greens_function()
+    se = result.get_self_energy()
 
     if shift is not None:
         if nelec is None:
@@ -129,10 +131,10 @@ def gf_moments_block_lanczos(gf_moments, hermitian=True, sym_moms=True, shift=No
             Shift = AufbauPrinciple
         else:
             raise ValueError("Invalid cluster chempot optimisation method")
-        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2, log=log)
+        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2)
         shift.kernel()
-        se = shift.get_self_energy()
-        gf = shift.get_greens_function()
+        se = shift.result.get_self_energy()
+        gf = shift.result.get_greens_function()
 
         if log is not None:
             log.info("Shifted self-energy with %s"%shift.__class__.__name__)
@@ -184,12 +186,12 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
     
     if ph_separation:
         tp, th = se_moments[0], se_moments[1]
-        solverh = MBLSE(se_static, th, hermitian=hermitian, log=log)
-        solverp = MBLSE(se_static, tp, hermitian=hermitian, log=log)
+        solverh = MBLSE(se_static, th, hermitian=hermitian)
+        solverp = MBLSE(se_static, tp, hermitian=hermitian)
         solver = MixedMBLSE(solverh, solverp)
         solver.kernel()
     else:
-        solver = MBLSE(se_static, se_moments, hermitian=hermitian, log=log)
+        solver = MBLSE(se_static, se_moments, hermitian=hermitian)
         solver.kernel()
 
     gf = solver.get_greens_function()
@@ -204,7 +206,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
             Shift = AufbauPrinciple
         else:
             raise ValueError("Invalid cluster chempot optimisation method")
-        shift = Shift(se_static, se, nelec, occupancy=2, log=log)
+        shift = Shift(se_static, se, nelec, occupancy=2, )
         shift.kernel()
         se = shift.get_self_energy()
         gf = shift.get_greens_function()
@@ -450,14 +452,14 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
         emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
-        emb.log.info("Cluster couplings shape: %s %s"%se._unpack_couplings()[0].shape)
+        emb.log.info("Cluster couplings shape: %s %s"%se.unpack_couplings()[0].shape)
 
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
         # Dynamic self-energy
-        coup_l, coup_r = se._unpack_couplings()
+        coup_l, coup_r = se.unpack_couplings()
         p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
         sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
         mat = sym_coup.sum(axis=0)
@@ -488,9 +490,11 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, sym_moms=False, us
 
     energies = np.concatenate(energies)
     if use_svd:
-        couplings = np.hstack(couplings_l), np.hstack(couplings_r)
+        couplings = np.array([np.hstack(couplings_l), np.hstack(couplings_r)])
     else:
         couplings = np.hstack(couplings)
+
+
     self_energy = Lehmann(energies, couplings)
     emb.log.info("Removing SE degeneracy. Naux:    %s"%len(energies))
 
@@ -527,7 +531,7 @@ def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6
     couplings_l_frag : ndarray (nmo, naux_new)
         Left couplings of the fragment projected self-energy
     """
-    coup_l, coup_r = se._unpack_couplings()
+    coup_l, coup_r = se.unpack_couplings()
     if hermitize:
         coup = 0.5*(coup_l + coup_r)
     else:
@@ -581,7 +585,7 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
         Right couplings of the fragment projected self-energy
     """
 
-    coup_l, coup_r = se._unpack_couplings()
+    coup_l, coup_r = se.unpack_couplings()
     p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
 
     nmo, naux = coup_l.shape
@@ -701,7 +705,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitian=True, sym_moms=False, re
     return self_energy
 
 def drop_and_reweight(se, tol=1e-12):
-    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = se.unpack_couplings()
     nmo, naux = couplings_l.shape
     weights = np.einsum('pa,pa->pa', couplings_l, couplings_r.conj())
     energies = se.energies
@@ -731,7 +735,7 @@ def drop_and_reweight(se, tol=1e-12):
 
 def merge_non_causal_poles(se, weight_tol=1e-12):
     # TODO check, fix for dense non-causal poles
-    U, V = se._unpack_couplings()
+    U, V = se.unpack_couplings()
     nmo, naux = U.shape
     weights = np.einsum('pa,pa->pa', U, V)
     es = se.energies
@@ -945,7 +949,7 @@ def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, im
     if log is not None:
         log.info("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
     e = se.energies
-    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = se.unpack_couplings()
     e_new, slices = get_unique(e, atol=dtol)#
     if log is not None:
         log.info("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
@@ -988,7 +992,7 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
     if log is None:
         log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
     e = se.energies
-    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = se.unpack_couplings()
     e_new, slices = get_unique(e, atol=dtol)#
     if log is not None:
         log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
@@ -1014,7 +1018,7 @@ def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None
             log.debug("       sing vals: %s"%sing)
             log.debug("            kept:  %s"%(sing[idx]))
     
-    couplings = np.hstack(new_couplings_l), np.hstack(new_couplings_r)
+    couplings = np.array([np.hstack(new_couplings_l), np.hstack(new_couplings_r)])
     return Lehmann(np.array(energies), couplings)
 
 
@@ -1041,7 +1045,7 @@ def get_unique(array, atol=1e-15):
     return new_array, slices
 
 def check_causal(se, log=None, verbose=False):
-    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = se.unpack_couplings()
     energies = se.energies
     ret = True
     for i, e in enumerate(energies):
@@ -1069,7 +1073,7 @@ def fit_hermitian(se):
     """
 
     energies = se.energies.copy()
-    couplings_l, couplings_r = se._unpack_couplings()
+    couplings_l, couplings_r = se.unpack_couplings()
     couplings_l, couplings_r = couplings_l.copy(), couplings_r.copy().conj()
     def f(w):
         denom = 1 / (1j*w - energies + 1j)

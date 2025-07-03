@@ -2,7 +2,7 @@ import dataclasses
 import numpy as np
 
 from vayesta.ewf.fragment import Fragment as EWF_Fragment
-from dyson import MBLGF, MixedMBLGF, MBLSE, MixedMBLSE, AufbauPrinciple, AuxiliaryShift, gf_moments_to_se_moments
+from dyson import MBLGF, MBLSE, AufbauPrinciple, AuxiliaryShift
 
 @dataclasses.dataclass
 class Options(EWF_Fragment.Options):
