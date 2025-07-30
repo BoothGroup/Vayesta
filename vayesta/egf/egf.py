@@ -84,7 +84,7 @@ class REGF(REWF):
         self.static_self_energy = self.make_static_self_energy(proj=self.opts.proj_static_se, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
 
         if self.opts.se_mode == 'lehmann':
-            self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
+            self.static_self_energy, self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
         elif self.opts.se_mode == 'moments':
             self.self_energy = self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
         else:
@@ -123,12 +123,12 @@ class REGF(REWF):
         """
         
         if proj == 1:
-            self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            static_self_energy, self_energy = make_self_energy_1proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, img_space=self.opts.img_space, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         elif proj == 2:
-            self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
+            static_self_energy, self_energy = make_self_energy_2proj(self, nmom_gf=nmom_gf, hermitian=self.opts.hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym, chempot_clus=self.opts.chempot_clus, se_degen_tol=self.opts.se_degen_tol, se_eval_tol=self.opts.se_eval_tol)
         else:
             raise NotImplementedError()
-        return self_energy
+        return static_self_energy, self_energy
         
 
     def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=True, hermitian_mblse=True, hermitian_mblgf=None, from_gf_moms=True, non_local_se=None):
