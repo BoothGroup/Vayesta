@@ -5,7 +5,9 @@ import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
-    from dyson import Spectral, Lehmann, MBLGF, MBLSE, AuxiliaryShift, AufbauPrinciple
+    from dyson import MBLGF, MBLSE, AuxiliaryShift, AufbauPrinciple
+    from dyson.representations import Lehmann, Spectral
+    from dyson.solvers.static.chempot import search_aufbau_global
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
@@ -131,16 +133,17 @@ def gf_moments_block_lanczos(gf_moments, hermitize=True, hermitian=True, sym_mom
         if nelec is None:
             raise ValueError("Number of electrons must be provided for shift")
         if shift == 'aux':
-            Shift = AuxiliaryShift
+            chempot_solver = AuxiliaryShift(se_static, se, nelec, occupancy=2)
+            chempot_solver.kernel()
+            result = chempot_solver.result
         elif shift == 'auf':
-            Shift = AufbauPrinciple
+            chempot, chempot_err  = search_aufbau_global(gf, nelec)
+            result.chempot = chempot
         else:
             raise ValueError("Invalid cluster chempot optimisation method")
-        shift = Shift(th[1]+tp[1], se, nelec, occupancy=2)
-        shift.kernel()
-        se_static = shift.result.get_static_self_energy()
-        se = shift.result.get_self_energy()
-        gf = shift.result.get_greens_function()
+
+        
+
 
         # se.energies = se.energies - shift.chempot
         # gf.energies = gf.energies - shift.chempot
@@ -151,7 +154,7 @@ def gf_moments_block_lanczos(gf_moments, hermitize=True, hermitian=True, sym_mom
             log.info("Shifted self-energy with %s"%shift.__class__.__name__)
             log.info("Chempot: %f"%se.chempot)
     
-    return se_static, se, gf
+    return result
 
 def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=True, shift=None, nelec=None, log=None, **kwargs):
     """
@@ -285,7 +288,12 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         
         nelec = 2 * f.cluster.nocc
-        static_self_energy_clus, se, gf = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        gf = mblgf_result.get_greens_function()
+        se = mblgf_result.get_self_energy()
+        static_self_energy_clus = mblgf_result.get_static_self_energy()
+        static_self_energy_clus = th[1] + tp[1]
+        
         f.results.se = se
         f.results.gf = gf
 
@@ -431,6 +439,68 @@ def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):
             corrected_moms -= np.array([mfm @ mom @ mfm for mom in se_moms])
     return corrected_moms
 
+
+def make_self_energy_1proj_(emb, 
+                            hermitian=False,
+                            use_sym=True, 
+                            hermitize=True, 
+                            sym_moms=False, 
+                            use_svd=True,
+                            nmom_gf=None,
+                            chempot_clus=False,
+                            remove_degeneracy=True,
+                            img_space=False,
+                            se_degen_tol=1e-4,
+                            se_eval_tol=1e-6,
+                            drop_non_causal=False):
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock, dtype=np.complex128)
+    energies = []
+    if use_svd:
+        couplings_l, couplings_r = [], []
+    else:
+        couplings = []
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    for i, f in enumerate(fragments):
+        nmom_gf_max = len(f.results.gf_moments[0]), len(f.results.gf_moments[1])
+        if nmom_gf is None:
+            nmom_gf = nmom_gf_max
+        elif type(nmom_gf) is int:
+            assert nmom_gf <= nmom_gf_max[0] and nmom_gf <= nmom_gf_max[1]
+            nmom_gf = (nmom_gf, nmom_gf)
+        elif type(nmom_gf) is tuple:
+            assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
+            
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+
+        nelec = 2 * f.cluster.nocc
+        mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+
+        gf = mblgf_result.get_greens_function()
+        se = mblgf_result.get_self_energy()
+        static_self_energy_clus = mblgf_result.get_static_self_energy()
+
+        dm = gf.occupied().moment(0) * 2
+        nelec = np.trace(dm)
+        emb.log.info("Fragment %s: nelec: %f target: %f"%(f.id, nelec, f.nelectron))
+        emb.log.info("Cluster couplings shape: %s %s"%se.unpack_couplings()[0].shape)
+
+        mc = f.get_overlap('mo|cluster')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+
+
+        static_self_energy_frag = cfc @ static_self_energy_clus @ cfc.T.conj()
+        static_self_energy += mc @ static_self_energy_frag @ mc.T.conj()
+    
+    return static_self_energy
+
+            
+
+
+        
+    
+
 def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sym_moms=False, use_svd=True, nmom_gf=None, chempot_clus=False, remove_degeneracy=True, img_space=True, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
@@ -468,7 +538,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         Reconstructed self-energy in Lehmann representation (MO basis)
     """
     fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
+    static_self_energy = np.zeros_like(fock, dtype=np.complex128)
     energies = []
     if use_svd:
         couplings_l, couplings_r = [], []
@@ -488,7 +558,12 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
 
         nelec = 2 * f.cluster.nocc
-        static_self_energy_clus, se, gf = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        gf = mblgf_result.get_greens_function()
+        se = mblgf_result.get_self_energy()
+        static_self_energy_clus = mblgf_result.get_static_self_energy()
+        
+        
         f.results.se = se
         f.results.gf = gf
 
@@ -507,7 +582,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
         mat = sym_coup.sum(axis=0)
         if use_svd:
-            energies_frag, couplings_l_frag, couplings_r_frag = project_1_to_fragment_svd(cfc, se, img_space=img_space, tol=1e-6)
+            energies_frag, couplings_l_frag, couplings_r_frag = project_1_to_fragment_svd(cfc, se, img_space=img_space, tol=1e-12)
             couplings_l.append(mc @ couplings_l_frag)
             couplings_r.append(mc @ couplings_r_frag)
             energies.append(energies_frag)
@@ -566,6 +641,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
     else:
         couplings = np.hstack(couplings)
 
+    
 
     self_energy = Lehmann(energies, couplings)
     emb.log.info("Removing SE degeneracy. Naux:    %s"%len(energies))
@@ -630,7 +706,7 @@ def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6
 
         mat = np.einsum('pa,qa->pq', w, w)
         norm = np.linalg.norm(mat - sym_coup[a])
-    return np.array(energies_frag)-se.chempot, np.hstack(couplings_frag)
+    return np.array(energies_frag), np.hstack(couplings_frag)
 
 def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
     """
@@ -685,7 +761,7 @@ def project_1_to_fragment_svd(cfc, se, img_space=True, tol=1e-6):
         # print("--------------------------------------------------------------------------------\n\n")
         # print([x.shape for x in couplings_l_frag])
         # print([x.shape for x in couplings_r_frag])
-    return np.array(energies_frag)-se.chempot, np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
+    return np.array(energies_frag), np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
 
 
     
@@ -716,7 +792,7 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitize=True, hermitian=True, sy
         Reconstructed self-energy in Lehmann representation (MO basis)
     """
     fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
+    static_self_energy = np.zeros_like(fock, dtype=np.complex128)
 
     couplings, energies = [], []
 
@@ -735,7 +811,11 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitize=True, hermitian=True, sy
         se_static = th[1] + tp[1]
         
         nelec = 2 * f.cluster.nocc
-        static_self_energy_clus, se, gf = gf_moments_block_lanczos((th,tp), hermitize=True, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=True, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+        se = mblgf_result.get_self_energy()
+        gf = mblgf_result.get_greens_function()
+        static_self_energy_clus = mblgf_result.get_static_self_energy()
+        
         f.results.se = se
         f.results.gf = gf
 
@@ -916,7 +996,7 @@ def eig_outer_sum(vs, ws, tol=1e-12, fac=1):
     assert vs.shape == ws.shape
     rank = 2 * vs.shape[0]
     N = vs.shape[1]
-    left, right = np.zeros((rank, N)), np.zeros((N, rank))
+    left, right = np.zeros((rank, N), dtype=mat.dtype), np.zeros((N, rank), dtype=mat.dtype)
     for i in range(len(vs)):
         left[2*i] = ws[i]
         left[2*i+1] = vs[i]
@@ -924,7 +1004,7 @@ def eig_outer_sum(vs, ws, tol=1e-12, fac=1):
         right[:,2*i+1] = ws[i]
     mat = fac * (left @ right)
     val, vec = np.linalg.eig(mat)
-    assert np.allclose(val.imag, 0)
+    #assert np.allclose(val.imag, 0)
     #assert np.allclose(vec.imag, 0)
     val = val.real
     idx = np.abs(val) > tol

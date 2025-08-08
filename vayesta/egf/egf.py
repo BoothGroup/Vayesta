@@ -27,7 +27,7 @@ from vayesta.egf.self_energy import *
 from vayesta.egf.qsegf import QSEGF_RHF
 
 from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, Lehmann
-
+from dyson.solvers.static.chempot import search_aufbau_global
 
 @dataclasses.dataclass
 class Options(REWF.Options):
@@ -235,20 +235,11 @@ class REGF(REWF):
            chempot_global = self.opts.chempot_global
         SC = self.get_ovlp() @ self.mo_coeff
         phys = self.mo_coeff.T @ self.get_fock() @ self.mo_coeff + static_self_energy 
-        if chempot_global is None:
-            gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys), chempot=self_energy.chempot)
-        else:
-            self.log.info("Performing %s on self-energy"%str(type(AufbauPrinciple)))
-            if chempot_global == 'aux':
-                Shift = AuxiliaryShift
-            elif chempot_global == 'auf':
-                Shift = AufbauPrinciple
-            else:
-                raise ValueError("Invalid global chempot optimisation method")
-            shift = Shift(phys, self_energy, self.mf.mol.nelectron, occupancy=2)
-            shift.kernel()
-            self_energy = shift.result.get_self_energy()
-            gf = shift.result.get_greens_function()
+        gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(phys))
+        if chempot_global == 'auf':
+            cpt = search_aufbau_global(gf, self.mf.mol.nelectron, occupancy=2)[0]
+
+            gf = Lehmann(gf.energies, gf.couplings, chempot=cpt)
         dm = gf.occupied().moment(0) 
         nelec_gf = np.trace(dm) * 2.0
         self.log.info('Number of electrons in GF: %f'%nelec_gf)
