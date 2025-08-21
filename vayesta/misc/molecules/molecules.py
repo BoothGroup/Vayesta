@@ -97,6 +97,38 @@ def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
 
     return atom
 
+def trans_polyene(n, l1=1.38, l2=1.45, lh=1.09, theta=120):
+    """
+    Generate the atomic positions for a trans-polyene molecule with 
+    alternating C-C bond lengths.
+
+    Parameters:
+    n (int): The number of carbon atoms in the polyene.
+    l1 (float): The length of the C-C bond for the first type of bond.
+    l2 (float): The length of the C-C bond for the second type of bond.
+    lh (float): The length of the C-H bond.
+    theta (float): The angle between the C-C bonds.
+    """
+    atoms = []
+    for i in range(n):
+
+        if i % 2 == 0:
+            x = i*(l1 + l2)/2 * np.sin(np.radians(theta/2))
+            y = 0
+        else:
+            x = ((i - 1)/2 * l2 + (i + 1)/2 * l2) * np.sin(np.radians(theta/2))
+            y = l1 * np.cos(np.radians(theta/2))
+            
+        z = 0
+        atoms.append(('C', [x, y, z]))
+
+        if i % 2 == 0:
+            y = y - lh
+        else:
+            y = y + lh
+        atoms.append(('H', [x, y, z]))
+    return atoms
+
 
 def arene(n, atoms=["C", "H"], cc_bond=1.39, ch_bond=1.09, unit=1.0):
     """Bond length for benzene."""
