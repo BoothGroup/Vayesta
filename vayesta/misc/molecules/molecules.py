@@ -99,7 +99,7 @@ def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
 
 def trans_polyene(n, l1=1.38, l2=1.45, lh=1.09, theta=120):
     """
-    Generate the atomic positions for a trans-polyene molecule with 
+    Generate the atomic positions for a trans-polyene chain with 
     alternating C-C bond lengths.
 
     Parameters:
