@@ -1,8 +1,10 @@
+from __future__ import annotations
 # --- Standard library
 import dataclasses
 import itertools
 import os.path
 import typing
+from typing import *
 
 # --- External
 import numpy as np
@@ -23,6 +25,7 @@ from vayesta.core.util import (
     time_string,
     timer,
     AbstractMethodError,
+    optional_import,
 )
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster, Orbitals
@@ -50,6 +53,9 @@ from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
 from vayesta.solver import get_solver_class, check_solver_config, ClusterHamiltonian
 from vayesta.core.screening.screening_crpa import get_frag_W
+# Optional
+btensor = optional_import('btensor')
+
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args: args[0].mpi_rank
@@ -808,6 +814,37 @@ class Fragment:
                 yield from child.loop_symmetry_children(
                     intermediates, axes=axes, symtree=grandchildren, maxgen=(maxgen - 1)
                 )
+
+    def _loop_symmetry_children_operations(self, symtree=None, maxgen=1000):
+        """Loop over all symmetry related fragments and return together with symmetry operations."""
+        if maxgen == 0:
+            return
+        if symtree is None:
+            symtree = self.get_symmetry_tree()
+        for child, grandchildren in symtree:
+            yield child, (child.sym_op,)
+            if grandchildren and maxgen > 1:
+                yield from [(x[0], (child.sym_op, *x[1])) for x in child._loop_symmetry_children_operations(
+                    symtree=grandchildren, maxgen=maxgen - 1)]
+
+    def loop_ao_symmetry_bases(self, ao: 'btensor.Basis') -> Iterator['btensor.Basis']:
+        """Returns an iterator over symmetry related AO bases.
+
+        Args:
+            ao: AO basis.
+
+        Yields:
+            Iterator over bases, which are symmetry related to the original AO basis.
+        """
+        for fx2, sym_ops in self._loop_symmetry_children_operations():
+            # Simple translation only require a reordering of the AOs:
+            if len(sym_ops) == 1 and isinstance(sym_ops[0], SymmetryTranslation):
+                trafo = sym_ops[0].ao_reorder
+            else:
+                trafo = np.eye(self.base.nao)
+                for sym_op in sym_ops:
+                    trafo = sym_op(trafo)
+            yield ao.make_subbasis(trafo, name=f'ao-sym[{fx2.id}]')
 
     @property
     def n_symmetry_children(self):
