@@ -93,10 +93,10 @@ class FCI_Solver(ClusterSolver):
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
 
             with log_time(self.log.timing, "Time for hole moments: %s"):
-                expr = FCI["1h"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
+                expr = FCI.hole.from_fci(self.solver, heff, eris)
                 self.hole_moments = expr.build_gf_moments(nmom[0])
             with log_time(self.log.timing, "Time for hole moments: %s"):    
-                expr = FCI["1p"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
+                expr = FCI.particle.from_fci(self.solver, heff, eris)
                 self.particle_moments = expr.build_gf_moments(nmom[1])
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
