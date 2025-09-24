@@ -451,11 +451,11 @@ he_s32 = TestSolid(
 
 a = np.eye(3) * 3.0
 a[1, 1] = a[2, 2] = 30.0
-he_k3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 1, 1))
-he_s3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 1, 1))
+he_k3 = TestSolid(a, atom="He 0 0 0", dimension=1, low_dim_ft_type='inf_vacuum', basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 1, 1))
+he_s3 = TestSolid(a, atom="He 0 0 0", dimension=1, low_dim_ft_type='inf_vacuum', basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 1, 1))
 
 a = np.eye(3) * 5
-opts = dict(basis="6-31g", mesh=[11, 11, 11])
+opts = dict(basis="631g", auxbasis='def2-svp-ri', mesh=[11, 11, 11])
 he2_631g_k222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", kmesh=(2, 2, 2), **opts)
 he2_631g_s222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", supercell=(2, 2, 2), **opts)
 

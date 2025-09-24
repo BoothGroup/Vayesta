@@ -75,7 +75,7 @@ pygnme = [
 dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",
-    "dyson @ git+https://github.com/BoothGroup/dyson@master",
+    "dyson @ git+https://github.com/BoothGroup/dyson@old",
     "ebcc>=1.4.0",
     "black>=22.6.0",
     "pytest",
