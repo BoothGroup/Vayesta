@@ -29,6 +29,7 @@ from vayesta.ewf.rdm import make_rdm2_ccsd_global_wf
 from vayesta.ewf.rdm import make_rdm1_ccsd_proj_lambda
 from vayesta.ewf.rdm import make_rdm2_ccsd_proj_lambda
 from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_rhf
+from vayesta.ewf.ccsd_t import calc_fragment_ccsd_t_energy
 
 
 @dataclasses.dataclass
@@ -47,6 +48,7 @@ class Options(Embedding.Options):
     # Calculation modes
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
+    calc_e_ccsd_t_corr: bool = False
     # --- Solver settings
     t_as_lambda: bool = None  # If True, use T-amplitudes inplace of Lambda-amplitudes
     store_wf_type: str = None  # If set, fragment WFs will be converted to the respective type, before storing them
@@ -345,6 +347,20 @@ class EWF(Embedding):
                 )
             e_corr += x.symmetry_factor * ex
         return e_corr / self.ncells
+    
+    @mpi.with_allreduce()
+    def get_ccsd_t_corr_energy(self, project='w', **kwargs):
+        # TODO: Check MPI
+        e_ccsd_t = 0
+        
+        # Only loop over fragments of own MPI rank
+        for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
+            # if x.results.e_corr_ccsd_t is not None:
+            #     ex = x.results.e_corr_ccsd_t
+            # else:
+            ex = calc_fragment_ccsd_t_energy(x, project=project, **kwargs)
+            e_ccsd_t += x.symmetry_factor * ex
+        return e_ccsd_t / self.ncells
 
     def get_dm_corr_energy(self, dm1="global-wf", dm2="projected-lambda", t_as_lambda=None, with_exxdiv=None):
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)

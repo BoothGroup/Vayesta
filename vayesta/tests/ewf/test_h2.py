@@ -104,6 +104,14 @@ class Test_CCSD(Test_MP2):
         dm2 = emb._make_rdm2_ccsd_global_wf()
         self.assertAllclose(dm2, dm2_exact)
 
+    def test_ccsd_t(self):
+        exact_ccsd_t = self.cc.ccsd_t()
+        emb = self.emb(-1)
+        emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=False)
+        self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
+        emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=True)
+        self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
+
 
 class Test_UMP2(Test_MP2):
     @classmethod

@@ -20,7 +20,7 @@ from vayesta.core.bath import DMET_Bath
 from vayesta.mpi import mpi
 
 from vayesta.ewf import ewf
-
+from vayesta.ewf.ccsd_t import calc_fragment_ccsd_t_energy
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args: args[0].mpi_rank
@@ -70,6 +70,7 @@ class Fragment(BaseFragment):
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
         e_corr_dm2cumulant: float = None
+        e_corr_ccsd_t: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
@@ -303,6 +304,9 @@ class Fragment(BaseFragment):
             )
         if self.opts.calc_e_dm_corr:
             results.e_corr_dm2cumulant = self.make_fragment_dm2cumulant_energy(hamil=self.hamil)
+        if self.base.opts.calc_e_ccsd_t_corr:
+            results.e_corr_ccsd_t = calc_fragment_ccsd_t_energy(self, wf.t1, wf.t2)
+
         return results
 
     def get_solver_options(self, solver):

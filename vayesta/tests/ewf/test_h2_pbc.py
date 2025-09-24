@@ -124,6 +124,7 @@ class Test_CCSD(Test_MP2):
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
             ("e_tot", -1): cls.cc.e_tot / nk,
+            ("e_ccsd_t", -1): cls.cc.ccsd_t() / nk,
             ("e_corr", 1e-3): -0.0153692736073979,
             ("e_tot", 1e-3): -1.2835024529439953,
         }
@@ -198,6 +199,13 @@ class Test_CCSD(Test_MP2):
         dm2 = emb.make_rdm2_demo(ao_basis=True)
         self.assertAllclose(dm2, dm2_exact)
 
+    def test_ccsd_t(self):
+        exact_ccsd_t = self.ref_values[("e_ccsd_t", -1)]
+        emb = self.emb(-1)
+        emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=False)
+        self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
+        emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=True)
+        self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
 
 # --- Unrestricted
 
@@ -264,6 +272,7 @@ class Test_UCCSD(Test_CCSD):
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
             ("e_tot", -1): cls.cc.e_tot / nk,
+            ("e_ccsd_t", -1): cls.cc.uccsd_t() / nk,
             ("e_corr", 1e-3): -0.01654717440912164,
             ("e_tot", 1e-3): -1.7250820680314027,
         }
@@ -303,8 +312,7 @@ class Test_UCCSD(Test_CCSD):
 
     def test_dm2_demo(self):
         pass
-
-
+    
 # --- 2D
 
 
@@ -333,6 +341,7 @@ class Test_CCSD_2D(Test_CCSD):
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
             ("e_tot", -1): cls.cc.e_tot / nk,
+            ("e_ccsd_t", -1): cls.cc.ccsd_t() / nk,
             ("e_corr", 1e-3): -0.019820060226576966,
         }
         cls.ref_values[("e_tot", 1e-3)] = cls.mf.e_tot + cls.ref_values[("e_corr", 1e-3)]
