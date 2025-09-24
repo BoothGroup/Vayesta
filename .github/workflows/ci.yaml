@@ -7,9 +7,28 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+env:
+  LINUX_BASEKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/dfc4a434-838c-4450-a6fe-2fa903b75aa7/intel-oneapi-base-toolkit-2025.0.1.46_offline.sh
+  LINUX_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/b7f71cf2-8157-4393-abae-8cea815509f7/intel-oneapi-hpc-toolkit-2025.0.1.47_offline.sh
+  LINUX_AIKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/491d5c2a-67fe-48d0-884f-6aecd88f5d8a/ai-tools-2025.0.0.75_offline.sh
+  LINUX_CPP_COMPONENTS: intel-oneapi-dpcpp-cpp-compiler
+  LINUX_FORTRAN_COMPONENTS: intel-oneapi-compiler-fortran
+  LINUX_DPCPP_COMPONENTS: intel-oneapi-compiler-dpcpp-cpp
+  LINUX_CPP_COMPONENTS_WEB: intel.oneapi.lin.dpcpp-cpp-compiler
+  LINUX_FORTRAN_COMPONENTS_WEB: intel.oneapi.lin.ifort-compiler
+  LINUX_DPCPP_COMPONENTS_WEB: intel.oneapi.lin.dpcpp-cpp-compiler
+  LINUX_MKL_COMPONENTS_WEB: intel.oneapi.lin.mkl.devel
+  CACHE_NUMBER: 5
+  SAMPLES_TAG: 2025.0.0
+  AI_SAMPLES_TAG: 2025.0.0
+  COMPILER_VERSION: 2025.0.4
+  TBB_VERSION: 2022.0.0
+  VS_VER: vs2022
+
+
 jobs:
-  full:
-    name: python ${{ matrix.python-version }} on ${{ matrix.os }}
+  full_gnu:
+    name: python ${{ matrix.python-version }} on ${{ matrix.os }} with GNU compilers + OpenBLAS
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -43,6 +62,7 @@ jobs:
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install .[dmet,ebcc] --user
+          python -c 'import numpy as np; np.__config__.show()'
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
@@ -68,6 +88,79 @@ jobs:
           publish_dir: docs/build/html
           force_orphan: true
         if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
+        
+  full_intel:
+    name: python ${{ matrix.python-version }} on ${{ matrix.os }} with Intel oneAPI
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {python-version: "3.11", os: ubuntu-latest, documentation: False}
+          - {python-version: "3.13", os: ubuntu-latest, documentation: False}
+
+    env:
+      # Manually set CPATH because MKL cmake support is broken
+      CPATH: /opt/intel/oneapi/mkl/latest/include
+      CC: icx
+      CXX: icpx
+      FC: ifx
+      # fortran needs this because libimf does not have RPATH to find libintlc.so
+      LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip 
+      - name: Install Intel oneAPI
+        run: |
+          bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB:$LINUX_FORTRAN_COMPONENTS_WEB:$LINUX_MKL_COMPONENTS_WEB
+      - name: Install Vayesta along with dependencies
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          icx -v
+          ifx -v 
+          icpx -v
+          printenv >> $GITHUB_ENV
+          python -m pip install -i https://software.repos.intel.com/python/pypi numpy scipy
+          python -m pip install wheel --user
+          python -m pip install setuptools --upgrade --user
+          python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
+          python -m pip install .[dmet,ebcc] --user
+          python -c 'import numpy as np; np.__config__.show()'
+      - name: Run unit tests
+        run: |
+          python -m pip install pytest pytest-cov --user
+          python .github/workflows/run_tests.py
+      - name: Upload to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+      - name: Build docs
+        run: |
+          python -m pip install sphinx!=5.1.0 sphinx_rtd_theme
+          cd docs
+          bash make_apidoc.sh
+          make html
+          cd ..
+        if: ${{ matrix.documentation }}
+      - name: Deploy docs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/build/html
+          force_orphan: true
+        if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
+
 
   bare:
     name: python 3.9 on ubuntu-latest with no optional dependencies
@@ -100,3 +193,5 @@ jobs:
         run: |
           python -m pip install pytest pytest-cov --user
           python .github/workflows/run_tests.py
+
+

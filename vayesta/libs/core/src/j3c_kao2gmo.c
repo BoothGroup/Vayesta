@@ -12,13 +12,15 @@
 #include <math.h>
 #include <assert.h>
 
+#include "cblas.h"
+
 #if defined _OPENMP
 #include "omp.h"
 #else
 #define omp_get_thread_num() 0
 #define omp_get_num_threads() 1
 #endif
-#include "cblas.h"
+
 
 /* NOT USED ANYMORE */
 int64_t j3c_k2gamma(
