@@ -98,10 +98,11 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
         # indices.
         no = f.cluster.nocc_active
         nv = f.cluster.nvir_active
-        if isinstance(no, int):
+        if isinstance(no, (int, np.int64)):
             no = (no, no)
             nv = (nv, nv)
 
+        print("no: %s = %s"%(type(no), str(no)))
         kcaa = kc[:ova, :ova].reshape((no[0], nv[0], no[0], nv[0]))
         kcab = kc[:ova, ova:].reshape((no[0], nv[0], no[1], nv[1]))
         kcbb = kc[ova:, ova:].reshape((no[1], nv[1], no[1], nv[1]))

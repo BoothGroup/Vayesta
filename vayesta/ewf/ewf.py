@@ -249,8 +249,13 @@ class EWF(Embedding):
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
         if self.solver.lower() == "mp2":
             return self._make_rdm1_mp2_global_wf(*args, **kwargs)
+        if self.solver.lower() == "callback":
+            try:
+                return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
+            except AttributeError:
+                return self.make_rdm1_demo(*args, **kwargs)     
         if self.solver.lower() == "fci":
-            return self.make_rdm1_demo(*args, **kwargs)
+            return self.make_rdm1_demo(*args, **kwargs)        
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
 
     def make_rdm2(self, *args, **kwargs):
@@ -321,8 +326,8 @@ class EWF(Embedding):
             # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
         if functional == 'dmet':
-            # Uses projected density matrices
-            return self.get_dmet_energy(**kwargs)
+            # Uses projected density matrices (democratic partitioning)
+            return self.get_dmet_energy(**kwargs) - self.e_mf
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()

@@ -536,11 +536,11 @@ class UFCI_WaveFunction_w_dummy(UFCI_WaveFunction):
         return type(self.mo)(coeff_w_dummy, occ=self.mo.nocc)
 
     def _phys_ind_orbs(self):
-        return [np.array([i for i in range(y) if i not in x]) for x, y in zip(self.dummy_orbs, self.norb)]
+        return [np.array([i for i in range(y) if i not in x], dtype=np.int64) for x, y in zip(self.dummy_orbs, self.norb)]
 
     def _phys_ind_vir(self):
         return [
-            np.array([i for i in range(y) if i + z not in x]) for x, y, z in zip(self.dummy_orbs, self.nvir, self.nocc)
+            np.array([i for i in range(y) if i + z not in x], dtype=np.int64) for x, y, z in zip(self.dummy_orbs, self.nvir, self.nocc)
         ]
 
     def make_rdm1(self, ao_basis=False, *args, **kwargs):
@@ -560,7 +560,6 @@ class UFCI_WaveFunction_w_dummy(UFCI_WaveFunction):
         return (dm2[0][np.ix_(sa, sa, sa, sa)], dm2[1][np.ix_(sa, sa, sb, sb)], dm2[2][np.ix_(sb, sb, sb, sb)])
 
     def as_cisd(self, *args, **kwargs):
-        self.check_norb()
         with replace_attr(self, mo=self.dummy_mo):
             wf_cisd = super().as_cisd(*args, **kwargs)
             va, vb = self._phys_ind_vir()

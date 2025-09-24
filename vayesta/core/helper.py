@@ -85,7 +85,7 @@ def unpack_arrays(packed, dtype=float, maxdim=8):
             unpacked.append(None)
             continue
         shape = shape[:ndim]
-        size = np.product(shape)
+        size = np.prod(shape)
         array, packed = np.hsplit(packed, [size])
         unpacked.append(array.view(dtype).reshape(shape))
     return unpacked
