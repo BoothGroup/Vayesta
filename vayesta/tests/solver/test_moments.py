@@ -24,10 +24,10 @@ class Test_Spectral_Moments(TestCase):
 
         from dyson.expressions import FCI
 
-        fci = FCI["1h"](mf)
+        fci = FCI.hole.from_mf(mf)
         fci_ip = fci.build_gf_moments(4)
 
-        fci = FCI["1p"](mf)
+        fci = FCI.particle.from_mf(mf)
         fci_ea = fci.build_gf_moments(4)
 
         # Full bath EWF
@@ -53,10 +53,10 @@ class Test_Spectral_Moments(TestCase):
 
         from dyson.expressions import CCSD
 
-        cc = CCSD["1h"](mf)
+        cc = CCSD.hole.from_mf(mf)
         cc_ip = cc.build_gf_moments(4)
           
-        cc = CCSD["1p"](mf)
+        cc = CCSD.particle.from_mf(mf)
         cc_ea = cc.build_gf_moments(4)
 
         #Full bath EWF

@@ -129,8 +129,7 @@ class UERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseUHamiltonian):
                 array=array,
             )
         return self._members[key]
-
-
+        
 
 class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
