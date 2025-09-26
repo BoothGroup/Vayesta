@@ -1,0 +1,277 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Defining Fragments &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parallel Computing with MPI" href="mpi.html" />
+    <link rel="prev" title="Wave Function Based Embedding (EWF)" href="ewf.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quickstart</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dmet.html">Density-Matrix Embbeding Theory (DMET)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ewf.html">Wave Function Based Embedding (EWF)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Defining Fragments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fragmentation">Fragmentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adding-fragments">Adding Fragments</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="mpi.html">Parallel Computing with MPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Quickstart</a></li>
+      <li class="breadcrumb-item active">Defining Fragments</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/fragmentation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="defining-fragments">
+<span id="fragments"></span><h1>Defining Fragments<a class="headerlink" href="#defining-fragments" title="Link to this heading"></a></h1>
+<p>Fragments are added within a fragmentation context manager,
+which determines in which way orbitals are constructed for particular fragment choices.</p>
+<section id="fragmentation">
+<h2>Fragmentation<a class="headerlink" href="#fragmentation" title="Link to this heading"></a></h2>
+<p>In order to define fragments in an <em>ab initio</em> system, one needs to specify
+a set of orthogonal projectors onto subspaces.
+There is no unique way to define such projectors—the question where one atom or orbital ‘ends’ and the next one begins
+within a molecule or solid is fundamentally ill-posed.</p>
+<p>Nevertheless, we do not require the projectors to be uniquely defined in order to perform quantum embedding calculations.
+Within the embedded wave function (EWF) framework, the systematic improvability to the exact result is
+guaranteed via an expansion of the bath space and appropriate choice of property functionals <a class="footnote-reference brackets" href="#id2" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.
+The only requirement on the fragments is that they are orthogonal and (when taken together) they span the complete <em>occupied</em> space.
+For DMET calculations, it is additionally desirable for the union of the fragment spaces to span the entire <em>virtual</em> space.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To check if a user-defined fragmentation is orthogonal and complete in the occupied/virtual space,
+lock for the following line in the output:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Fragmentation: orthogonal= True, occupied-complete= True, virtual-complete= False</span>
+</pre></div>
+</div>
+</div>
+<p>For <em>ab initio</em> systems atomic projectors can be defined in terms of three different types of local atomic orbitals:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://pubs.acs.org/doi/10.1021/ct400687b">Intrinsic atomic orbitals (IAO)</a></p></li>
+<li><p>IAOs augmented with <a class="reference external" href="https://www.annualreviews.org/doi/abs/10.1146/annurev.pc.44.100193.001241">projected atomic orbitals (PAO)</a></p></li>
+<li><p>Symmetrically (Löwdin) orthogonalized atomic orbitals (SAO)</p></li>
+</ul>
+<p>For lattice models, on the other hand, the mapping between the site basis and the sites is clearer and more natural to define.</p>
+<p><a class="reference internal" href="#table-fragmentation"><span class="std std-numref">Table 1</span></a> shows a comparison of the the different fragmentation types:</p>
+<span id="table-fragmentation"></span><table class="docutils align-default" id="id3">
+<caption><span class="caption-number">Table 1 </span><span class="caption-text">Comparison of fragmentation types</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 40.0%" />
+<col style="width: 10.0%" />
+<col style="width: 10.0%" />
+<col style="width: 20.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Context manager</p></th>
+<th class="head"><p>DMET</p></th>
+<th class="head"><p>EWF</p></th>
+<th class="head"><p>Comments</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>IAO</p></td>
+<td><p><code class="code highlight python docutils literal highlight-python"><span class="n">iao_fragmentation</span><span class="p">(</span><span class="n">minao</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Yes</p></td>
+<td><p>Default for <code class="code highlight python docutils literal highlight-python"><span class="n">EWF</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>IAO+PAO</p></td>
+<td><p><code class="code highlight python docutils literal highlight-python"><span class="n">iaopao_fragmentation</span><span class="p">(</span><span class="n">minao</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SAO</p></td>
+<td><p><code class="code highlight python docutils literal highlight-python"><span class="n">sao_fragmentation</span><span class="p">()</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Site basis</p></td>
+<td><p><code class="code highlight python docutils literal highlight-python"><span class="n">site_fragmentation</span><span class="p">()</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>For lattice models only</p></td>
+</tr>
+</tbody>
+</table>
+<p>The minimal reference basis for the IAO construction can be selected with the <code class="code highlight python docutils literal highlight-python"><span class="n">minao</span></code>
+argument. By default a suitable basis set will be chosen automatically <code class="code highlight python docutils literal highlight-python"><span class="s1">&#39;auto&#39;</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Generally different fragmentations should not be combined, as the resulting fragments are not guaranteed to be orthogonal.
+The only exception to this are the IAO and IAO+PAO fragmentation, which can be combined as long as no atom is added twice:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">emb</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">emb</span><span class="o">.</span><span class="n">iaopao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="adding-fragments">
+<h2>Adding Fragments<a class="headerlink" href="#adding-fragments" title="Link to this heading"></a></h2>
+<p>Within the fragmentation context manager, fragments can be added using the methods
+<code class="code highlight python docutils literal highlight-python"><span class="n">add_atomic_fragment</span></code> and <code class="code highlight python docutils literal highlight-python"><span class="n">add_orbital_fragment</span></code>.</p>
+<p>The <code class="code highlight python docutils literal highlight-python"><span class="n">add_atomic_fragment</span></code> method can accept both atom indices and symbols and can further filter specific orbital types
+with the <code class="code highlight python docutils literal highlight-python"><span class="n">orbital_filter</span></code> argument.
+The capabilities are best demonstrated in example <code class="docutils literal notranslate"><span class="pre">examples/ewf/molecules/12-custom-fragments.py</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+<span class="linenos"> 5</span>
+<span class="linenos"> 6</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 7</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.ewf</span>
+<span class="linenos"> 8</span>
+<span class="linenos"> 9</span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="linenos">10</span><span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">11</span><span class="s2">Se	0.0000	0.0000	0.2807</span>
+<span class="linenos">12</span><span class="s2">O 	0.0000	1.3464	-0.5965</span>
+<span class="linenos">13</span><span class="s2">O 	0.0000	-1.3464	-0.5965</span>
+<span class="linenos">14</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">15</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pVDZ&quot;</span>
+<span class="linenos">16</span><span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf.out&quot;</span>
+<span class="linenos">17</span><span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">18</span>
+<span class="linenos">19</span><span class="c1"># Hartree-Fock</span>
+<span class="linenos">20</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">21</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">22</span>
+<span class="linenos">23</span><span class="c1"># Reference full system CCSD:</span>
+<span class="linenos">24</span><span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">25</span><span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">26</span>
+<span class="linenos">27</span><span class="c1"># Embedded CCSD</span>
+<span class="linenos">28</span><span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="linenos">29</span><span class="k">with</span> <span class="n">emb</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">30</span>    <span class="c1"># Fragment containing the 1s state of O and 1s and 2s states of Se</span>
+<span class="linenos">31</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="s2">&quot;Se&quot;</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1s&quot;</span><span class="p">,</span> <span class="s2">&quot;Se 2s&quot;</span><span class="p">])</span>
+<span class="linenos">32</span>    <span class="c1"># Atoms can be specified by labels or indices</span>
+<span class="linenos">33</span>    <span class="c1"># Fragment containing the 2s state at O and 3s and 4s states of Se</span>
+<span class="linenos">34</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;O 2s&quot;</span><span class="p">,</span> <span class="s2">&quot;3s&quot;</span><span class="p">,</span> <span class="s2">&quot;4s&quot;</span><span class="p">])</span>
+<span class="linenos">35</span>    <span class="c1"># Fragment containing the 2p x- and y-states on the oxygen and the 2p, 3p y- and z- states on selenium</span>
+<span class="linenos">36</span>    <span class="c1"># Note that the oxygen does not have 3p IAO states, such that it is not necessary to specify the element for these states</span>
+<span class="linenos">37</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;O 2py&quot;</span><span class="p">,</span> <span class="s2">&quot;O 2pz&quot;</span><span class="p">,</span> <span class="s2">&quot;Se 2p&quot;</span><span class="p">,</span> <span class="s2">&quot;3py&quot;</span><span class="p">,</span> <span class="s2">&quot;3pz&quot;</span><span class="p">])</span>
+<span class="linenos">38</span>    <span class="c1"># All 4p states on Se and all px states (2px on O, 2-4px on Se)</span>
+<span class="linenos">39</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="s2">&quot;Se&quot;</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;4p&quot;</span><span class="p">,</span> <span class="s2">&quot;px&quot;</span><span class="p">])</span>
+<span class="linenos">40</span>    <span class="c1"># 3d states on Se</span>
+<span class="linenos">41</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;3d&quot;</span><span class="p">])</span>
+<span class="linenos">42</span><span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">43</span>
+<span class="linenos">44</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF)=        </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">45</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=      </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">46</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="code highlight python docutils literal highlight-python"><span class="n">add_orbital_fragment</span></code> method allows selecting orbitals (IAOs, PAOs, or SAOs)
+to define fragments, either via their indices or labels.</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>Exact here means free of any error due to the embedding procedure. Any external errors
+(for example by using a CCSD solver) remain.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ewf.html" class="btn btn-neutral float-left" title="Wave Function Based Embedding (EWF)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="mpi.html" class="btn btn-neutral float-right" title="Parallel Computing with MPI" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

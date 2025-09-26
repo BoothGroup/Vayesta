@@ -1,0 +1,746 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.types.ebwf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.core.types.wf" href="vayesta.core.types.wf.html" />
+    <link rel="prev" title="vayesta.core.types" href="vayesta.core.types.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.html">vayesta.core</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.types.html">vayesta.core.types</a></li>
+      <li class="breadcrumb-item active">vayesta.core.types.ebwf</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.core.types.ebwf.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-core-types-ebwf">
+<h1>vayesta.core.types.ebwf<a class="headerlink" href="#vayesta-core-types-ebwf" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.core.types.ebwf.ebcc">
+<span id="vayesta-core-types-ebwf-ebcc"></span><h2>vayesta.core.types.ebwf.ebcc<a class="headerlink" href="#module-vayesta.core.types.ebwf.ebcc" title="Link to this heading"></a></h2>
+<p>WaveFunction for interaction with ebcc solvers for arbitrary ansatzes.
+We subclass existing CCSD wavefunction functionality for the various utility functions (projection, symmetrisation etc),
+but don’t implement these for higher-order terms for now.
+Where ebcc and pyscf have different conventions, we store quantities following the ebcc convention and return values
+by pyscf convention for consistency and compatibility with existing interfaces.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.EBCC_WaveFunction">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.types.ebwf.ebcc.</span></span><span class="sig-name descname"><span class="pre">EBCC_WaveFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#EBCC_WaveFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.EBCC_WaveFunction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.types.ebwf.ebcc.</span></span><span class="sig-name descname"><span class="pre">REBCC_WaveFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ansatz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amplitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambdas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mbos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction" title="vayesta.core.types.ebwf.ebwf.EBWavefunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">EBWavefunction</span></code></a>, <a class="reference internal" href="vayesta.core.types.wf.html#vayesta.core.types.wf.ccsd.RCCSD_WaveFunction" title="vayesta.core.types.wf.ccsd.RCCSD_WaveFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">RCCSD_WaveFunction</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.options">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">options</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.options" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nbos">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nbos</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nbos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.name" title="Link to this definition"></a></dt>
+<dd><p>Get a string representation of the method name.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.t1">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t1</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.t1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.t2">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.t2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.l1">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l1</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.l1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.l2">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.l2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1">
+<span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_mf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.make_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2">
+<span class="sig-name descname"><span class="pre">make_rdm2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">approx_cumulant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.make_rdm2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1_b">
+<span class="sig-name descname"><span class="pre">make_rdm1_b</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.make_rdm1_b"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1_b" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_sing_b_dm">
+<span class="sig-name descname"><span class="pre">make_sing_b_dm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.make_sing_b_dm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_sing_b_dm" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm_eb">
+<span class="sig-name descname"><span class="pre">make_rdm_eb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.make_rdm_eb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm_eb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1_f">
+<span class="sig-name descname"><span class="pre">make_rdm1_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_mf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1_f" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2_f">
+<span class="sig-name descname"><span class="pre">make_rdm2_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">approx_cumulant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2_f" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.copy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_ccsd">
+<span class="sig-name descname"><span class="pre">as_ccsd</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.as_ccsd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_ccsd" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.rotate_ov">
+<span class="sig-name descname"><span class="pre">rotate_ov</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#REBCC_WaveFunction.rotate_ov"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.rotate_ov" title="Link to this definition"></a></dt>
+<dd><p>Rotate wavefunction representation to another basis.
+Only rotations which don’t mix occupied and virtual orbitals are supported.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to</strong> (<em>new occupied orbital coefficients in terms</em><em> of </em><em>current ones.</em>)</p></li>
+<li><p><strong>tv</strong> (<em>new virtual orbital coefficients in terms</em><em> of </em><em>current ones.</em>)</p></li>
+<li><p><strong>inplace</strong> (<em>Whether to transform in-place</em><em> or </em><em>return a new object.</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_cisd">
+<span class="sig-name descname"><span class="pre">as_cisd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_cisd" title="Link to this definition"></a></dt>
+<dd><p>In intermediate normalization.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_fci">
+<span class="sig-name descname"><span class="pre">as_fci</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_fci" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_mp2">
+<span class="sig-name descname"><span class="pre">as_mp2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_mp2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_unrestricted">
+<span class="sig-name descname"><span class="pre">as_unrestricted</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.from_pyscf">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_pyscf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.from_pyscf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2_non_cumulant">
+<span class="sig-name descname"><span class="pre">make_rdm2_non_cumulant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2_non_cumulant" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm_bb">
+<span class="sig-name descname"><span class="pre">make_rdm_bb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm_bb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.multiply">
+<span class="sig-name descname"><span class="pre">multiply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.multiply" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nelec">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nelec</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nelec" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nocca">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocca</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nocca" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.noccb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">noccb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.noccb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norba">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norba</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norbb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norbb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.norbb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvira">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvira</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvira" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvirb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvirb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.nvirb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.pack">
+<span class="sig-name descname"><span class="pre">pack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype=&lt;class</span> <span class="pre">'float'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.pack" title="Link to this definition"></a></dt>
+<dd><p>Pack into a single array of data type <cite>dtype</cite>.</p>
+<p>Useful for communication via MPI.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.project">
+<span class="sig-name descname"><span class="pre">project</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.project" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.restore">
+<span class="sig-name descname"><span class="pre">restore</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sym</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.restore" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.rotate">
+<span class="sig-name descname"><span class="pre">rotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.rotate" title="Link to this definition"></a></dt>
+<dd><p>Rotate wavefunction representation to another basis.
+Only rotations which don’t mix occupied and virtual orbitals are supported.
+Assumes rotated orbitals have same occupancy ordering as originals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.unpack">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">packed</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.unpack" title="Link to this definition"></a></dt>
+<dd><p>Unpack from a single array of data type <cite>dtype</cite>.</p>
+<p>Useful for communication via MPI.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.types.ebwf.ebcc.</span></span><span class="sig-name descname"><span class="pre">UEBCC_WaveFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ansatz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amplitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambdas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mbos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#UEBCC_WaveFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction" title="vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">REBCC_WaveFunction</span></code></a>, <a class="reference internal" href="vayesta.core.types.wf.html#vayesta.core.types.wf.ccsd.UCCSD_WaveFunction" title="vayesta.core.types.wf.ccsd.UCCSD_WaveFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">UCCSD_WaveFunction</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1a">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t1a</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1a" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1b">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t1b</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1b" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t1</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2aa">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2aa</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2aa" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2ab">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2ab</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2ab" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2ba">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2ba</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2ba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2bb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2bb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2bb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">t2</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.t2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1a">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l1a</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1a" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1b">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l1b</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1b" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l1</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_ccsd">
+<span class="sig-name descname"><span class="pre">as_ccsd</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_ccsd" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_cisd">
+<span class="sig-name descname"><span class="pre">as_cisd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_cisd" title="Link to this definition"></a></dt>
+<dd><p>In intermediate normalization.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_fci">
+<span class="sig-name descname"><span class="pre">as_fci</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_fci" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_mp2">
+<span class="sig-name descname"><span class="pre">as_mp2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_mp2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_unrestricted">
+<span class="sig-name descname"><span class="pre">as_unrestricted</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.as_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.copy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.from_pyscf">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_pyscf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.from_pyscf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2aa">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2aa</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2aa" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1_b">
+<span class="sig-name descname"><span class="pre">make_rdm1_b</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1_b" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1_f">
+<span class="sig-name descname"><span class="pre">make_rdm1_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_mf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1_f" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2_f">
+<span class="sig-name descname"><span class="pre">make_rdm2_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">approx_cumulant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2_f" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2_non_cumulant">
+<span class="sig-name descname"><span class="pre">make_rdm2_non_cumulant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_as_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2_non_cumulant" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm_bb">
+<span class="sig-name descname"><span class="pre">make_rdm_bb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm_bb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_sing_b_dm">
+<span class="sig-name descname"><span class="pre">make_sing_b_dm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_sing_b_dm" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.multiply">
+<span class="sig-name descname"><span class="pre">multiply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.multiply" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.name" title="Link to this definition"></a></dt>
+<dd><p>Get a string representation of the method name.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nbos">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nbos</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nbos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nelec">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nelec</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nelec" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nocca">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocca</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nocca" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.noccb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">noccb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.noccb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norba">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norba</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norbb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norbb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.norbb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvira">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvira</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvira" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvirb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvirb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.nvirb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.options">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">options</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.options" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.pack">
+<span class="sig-name descname"><span class="pre">pack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype=&lt;class</span> <span class="pre">'float'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.pack" title="Link to this definition"></a></dt>
+<dd><p>Pack into a single array of data type <cite>dtype</cite>.
+Useful for communication via MPI.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.project">
+<span class="sig-name descname"><span class="pre">project</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.project" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.restore">
+<span class="sig-name descname"><span class="pre">restore</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">projector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sym</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.restore" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.rotate">
+<span class="sig-name descname"><span class="pre">rotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.rotate" title="Link to this definition"></a></dt>
+<dd><p>Rotate wavefunction representation to another basis.
+Only rotations which don’t mix occupied and virtual orbitals are supported.
+Assumes rotated orbitals have same occupancy ordering as originals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.rotate_ov">
+<span class="sig-name descname"><span class="pre">rotate_ov</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.rotate_ov" title="Link to this definition"></a></dt>
+<dd><p>Rotate wavefunction representation to another basis.
+Only rotations which don’t mix occupied and virtual orbitals are supported.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to</strong> (<em>new occupied orbital coefficients in terms</em><em> of </em><em>current ones.</em>)</p></li>
+<li><p><strong>tv</strong> (<em>new virtual orbital coefficients in terms</em><em> of </em><em>current ones.</em>)</p></li>
+<li><p><strong>inplace</strong> (<em>Whether to transform in-place</em><em> or </em><em>return a new object.</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.unpack">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">packed</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.unpack" title="Link to this definition"></a></dt>
+<dd><p>Unpack from a single array of data type <cite>dtype</cite>.
+Useful for communication via MPI.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2ab">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2ab</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2ab" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2ba">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2ba</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2ba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2bb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2bb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2bb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">l2</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.l2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1">
+<span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#UEBCC_WaveFunction.make_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2">
+<span class="sig-name descname"><span class="pre">make_rdm2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#UEBCC_WaveFunction.make_rdm2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm_eb">
+<span class="sig-name descname"><span class="pre">make_rdm_eb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hermitise</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebcc.html#UEBCC_WaveFunction.make_rdm_eb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm_eb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.types.ebwf.ebwf">
+<span id="vayesta-core-types-ebwf-ebwf"></span><h2>vayesta.core.types.ebwf.ebwf<a class="headerlink" href="#module-vayesta.core.types.ebwf.ebwf" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.types.ebwf.ebwf.</span></span><span class="sig-name descname"><span class="pre">EBWavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mbos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebwf.html#EBWavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="vayesta.core.types.wf.html#vayesta.core.types.wf.wf.WaveFunction" title="vayesta.core.types.wf.wf.WaveFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">WaveFunction</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nbos">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nbos</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nbos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm_eb">
+<span class="sig-name descname"><span class="pre">make_rdm_eb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebwf.html#EBWavefunction.make_rdm_eb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm_eb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm_bb">
+<span class="sig-name descname"><span class="pre">make_rdm_bb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/types/ebwf/ebwf.html#EBWavefunction.make_rdm_bb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm_bb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.from_pyscf">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_pyscf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.from_pyscf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm1">
+<span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm2">
+<span class="sig-name descname"><span class="pre">make_rdm2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.make_rdm2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nelec">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nelec</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nelec" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nocca">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocca</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nocca" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.noccb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">noccb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.noccb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.norba">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norba</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.norba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.norbb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norbb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.norbb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nvira">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvira</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nvira" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.nvirb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvirb</span></span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.nvirb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.rotate">
+<span class="sig-name descname"><span class="pre">rotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.rotate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.types.ebwf.ebwf.EBWavefunction.rotate_ov">
+<span class="sig-name descname"><span class="pre">rotate_ov</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.types.ebwf.ebwf.EBWavefunction.rotate_ov" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.types.ebwf">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.core.types.ebwf" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.core.types.html" class="btn btn-neutral float-left" title="vayesta.core.types" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.core.types.wf.html" class="btn btn-neutral float-right" title="vayesta.core.types.wf" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

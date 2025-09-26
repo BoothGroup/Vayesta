@@ -1,0 +1,558 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.foldscf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.foldscf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.foldscf</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">lib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.pbc</span><span class="w"> </span><span class="kn">import</span> <span class="n">tools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.df</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImaginaryPartError</span><span class="p">,</span> <span class="n">OrthonormalityError</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="fold_scf">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.fold_scf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fold_scf</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fold k-point sampled mean-field object to Born-von Karman (BVK) supercell.</span>
+<span class="sd">    See also :class:`FoldedSCF`.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">khf</span><span class="o">.</span><span class="n">KRHF</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">FoldedRHF</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">kuhf</span><span class="o">.</span><span class="n">KUHF</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">FoldedUHF</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Mean-field type= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">kmf</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="FoldedSCF">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedSCF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoldedSCF</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fold k-point sampled SCF calculation to the BVK (Born-von Karman) supercell.</span>
+
+<span class="sd">    This class automatically updates the attributes `mo_energy`, `mo_coeff`, `mo_occ`, `e_tot`, and `converged`.</span>
+<span class="sd">    It also overwrites the methods `get_ovlp`, `get_hcore`, and `get_veff`,</span>
+<span class="sd">    calling its more efficient k-space variant first and folding the result to the supercell.</span>
+
+<span class="sd">    Since `get_hcore` and `get_veff` are implemented, `get_fock` is supported automatically,</span>
+<span class="sd">    if the inherited base SCF class implements it.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    kmf: pyscf.pbc.gto.KRHF or pyscf.pbc.gto.KRHF</span>
+<span class="sd">        Converged k-point sampled mean-field calculation.</span>
+<span class="sd">    kcell: pyscf.pbc.gto.Cell</span>
+<span class="sd">        Primitive unit cell object.</span>
+<span class="sd">    ncells: int</span>
+<span class="sd">        Number of primitive unit cells within BVK supercell</span>
+<span class="sd">    kphase: (ncells, ncells) array</span>
+<span class="sd">        Transformation matrix between k-point and BVK quantities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Propagate the following attributes to the k-point mean-field:</span>
+    <span class="n">_from_kmf</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;exxdiv&quot;</span><span class="p">,</span> <span class="s2">&quot;verbose&quot;</span><span class="p">,</span> <span class="s2">&quot;max_memory&quot;</span><span class="p">,</span> <span class="s2">&quot;conv_tol&quot;</span><span class="p">,</span> <span class="s2">&quot;conv_tol_grad&quot;</span><span class="p">,</span> <span class="s2">&quot;stdout&quot;</span><span class="p">,</span> <span class="s2">&quot;_eri&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kmf</span><span class="p">,</span> <span class="n">kpt</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Create a copy, so that the original mean-field object does not get modified</span>
+        <span class="n">kmf</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">kmf</span><span class="p">)</span>
+        <span class="c1"># Support for k-point symmetry:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="s2">&quot;to_khf&quot;</span><span class="p">):</span>
+            <span class="n">kmf</span> <span class="o">=</span> <span class="n">kmf</span><span class="o">.</span><span class="n">to_khf</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span> <span class="o">=</span> <span class="n">kmf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subcellmesh</span> <span class="o">=</span> <span class="n">kpts_to_kmesh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmf</span><span class="o">.</span><span class="n">kpts</span><span class="p">)</span>
+        <span class="n">cell</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span> <span class="o">=</span> <span class="n">get_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kcell</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">kpts</span><span class="p">)</span>
+        <span class="c1"># We cannot call the PySCF __init__....</span>
+        <span class="c1"># super().__init__(scell, **kwargs)</span>
+        <span class="c1"># ... so we have to intialize a few attributes here:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="n">cell</span>
+
+        <span class="c1"># From scf/hf.py:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">callback</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scf_summary</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chkfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">lib</span><span class="o">.</span><span class="n">param</span><span class="o">.</span><span class="n">TMPDIR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chkfile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chkfile</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="c1"># from pbc/scf/hf.py:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">with_df</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">FFTDF</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rsjk</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kpt</span> <span class="o">=</span> <span class="n">kpt</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">kpt</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_from_kmf</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39; object has no attribute &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_from_kmf</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">e_tot</span>
+
+    <span class="nd">@e_tot</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ncells</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">kpts</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kcell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mol</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_eri</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="FoldedSCF.get_ovlp">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedSCF.get_ovlp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ovlp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">sk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="n">k2bvk_2d</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ovlp</span></div>
+
+
+<div class="viewcode-block" id="FoldedSCF.get_hcore">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedSCF.get_hcore">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_hcore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">hk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">hcore</span> <span class="o">=</span> <span class="n">k2bvk_2d</span><span class="p">(</span><span class="n">hk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="n">make_real</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hcore</span></div>
+
+
+<div class="viewcode-block" id="FoldedSCF.get_veff">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedSCF.get_veff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_veff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">mol</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mol</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span>
+        <span class="c1"># Unfold DM into k-space</span>
+        <span class="k">if</span> <span class="n">dm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm</span> <span class="o">=</span> <span class="n">bvk2k_2d</span><span class="p">(</span><span class="n">dm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">)</span>
+        <span class="n">vk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">get_veff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">veff</span> <span class="o">=</span> <span class="n">k2bvk_2d</span><span class="p">(</span><span class="n">vk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="n">make_real</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">veff</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FoldedRHF">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedRHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoldedRHF</span><span class="p">(</span><span class="n">FoldedSCF</span><span class="p">,</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">hf</span><span class="o">.</span><span class="n">RHF</span><span class="p">):</span>
+    <span class="vm">__doc__</span> <span class="o">=</span> <span class="n">FoldedSCF</span><span class="o">.</span><span class="vm">__doc__</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">=</span> <span class="n">fold_mos</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">,</span> <span class="n">ovlp</span>
+        <span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="FoldedUHF">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.FoldedUHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoldedUHF</span><span class="p">(</span><span class="n">FoldedSCF</span><span class="p">,</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">uhf</span><span class="o">.</span><span class="n">UHF</span><span class="p">):</span>
+    <span class="vm">__doc__</span> <span class="o">=</span> <span class="n">FoldedSCF</span><span class="o">.</span><span class="vm">__doc__</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">fold_mos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">),</span>
+            <span class="n">fold_mos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">kphase</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="fold_mos">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.fold_mos">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fold_mos</span><span class="p">(</span><span class="n">kmo_energy</span><span class="p">,</span> <span class="n">kmo_coeff</span><span class="p">,</span> <span class="n">kmo_occ</span><span class="p">,</span> <span class="n">kphase</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="c1"># --- MO energy and occupations</span>
+    <span class="n">mo_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">kmo_energy</span><span class="p">)</span>
+    <span class="n">mo_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">kmo_occ</span><span class="p">)</span>
+    <span class="c1"># --- MO coefficients</span>
+    <span class="c1"># Number of MOs per k-point (can be k-point depedent, for example due to linear-dependency treatment)</span>
+    <span class="n">mo_coeff</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">ck</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">kmo_coeff</span><span class="p">):</span>
+        <span class="n">cr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">kphase</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">ck</span><span class="p">)</span>  <span class="c1"># R,ai -&gt; Rai</span>
+        <span class="n">mo_coeff</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">cr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>  <span class="c1"># Rai  -&gt; (Ra),i</span>
+    <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">)</span>
+    <span class="c1"># --- Sort MOs according to energy</span>
+    <span class="k">if</span> <span class="n">sort</span><span class="p">:</span>
+        <span class="n">reorder</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">)</span>
+        <span class="n">mo_energy</span> <span class="o">=</span> <span class="n">mo_energy</span><span class="p">[</span><span class="n">reorder</span><span class="p">]</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">reorder</span><span class="p">]</span>
+        <span class="n">mo_occ</span> <span class="o">=</span> <span class="n">mo_occ</span><span class="p">[</span><span class="n">reorder</span><span class="p">]</span>
+    <span class="c1"># --- Make MOs real</span>
+    <span class="k">if</span> <span class="n">make_real</span><span class="p">:</span>
+        <span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">make_mo_coeff_real</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="c1"># Check orthonormality of folded MOs</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Supercell MOs are not orthonormal (max error= </span><span class="si">%.3e</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">OrthonormalityError</span><span class="p">(</span><span class="s2">&quot;Supercell MOs are not orthonormal&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+            <span class="n">logf</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">error</span>
+        <span class="k">elif</span> <span class="n">err</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="n">logf</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">warning</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logf</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">debugv</span>
+        <span class="n">logf</span><span class="p">(</span><span class="s2">&quot;Supercell MO orthonormality error: L(inf)= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span></div>
+
+
+
+<div class="viewcode-block" id="log_error_norms">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.log_error_norms">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">log_error_norms</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">err</span><span class="p">,</span> <span class="n">error_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">warn_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+    <span class="n">l2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="n">linf</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">lmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">lmax</span> <span class="o">&gt;</span> <span class="n">error_tol</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span> <span class="o">+</span> <span class="s2">&quot; !!!&quot;</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">lmax</span> <span class="o">&gt;</span> <span class="n">warn_tol</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">msg</span> <span class="o">+</span> <span class="s2">&quot; !&quot;</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_mo_coeff_real">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.make_mo_coeff_real">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_mo_coeff_real</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">imag_tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+    <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Check orthonormality</span>
+    <span class="n">ortherr</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Orthonormality error before make_mo_coeff_real: </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ortherr</span><span class="p">)</span>
+
+    <span class="c1"># Testing</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">imag_tol</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> complex MOs found. L(2)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">im</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">imag</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">im</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">real</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">[</span><span class="n">im</span><span class="p">])</span>
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">im</span><span class="p">])</span>
+    <span class="n">fock</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">sc</span> <span class="o">*</span> <span class="p">(</span><span class="n">mo_energy</span><span class="p">[</span><span class="n">im</span><span class="p">]</span> <span class="o">+</span> <span class="n">shift</span><span class="p">),</span> <span class="n">sc</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span>
+    <span class="n">log_error_norms</span><span class="p">(</span><span class="s2">&quot;Imaginary part in folded Fock matrix: L(2)= </span><span class="si">%.2e</span><span class="s2"> L(inf)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fock</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span>
+    <span class="c1"># Diagonalize subspace Fock matrix</span>
+    <span class="c1"># TODO: eigensolver for linear dependencies...</span>
+    <span class="n">eigh</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span>
+    <span class="c1"># Modified PySCF:</span>
+    <span class="c1"># eigh = cell.eigh_factory(lindep_threshold=1e-13, fallback_mode=True)</span>
+    <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">eigh</span><span class="p">(</span><span class="n">fock</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="c1"># Extract MOs from rank-deficient Fock matrix</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">[</span><span class="n">im</span><span class="p">])</span>
+    <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">e</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">v</span><span class="p">[:,</span> <span class="n">mask</span><span class="p">]</span>
+    <span class="n">log_error_norms</span><span class="p">(</span><span class="s2">&quot;Error in folded MO energies: L(2)= </span><span class="si">%.2e</span><span class="s2"> L(inf)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mo_energy</span><span class="p">[</span><span class="n">im</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">e</span> <span class="o">-</span> <span class="n">shift</span><span class="p">))</span>
+    <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">im</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">imag_tol</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">real</span></div>
+
+
+
+<div class="viewcode-block" id="make_mo_coeff_real_2">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.make_mo_coeff_real_2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_mo_coeff_real_2</span><span class="p">(</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">hcore</span><span class="p">,</span> <span class="n">imag_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Check orthonormality</span>
+    <span class="n">ortherr</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Orthonormality error before make_mo_coeff_real: </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ortherr</span><span class="p">)</span>
+
+    <span class="n">mo_coeff_occ</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">mo_coeff_vir</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">mo_occ</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">e_hcore_min</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">hcore</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">ovlp</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">e_hcore_min</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_subspace_real</span><span class="p">(</span><span class="n">mo_coeff_sub</span><span class="p">):</span>
+        <span class="c1"># Diagonalize Hcore to separate symmetry sectors</span>
+        <span class="n">nsub</span> <span class="o">=</span> <span class="n">mo_coeff_sub</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">hsub</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff_sub</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">hcore</span><span class="p">,</span> <span class="n">mo_coeff_sub</span><span class="p">)</span> <span class="o">+</span> <span class="n">shift</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nsub</span><span class="p">)</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff_sub</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ovlp</span><span class="p">)</span>
+        <span class="n">hsub</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">hsub</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">hsub</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">im</span> <span class="o">&lt;</span> <span class="n">imag_tol</span><span class="p">,</span> <span class="s2">&quot;Imaginary part of Hcore= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">im</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">hsub</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">ovlp</span><span class="p">)</span>
+        <span class="n">colspace</span> <span class="o">=</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">colspace</span><span class="p">)</span> <span class="o">==</span> <span class="n">nsub</span>
+        <span class="n">mo_coeff_sub</span> <span class="o">=</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">colspace</span><span class="p">]</span>
+
+        <span class="c1"># Canonicalize subspace MO coefficients</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff_sub</span><span class="p">)</span>
+        <span class="n">fsub</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,i,ib-&gt;ab&quot;</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo_energy</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">fsub</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">im</span> <span class="o">&lt;</span> <span class="n">imag_tol</span><span class="p">,</span> <span class="s2">&quot;Imaginary part of Fock= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">im</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">fsub</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+        <span class="n">mo_energy_sub</span> <span class="o">=</span> <span class="n">e</span>
+        <span class="n">mo_coeff_sub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff_sub</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mo_energy_sub</span><span class="p">,</span> <span class="n">mo_coeff_sub</span>
+
+    <span class="n">mo_energy_occ</span><span class="p">,</span> <span class="n">mo_coeff_occ</span> <span class="o">=</span> <span class="n">make_subspace_real</span><span class="p">(</span><span class="n">mo_coeff_occ</span><span class="p">)</span>
+    <span class="n">mo_energy_vir</span><span class="p">,</span> <span class="n">mo_coeff_vir</span> <span class="o">=</span> <span class="n">make_subspace_real</span><span class="p">(</span><span class="n">mo_coeff_vir</span><span class="p">)</span>
+    <span class="n">mo_energy_real</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">mo_energy_occ</span><span class="p">,</span> <span class="n">mo_energy_vir</span><span class="p">))</span>
+    <span class="n">mo_coeff_real</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="n">mo_coeff_vir</span><span class="p">))</span>
+
+    <span class="n">log_error_norms</span><span class="p">(</span><span class="s2">&quot;Error in MO energies of real orbitals: L(2)= </span><span class="si">%.2e</span><span class="s2"> L(inf)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">mo_energy_real</span> <span class="o">-</span> <span class="n">mo_energy</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">mo_energy_real</span><span class="p">,</span> <span class="n">mo_coeff_real</span></div>
+
+
+
+<span class="c1"># ==========================</span>
+<span class="c1"># From PySCF, modified</span>
+
+
+<div class="viewcode-block" id="kpts_to_kmesh">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.kpts_to_kmesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kpts_to_kmesh</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Guess k-mesh from k-points.&quot;&quot;&quot;</span>
+    <span class="n">scaled_k</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">get_scaled_kpts</span><span class="p">(</span><span class="n">kpts</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">scaled_k</span><span class="p">[:,</span> <span class="n">d</span><span class="p">]))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">kmesh</span></div>
+
+
+
+<div class="viewcode-block" id="translation_vectors_for_kmesh">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.translation_vectors_for_kmesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">translation_vectors_for_kmesh</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Translation vectors to construct super-cell of which the gamma point is</span>
+<span class="sd">    identical to the k-point mesh of primitive cell&quot;&quot;&quot;</span>
+    <span class="n">latt_vec</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span>
+    <span class="n">r_rel</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">kmesh</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="n">r_vec_rel</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">cartesian_prod</span><span class="p">(</span><span class="n">r_rel</span><span class="p">)</span>
+    <span class="n">r_vec_abs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_vec_rel</span><span class="p">,</span> <span class="n">latt_vec</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">r_vec_abs</span></div>
+
+
+
+<div class="viewcode-block" id="get_phase">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.get_phase">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_phase</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">kmesh</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The unitary transformation that transforms the supercell basis k-mesh</span>
+<span class="sd">    adapted basis.</span>
+
+<span class="sd">    Important: This is ordered as (k,R), different to PySCF k2gamma.get_phase!</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">kmesh</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">kmesh</span> <span class="o">=</span> <span class="n">kpts_to_kmesh</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+    <span class="n">r_vec_abs</span> <span class="o">=</span> <span class="n">translation_vectors_for_kmesh</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">)</span>
+    <span class="n">nr</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">r_vec_abs</span><span class="p">)</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">kpts</span><span class="p">,</span> <span class="n">r_vec_abs</span><span class="o">.</span><span class="n">T</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nr</span><span class="p">)</span>
+    <span class="n">scell</span> <span class="o">=</span> <span class="n">tools</span><span class="o">.</span><span class="n">super_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">scell</span><span class="p">,</span> <span class="n">phase</span></div>
+
+
+
+<div class="viewcode-block" id="k2bvk_2d">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.k2bvk_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">k2bvk_2d</span><span class="p">(</span><span class="n">ak</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">imag_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform unit-cell k-point AO integrals to the supercell gamma-point AO integrals.&quot;&quot;&quot;</span>
+    <span class="n">ag</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kR,...kij,kS-&gt;...RiSj&quot;</span><span class="p">,</span> <span class="n">phase</span><span class="p">,</span> <span class="n">ak</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">conj</span><span class="p">())</span>
+    <span class="n">imag_norm</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ag</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">make_real</span> <span class="ow">and</span> <span class="p">(</span><span class="n">imag_norm</span> <span class="o">&gt;</span> <span class="n">imag_tol</span><span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Imaginary part of supercell integrals: </span><span class="si">%.2e</span><span class="s2"> (tolerance= </span><span class="si">%.2e</span><span class="s2">)&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">imag_norm</span><span class="p">,</span> <span class="n">imag_tol</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">ImaginaryPartError</span><span class="p">(</span><span class="n">msg</span> <span class="o">%</span> <span class="p">(</span><span class="n">imag_norm</span><span class="p">,</span> <span class="n">imag_tol</span><span class="p">))</span>
+    <span class="n">nr</span><span class="p">,</span> <span class="n">nao</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ak</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">ag</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">],</span> <span class="n">nr</span> <span class="o">*</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nr</span> <span class="o">*</span> <span class="n">nao</span><span class="p">)</span>
+    <span class="n">ag</span> <span class="o">=</span> <span class="n">ag</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">make_real</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ag</span><span class="o">.</span><span class="n">real</span>
+    <span class="k">return</span> <span class="n">ag</span></div>
+
+
+
+<div class="viewcode-block" id="bvk2k_2d">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.foldscf.bvk2k_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bvk2k_2d</span><span class="p">(</span><span class="n">ag</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform supercell gamma-point AO integrals to the unit-cell k-point AO integrals.&quot;&quot;&quot;</span>
+    <span class="n">nr</span><span class="p">,</span> <span class="n">nao</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ag</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="n">phase</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">ag</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">nr</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nr</span><span class="p">,</span> <span class="n">nao</span><span class="p">)</span>
+    <span class="n">ag</span> <span class="o">=</span> <span class="n">ag</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">ak</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kR,...RiSj,kS-&gt;...kij&quot;</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">ag</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ak</span></div>
+
+
+
+<span class="c1"># Depreciated functionality removed; rotation of mos to minimise imaginary part and conversion between kpoint and</span>
+<span class="c1"># supercell calculations.</span>
+<span class="c1"># Check out v1.0.0 or v1.0.1 if needed.</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.pbc</span><span class="w"> </span><span class="kn">import</span> <span class="n">gto</span><span class="p">,</span> <span class="n">scf</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">log</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    H 0.0  0.0  0.0</span>
+<span class="s2">    H 0.6  0.4  0.0</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="n">cell</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pvdz&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">unit</span> <span class="o">=</span> <span class="s2">&quot;B&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">dimension</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+    <span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">kpts</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">make_kpts</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+
+    <span class="n">khf</span> <span class="o">=</span> <span class="n">scf</span><span class="o">.</span><span class="n">KRHF</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+    <span class="c1"># khf = scf.KUHF(cell, kpts)</span>
+    <span class="n">khf</span><span class="o">.</span><span class="n">conv_tol</span> <span class="o">=</span> <span class="mf">1e-12</span>
+    <span class="n">khf</span> <span class="o">=</span> <span class="n">khf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s2">&quot;cc-pvdz-jkfit&quot;</span><span class="p">)</span>
+    <span class="n">khf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+    <span class="n">hf</span> <span class="o">=</span> <span class="n">fold_scf</span><span class="p">(</span><span class="n">khf</span><span class="p">)</span>
+
+    <span class="n">scell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">super_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">)</span>
+    <span class="n">shf</span> <span class="o">=</span> <span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">scell</span><span class="p">)</span>
+    <span class="c1"># shf = scf.UHF(scell)</span>
+    <span class="n">shf</span><span class="o">.</span><span class="n">conv_tol</span> <span class="o">=</span> <span class="mf">1e-12</span>
+    <span class="n">shf</span> <span class="o">=</span> <span class="n">shf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s2">&quot;cc-pvdz-jkfit&quot;</span><span class="p">)</span>
+    <span class="n">shf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+    <span class="c1"># Overlap matrix</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span> <span class="o">-</span> <span class="n">shf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error overlap= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">err</span><span class="p">)</span>
+
+    <span class="c1"># Hcore matrix</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span> <span class="o">-</span> <span class="n">shf</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error hcore= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">err</span><span class="p">)</span>
+
+    <span class="c1"># Veff matrix</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">get_veff</span><span class="p">()</span> <span class="o">-</span> <span class="n">shf</span><span class="o">.</span><span class="n">get_veff</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error veff= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">err</span><span class="p">)</span>
+
+    <span class="c1"># Veff matrix for given DM</span>
+    <span class="n">scell</span><span class="p">,</span> <span class="n">phase</span> <span class="o">=</span> <span class="n">get_phase</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+    <span class="n">dm</span> <span class="o">=</span> <span class="n">k2bvk_2d</span><span class="p">(</span><span class="n">khf</span><span class="o">.</span><span class="n">get_init_guess</span><span class="p">(),</span> <span class="n">phase</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">get_veff</span><span class="p">(</span><span class="n">dm</span><span class="o">=</span><span class="n">dm</span><span class="p">)</span> <span class="o">-</span> <span class="n">shf</span><span class="o">.</span><span class="n">get_veff</span><span class="p">(</span><span class="n">dm</span><span class="o">=</span><span class="n">dm</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error veff for given DM= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">err</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

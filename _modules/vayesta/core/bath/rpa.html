@@ -1,0 +1,226 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.bath.rpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../bath.html">vayesta.core.bath</a></li>
+      <li class="breadcrumb-item active">vayesta.core.bath.rpa</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.bath.rpa</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.bath.bno</span><span class="w"> </span><span class="kn">import</span> <span class="n">BNO_Threshold</span><span class="p">,</span> <span class="n">BNO_Bath</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractMethodError</span><span class="p">,</span> <span class="n">brange</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">fix_orbital_sign</span><span class="p">,</span> <span class="n">hstack</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cluster</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRIdRRPA</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.eris</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_cderi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.bath</span><span class="w"> </span><span class="kn">import</span> <span class="n">helper</span>
+
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<div class="viewcode-block" id="RPA_BNO_Bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.rpa.RPA_BNO_Bath">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RPA_BNO_Bath</span><span class="p">(</span><span class="n">BNO_Bath</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">project_dmet_order</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">project_dmet_mode</span><span class="o">=</span><span class="s2">&quot;full&quot;</span><span class="p">,</span> <span class="n">project_dmet</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_dmet_order</span> <span class="o">=</span> <span class="n">project_dmet_order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">project_dmet_mode</span> <span class="o">=</span> <span class="n">project_dmet_mode</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RPA_BNO_Bath.make_bno_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.rpa.RPA_BNO_Bath.make_bno_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_bno_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cderis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct RPA bath natural orbital coefficients and occupation numbers.</span>
+
+<span class="sd">        This routine works for both for spin-restricted and unrestricted.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cderis: cderis in the particle-hole space.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        c_bno: (n(AO), n(BNO)) array</span>
+<span class="sd">            Bath natural orbital coefficients.</span>
+<span class="sd">        n_bno: (n(BNO)) array</span>
+<span class="sd">            Bath natural orbital occupation numbers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">t_init</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">cderis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cderis</span> <span class="o">=</span> <span class="n">get_cderi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">),</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occtype</span> <span class="o">==</span> <span class="s2">&quot;occupied&quot;</span><span class="p">:</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_vir</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">rot_vir</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span>
+            <span class="n">rot_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">nocc</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">rot_occ</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">)</span>
+            <span class="n">rot_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+
+        <span class="n">loc_excit_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">rot_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rot_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># Get target rotation in particle-hole excitation space.</span>
+        <span class="c1"># This is of size O(N), so this whole procedure scales as O(N^4)</span>
+
+        <span class="n">target_rot</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,ab-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">rot_occ</span><span class="p">,</span> <span class="n">rot_vir</span><span class="p">)</span>
+        <span class="n">target_rot</span> <span class="o">=</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]))</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">myrpa</span> <span class="o">=</span> <span class="n">ssRIdRRPA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="n">lov</span><span class="o">=</span><span class="n">cderis</span><span class="p">)</span>
+        <span class="c1"># This initially calculates the spin-summed zeroth moment, then deducts the spin-dependent component and</span>
+        <span class="c1"># accounts for factor of two from different spin channels.</span>
+        <span class="n">m0</span> <span class="o">=</span> <span class="p">(</span><span class="n">myrpa</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">return_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">target_rot</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="n">m0</span> <span class="o">=</span> <span class="o">-</span><span class="n">dot</span><span class="p">(</span><span class="n">m0</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">loc_excit_shape</span> <span class="o">+</span> <span class="n">loc_excit_shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occtype</span> <span class="o">==</span> <span class="s2">&quot;occupied&quot;</span><span class="p">:</span>
+            <span class="n">corr_dm</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajb,ab-&gt;ij&quot;</span><span class="p">,</span> <span class="n">m0</span><span class="p">,</span> <span class="n">proj</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">corr_dm</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajb,ij-&gt;ab&quot;</span><span class="p">,</span> <span class="n">m0</span><span class="p">,</span> <span class="n">proj</span><span class="p">)</span>
+        <span class="n">t_eval</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+        <span class="n">corr_dm</span> <span class="o">=</span> <span class="p">(</span><span class="n">corr_dm</span> <span class="o">+</span> <span class="n">corr_dm</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+
+        <span class="c1"># --- Diagonalize environment-environment block</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occtype</span> <span class="o">==</span> <span class="s2">&quot;occupied&quot;</span><span class="p">:</span>
+            <span class="n">corr_dm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_dm</span><span class="p">(</span>
+                <span class="n">corr_dm</span><span class="p">,</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_env_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">occtype</span> <span class="o">==</span> <span class="s2">&quot;virtual&quot;</span><span class="p">:</span>
+            <span class="n">corr_dm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rotate_dm</span><span class="p">(</span>
+                <span class="n">corr_dm</span><span class="p">,</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_env_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">r_bno</span><span class="p">,</span> <span class="n">n_bno</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagonalize_dm</span><span class="p">(</span><span class="n">corr_dm</span><span class="p">)</span>
+        <span class="n">t_diag</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+        <span class="n">c_bno</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c_env</span><span class="p">,</span> <span class="n">r_bno</span><span class="p">)</span>
+        <span class="n">c_bno</span> <span class="o">=</span> <span class="n">fix_orbital_sign</span><span class="p">(</span><span class="n">c_bno</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span>
+            <span class="s2">&quot;Time RPA bath:  evaluation= </span><span class="si">%s</span><span class="s2">  diagonal.= </span><span class="si">%s</span><span class="s2">  total= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">time_string</span><span class="p">,</span> <span class="p">(</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">t_diag</span><span class="p">,</span> <span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_init</span><span class="p">))),</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">n_bno</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Negative bath occupation number encountered: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">n_bno</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">c_bno</span><span class="p">,</span> <span class="n">n_bno</span><span class="p">,</span> <span class="mf">0.0</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

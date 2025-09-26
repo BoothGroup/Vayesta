@@ -1,0 +1,654 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.fragmentation.fragmentation &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../fragmentation.html">vayesta.core.fragmentation</a></li>
+      <li class="breadcrumb-item active">vayesta.core.fragmentation.fragmentation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.fragmentation.fragmentation</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">fix_orbital_sign</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">helper</span>
+
+
+<div class="viewcode-block" id="check_orthonormal">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.check_orthonormal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_orthonormal</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_name</span><span class="o">=</span><span class="s2">&quot;orbital&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check orthonormality of mo_coeff.</span>
+
+<span class="sd">    Supports both RHF and UHF.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># RHF</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">l2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="n">linf</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Orthogonality error of </span><span class="si">%s</span><span class="s2">s: L(2)= </span><span class="si">%.2e</span><span class="s2">  L(inf)= </span><span class="si">%.2e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">mo_name</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Orthogonality error of </span><span class="si">%s</span><span class="s2">s: L(2)= </span><span class="si">%.2e</span><span class="s2">  L(inf)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mo_name</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">l2</span><span class="p">,</span> <span class="n">linf</span>
+    <span class="c1"># UHF</span>
+    <span class="n">l2a</span><span class="p">,</span> <span class="n">linfa</span> <span class="o">=</span> <span class="n">check_orthonormal</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_name</span><span class="o">=</span><span class="s2">&quot;alpha-</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mo_name</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">)</span>
+    <span class="n">l2b</span><span class="p">,</span> <span class="n">linfb</span> <span class="o">=</span> <span class="n">check_orthonormal</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_name</span><span class="o">=</span><span class="s2">&quot;beta-</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mo_name</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">l2a</span><span class="p">,</span> <span class="n">l2b</span><span class="p">),</span> <span class="p">(</span><span class="n">linfa</span><span class="p">,</span> <span class="n">linfb</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Fragmentation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Fragmentation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fragmentation for a quantum embedding method class.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&lt;not set&gt;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb</span><span class="p">,</span> <span class="n">add_symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span> <span class="o">=</span> <span class="n">emb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_symmetric</span> <span class="o">=</span> <span class="n">add_symmetric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">emb</span><span class="o">.</span><span class="n">log</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> Fragmentation&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">--------------&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;-&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="c1"># Secondary fragment state:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Rotational symmetry state:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># -- Output:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Generated fragments:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Fragmentation.kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_labels</span><span class="p">()</span></div>
+
+
+    <span class="c1"># --- As contextmanager:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">exc_traceback</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">exc_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_symmetric</span><span class="p">:</span>
+            <span class="c1"># Rotational + inversion symmetries are now done within own context</span>
+            <span class="c1"># Translation symmetry are done in the fragmentation context (here):</span>
+            <span class="n">translation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">translation</span>
+            <span class="k">if</span> <span class="n">translation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">fragments_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">create_transsym_fragments</span><span class="p">(</span><span class="n">translation</span><span class="p">,</span> <span class="n">fragments</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> translationally-symmetry related fragments from </span><span class="si">%d</span><span class="s2"> base fragments&quot;</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">),</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span>
+
+        <span class="c1"># Add fragments to embedding class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> fragments to embedding class&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">)</span>
+
+        <span class="c1"># Check if fragmentation is (occupied) complete and orthonormal:</span>
+        <span class="n">orth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_orthonormal_fragmentation</span><span class="p">()</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_complete_fragmentation</span><span class="p">()</span>
+        <span class="n">occcomp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_complete_occupied_fragmentation</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Fragmentation: orthogonal= </span><span class="si">%r</span><span class="s2">, occupied-complete= </span><span class="si">%r</span><span class="s2">, virtual-complete= </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_orthonormal_fragmentation</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_complete_occupied_fragmentation</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">has_complete_virtual_fragmentation</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for </span><span class="si">%s</span><span class="s2"> fragmentation: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time0</span><span class="p">))</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># --- Adding fragments:</span>
+
+<div class="viewcode-block" id="Fragmentation.add_atomic_fragment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.add_atomic_fragment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_atomic_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a fragment of one or multiple atoms, which will be solved by the embedding method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        atoms: int, str, list[int], or list[str]</span>
+<span class="sd">            Atom indices or symbols which should be included in the fragment.</span>
+<span class="sd">        name: str, optional</span>
+<span class="sd">            Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.</span>
+<span class="sd">        **kwargs:</span>
+<span class="sd">            Additional keyword arguments are passed through to the fragment constructor.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Fragment:</span>
+<span class="sd">            Fragment object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_atom_indices_symbols</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_atomic_fragment_indices</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="n">orbital_filter</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_fragment</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="n">atom_indices</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.add_atomshell_fragment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.add_atomshell_fragment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_atomshell_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">shells</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shells</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="n">shells</span> <span class="o">=</span> <span class="p">[</span><span class="n">shells</span><span class="p">]</span>
+        <span class="n">orbitals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_atom_indices_symbols</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">sym</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">shell</span> <span class="ow">in</span> <span class="n">shells</span><span class="p">:</span>
+                <span class="n">orbitals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d%3s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">shell</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_orbital_fragment</span><span class="p">(</span><span class="n">orbitals</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="n">atom_indices</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.add_orbital_fragment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.add_orbital_fragment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_orbital_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">,</span> <span class="n">atom_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a fragment of one or multiple orbitals, which will be solved by the embedding method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        orbitals: int, str, list[int], or list[str]</span>
+<span class="sd">            Orbital indices or labels which should be included in the fragment.</span>
+<span class="sd">        name: str, optional</span>
+<span class="sd">            Name for the fragment. If None, a name is automatically generated from the chosen orbitals. Default: None.</span>
+<span class="sd">        **kwargs:</span>
+<span class="sd">            Additional keyword arguments are passed through to the fragment constructor.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Fragment:</span>
+<span class="sd">            Fragment object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_orbital_fragment_indices</span><span class="p">(</span><span class="n">orbitals</span><span class="p">,</span> <span class="n">atom_filter</span><span class="o">=</span><span class="n">atom_filter</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_fragment</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.add_all_atomic_fragments">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.add_all_atomic_fragments">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_all_atomic_fragments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a single fragment for each atom in the system.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        **kwargs:</span>
+<span class="sd">            Additional keyword arguments are passed through to each fragment constructor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">natom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">kcell</span><span class="o">.</span><span class="n">natm</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">kcell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span>
+        <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">):</span>
+            <span class="n">frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">fragments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fragments</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.add_full_system">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.add_full_system">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_full_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;full-system&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2"> is empty.&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">c_frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_frag_coeff</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">c_env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_env_coeff</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">fid</span><span class="p">,</span> <span class="n">mpirank</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">register</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
+        <span class="n">frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">Fragment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">,</span> <span class="n">fid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">c_frag</span><span class="p">,</span> <span class="n">c_env</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpirank</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+
+        <span class="c1"># Log fragment orbitals:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2">s:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2">s of fragment </span><span class="si">%s</span><span class="s2">:&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">)[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="n">helper</span><span class="o">.</span><span class="n">log_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+        <span class="c1"># Secondary fragments:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+        <span class="c1"># Symmetric fragments:</span>
+        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">:</span>
+            <span class="n">sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">frag</span>
+
+    <span class="c1"># --- Rotational symmetry fragments:</span>
+
+<div class="viewcode-block" id="Fragmentation.rotational_symmetry">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.rotational_symmetry">[docs]</a>
+    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rotational_symmetry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Ang&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Rotational symmetries have to be added before adding secondary fragments&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">yield</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">fragments_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">create_rotsym_fragments</span><span class="p">(</span>
+            <span class="n">order</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">fragments</span><span class="o">=</span><span class="n">fragments</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">symbol</span><span class="o">=</span><span class="s2">&quot;R</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> rotationally-symmetric fragments&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span>
+        <span class="c1"># For additional (nested) symmetries:</span>
+        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">:</span>
+            <span class="n">sym</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.inversion_symmetry">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.inversion_symmetry">[docs]</a>
+    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">inversion_symmetry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Ang&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Symmetries have to be added before adding secondary fragments&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">yield</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">fragments_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">create_invsym_fragments</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">fragments</span><span class="o">=</span><span class="n">fragments</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">symbol</span><span class="o">=</span><span class="s2">&quot;I&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> inversion-symmetric fragments&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span>
+        <span class="c1"># For additional (nested) symmetries:</span>
+        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">:</span>
+            <span class="n">sym</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.mirror_symmetry">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.mirror_symmetry">[docs]</a>
+    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mirror_symmetry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Ang&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Symmetries have to be added before adding secondary fragments&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">yield</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">fragments_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">create_mirrorsym_fragments</span><span class="p">(</span>
+            <span class="n">axis</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">fragments</span><span class="o">=</span><span class="n">fragments</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">symbol</span><span class="o">=</span><span class="s2">&quot;M&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> mirror-symmetric fragments&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span>
+        <span class="c1"># For additional (nested) symmetries:</span>
+        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">:</span>
+            <span class="n">sym</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sym</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --- Secondary fragments:</span>
+
+<div class="viewcode-block" id="Fragmentation.secondary_fragments">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.secondary_fragments">[docs]</a>
+    <span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">secondary_fragments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bno_threshold_factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;MP2&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Nested secondary fragments&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">yield</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secfrag_register</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">fragments_sec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_secondary_fragments</span><span class="p">(</span>
+            <span class="n">fragments</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="n">bno_threshold</span><span class="p">,</span> <span class="n">bno_threshold_factor</span><span class="o">=</span><span class="n">bno_threshold_factor</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="n">solver</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Adding </span><span class="si">%d</span><span class="s2"> secondary fragments&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">fragments_sec</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sec</span><span class="p">)</span>
+        <span class="c1"># If we are already in a symmetry context, the symmetry-related secondary fragments should also be added:</span>
+        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_register</span><span class="p">:</span>
+            <span class="n">sym</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fragments_sec</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_secondary_fragments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fragments</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bno_threshold_factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;MP2&quot;</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_create_fragment</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">fx</span><span class="o">.</span><span class="n">sym_parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Secondary fragments need to be added before symmetry-derived fragments&quot;</span><span class="p">)</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="p">(</span><span class="n">flags</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">flags</span><span class="p">[</span><span class="s2">&quot;is_secfrag&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">fx_copy</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">solver</span><span class="o">=</span><span class="n">solver</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">flags</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">fx_copy</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">bath_parent_fragment_id</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">id</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Adding secondary fragment: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fx_copy</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">fx_copy</span>
+
+        <span class="n">fragments_sec</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">fx</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">:</span>
+            <span class="n">bath_opts</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">bath_options</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">bno_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">bath_opts</span><span class="p">[</span><span class="s2">&quot;threshold&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bno_threshold</span>
+                <span class="n">bath_opts</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;threshold_occ&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">bath_opts</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;threshold_vir&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">bath_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;threshold&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bath_opts</span><span class="p">[</span><span class="s2">&quot;threshold&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">bno_threshold_factor</span>
+                <span class="k">if</span> <span class="n">bath_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;threshold_occ&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bath_opts</span><span class="p">[</span><span class="s2">&quot;threshold_occ&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">bno_threshold_factor</span>
+                <span class="k">if</span> <span class="n">bath_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;threshold_vir&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bath_opts</span><span class="p">[</span><span class="s2">&quot;threshold_vir&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">bno_threshold_factor</span>
+            <span class="n">frag</span> <span class="o">=</span> <span class="n">_create_fragment</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">[x</span><span class="si">%d</span><span class="s2">|+</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">solver</span><span class="p">),</span> <span class="n">bath_options</span><span class="o">=</span><span class="n">bath_opts</span><span class="p">)</span>
+            <span class="n">fragments_sec</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+            <span class="c1"># Double counting</span>
+            <span class="n">wf_factor</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">wf_factor</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">frag</span> <span class="o">=</span> <span class="n">_create_fragment</span><span class="p">(</span>
+                <span class="n">fx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">[x</span><span class="si">%d</span><span class="s2">|-</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">solver</span><span class="p">),</span> <span class="n">wf_factor</span><span class="o">=</span><span class="n">wf_factor</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">is_envelop</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">fragments_sec</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+            <span class="n">fx</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">is_envelop</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">fragments_sec</span>
+
+    <span class="c1"># --- For convenience:</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nao</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nmo</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Fragmentation.get_ovlp">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_ovlp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ovlp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span>
+
+    <span class="c1"># --- These need to be implemented</span>
+
+<div class="viewcode-block" id="Fragmentation.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.search_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.search_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">search_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ---</span>
+
+<div class="viewcode-block" id="Fragmentation.get_atoms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the base atom for each fragment orbital.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.symmetric_orth">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.symmetric_orth">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symmetric_orth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">ovlp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-15</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">e_min</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="n">e</span> <span class="o">&gt;=</span> <span class="n">tol</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">e</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">v</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">v</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">v</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">fix_orbital_sign</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">e_min</span></div>
+
+
+    <span class="c1"># def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):</span>
+    <span class="c1">#    &quot;&quot;&quot;Check orthonormality of mo_coeff.&quot;&quot;&quot;</span>
+    <span class="c1">#    err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])</span>
+    <span class="c1">#    l2 = np.linalg.norm(err)</span>
+    <span class="c1">#    linf = abs(err).max()</span>
+    <span class="c1">#    if mo_name is None: mo_name = self.name</span>
+    <span class="c1">#    if max(l2, linf) &gt; tol:</span>
+    <span class="c1">#        self.log.error(&quot;Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !&quot;, mo_name, l2, linf)</span>
+    <span class="c1">#    else:</span>
+    <span class="c1">#        self.log.debugv(&quot;Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e&quot;, mo_name, l2, linf)</span>
+    <span class="c1">#    return l2, linf</span>
+
+<div class="viewcode-block" id="Fragmentation.check_orthonormal">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.check_orthonormal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_orthonormal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mo_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">check_orthonormal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="n">mo_name</span><span class="o">=</span><span class="n">mo_name</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_atom_indices_symbols">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_atom_indices_symbols">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atom_indices_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atoms</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert a list of integer or strings to atom indices and symbols.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">atoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">atoms</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="n">atom_indices</span> <span class="o">=</span> <span class="n">atoms</span>
+            <span class="n">atom_symbols</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atm</span><span class="p">)</span> <span class="k">for</span> <span class="n">atm</span> <span class="ow">in</span> <span class="n">atoms</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">atom_symbols</span> <span class="o">=</span> <span class="n">atoms</span>
+            <span class="n">all_atom_symbols</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atm</span><span class="p">)</span> <span class="k">for</span> <span class="n">atm</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">atom_symbols</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">sym</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_atom_symbols</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot find atom with symbol </span><span class="si">%s</span><span class="s2"> in system.&quot;</span> <span class="o">%</span> <span class="n">sym</span><span class="p">)</span>
+            <span class="n">atom_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">all_atom_symbols</span><span class="p">,</span> <span class="n">atom_symbols</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A list of integers or string is required! atoms= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">atoms</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_atomic_fragment_indices">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_atomic_fragment_indices">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atomic_fragment_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">orbital_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get fragment indices for one atom or a set of atoms.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        atoms: list or int or str</span>
+<span class="sd">            List of atom IDs or labels. For a single atom, a single integer or string can be passed as well.</span>
+<span class="sd">        orbital_filter: list, optional</span>
+<span class="sd">            Additionally restrict fragment orbitals to a specific orbital type (e.g. &#39;2p&#39;). Default: None.</span>
+<span class="sd">        name: str, optional</span>
+<span class="sd">            Name for fragment.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        name: str</span>
+<span class="sd">            Name of fragment.</span>
+<span class="sd">        indices: list</span>
+<span class="sd">            List of fragment orbitals indices, with coefficients corresponding to `self.coeff[:,indices]`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">atom_indices</span><span class="p">,</span> <span class="n">atom_symbols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_atom_indices_symbols</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">atom_symbols</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Atom indices of fragment </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">atom_indices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Atom symbols of fragment </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">atom_symbols</span><span class="p">)</span>
+        <span class="c1"># Indices of IAOs based at atoms</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_atoms</span><span class="p">(),</span> <span class="n">atom_indices</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Filter orbital types</span>
+        <span class="k">if</span> <span class="n">orbital_filter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orbital_filter</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">orbital_filter</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">orbital_filter</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orbital_filter</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">orbital_filter</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">orbital_filter</span><span class="p">)</span>
+            <span class="n">keep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_labels</span><span class="p">(</span><span class="n">orbital_filter</span><span class="p">)</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keep</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_orbital_indices_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_orbital_indices_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_orbital_indices_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert a list of integer or strings to orbital indices and labels.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">orbitals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">orbitals</span> <span class="o">=</span> <span class="p">[</span><span class="n">orbitals</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orbitals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="n">orbital_indices</span> <span class="o">=</span> <span class="n">orbitals</span>
+            <span class="n">orbital_labels</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)[</span><span class="n">orbitals</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">orbital_labels</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;</span><span class="si">%d%3s</span><span class="s2"> </span><span class="si">%s%-s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">l</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">orbital_labels</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">orbital_indices</span><span class="p">,</span> <span class="n">orbital_labels</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orbitals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">orbital_labels</span> <span class="o">=</span> <span class="n">orbitals</span>
+            <span class="c1"># Check labels</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">orbital_labels</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">search_labels</span><span class="p">(</span><span class="n">l</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot find orbital with label </span><span class="si">%s</span><span class="s2"> in system.&quot;</span> <span class="o">%</span> <span class="n">l</span><span class="p">)</span>
+            <span class="n">orbital_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_labels</span><span class="p">(</span><span class="n">orbital_labels</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">orbital_indices</span><span class="p">,</span> <span class="n">orbital_labels</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A list of integers or string is required! orbitals= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">orbitals</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_orbital_fragment_indices">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_orbital_fragment_indices">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_orbital_fragment_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">,</span> <span class="n">atom_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">atom_filter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="n">indices</span><span class="p">,</span> <span class="n">orbital_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_orbital_indices_labels</span><span class="p">(</span><span class="n">orbitals</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">orbital_labels</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Orbital indices of fragment </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Orbital labels of fragment </span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">orbital_labels</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_frag_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_frag_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_frag_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get fragment coefficients for a given set of orbital indices.&quot;&quot;&quot;</span>
+        <span class="n">c_frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">[:,</span> <span class="n">indices</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">c_frag</span></div>
+
+
+<div class="viewcode-block" id="Fragmentation.get_env_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.Fragmentation.get_env_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_env_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get environment coefficients for a given set of orbital indices.&quot;&quot;&quot;</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">env</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">c_env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">[:,</span> <span class="n">env</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">c_env</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

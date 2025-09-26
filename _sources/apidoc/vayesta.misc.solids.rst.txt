@@ -1,0 +1,21 @@
+vayesta.misc.solids
+===================
+
+Submodules
+----------
+
+vayesta.misc.solids.solids
+--------------------------
+
+.. automodule:: vayesta.misc.solids.solids
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.misc.solids
+   :members:
+   :undoc-members:
+   :show-inheritance:

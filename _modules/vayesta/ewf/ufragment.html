@@ -1,0 +1,363 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.ewf.ufragment &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../ewf.html">vayesta.ewf</a></li>
+      <li class="breadcrumb-item active">vayesta.ewf.ufragment</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.ewf.ufragment</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.core.ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">log_method</span><span class="p">,</span> <span class="n">with_doc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.qemb</span><span class="w"> </span><span class="kn">import</span> <span class="n">UFragment</span> <span class="k">as</span> <span class="n">BaseFragment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.fragment</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragment</span> <span class="k">as</span> <span class="n">RFragment</span>
+
+
+<div class="viewcode-block" id="Fragment">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.Fragment">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Fragment</span><span class="p">(</span><span class="n">RFragment</span><span class="p">,</span> <span class="n">BaseFragment</span><span class="p">):</span>
+<div class="viewcode-block" id="Fragment.set_cas">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.Fragment.set_cas">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_cas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iaos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">c_occ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">c_vir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">minao</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">dmet_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set complete active space for tailored CCSD and active-space CC methods.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">iaos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Unrestricted IAO-based CAS not implemented yet.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_occ</span> <span class="o">=</span> <span class="n">c_occ</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_vir</span> <span class="o">=</span> <span class="n">c_vir</span>
+        <span class="k">return</span> <span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span></div>
+
+
+<div class="viewcode-block" id="Fragment.get_fragment_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.Fragment.get_fragment_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fragment_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">hamil</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">axis1</span><span class="o">=</span><span class="s2">&quot;fragment&quot;</span><span class="p">,</span> <span class="n">c2ba_order</span><span class="o">=</span><span class="s2">&quot;ba&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate fragment correlation energy contribution from projected C1, C2.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        c1: (n(occ-CO), n(vir-CO)) array</span>
+<span class="sd">            Fragment projected C1-amplitudes.</span>
+<span class="sd">        c2: (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array</span>
+<span class="sd">            Fragment projected C2-amplitudes.</span>
+<span class="sd">        hamil : ClusterHamiltonian object.</span>
+<span class="sd">            Object representing cluster hamiltonian, possibly including cached ERIs.</span>
+<span class="sd">        fock: (n(AO), n(AO)) array, optional</span>
+<span class="sd">            Fock matrix in AO representation. If None, self.base.get_fock_for_energy()</span>
+<span class="sd">            is used. Default: None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        e_singles: float</span>
+<span class="sd">            Fragment correlation energy contribution from single excitations.</span>
+<span class="sd">        e_doubles: float</span>
+<span class="sd">            Fragment correlation energy contribution from double excitations.</span>
+<span class="sd">        e_corr: float</span>
+<span class="sd">            Total fragment correlation energy contribution.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">axis1</span> <span class="o">==</span> <span class="s2">&quot;fragment&quot;</span><span class="p">:</span>
+            <span class="n">pxa</span><span class="p">,</span> <span class="n">pxb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;proj|cluster-occ&quot;</span><span class="p">)</span>
+            <span class="n">oaf</span><span class="p">,</span> <span class="n">obf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="n">pxa</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="n">pxb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="c1"># Doubles energy</span>
+        <span class="c1"># TODO: loop to reduce memory?</span>
+        <span class="k">if</span> <span class="n">hamil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">hamil</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span>
+        <span class="n">gaa</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovov&quot;</span><span class="p">)</span>
+        <span class="n">gab</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovOV&quot;</span><span class="p">)</span>
+        <span class="n">gbb</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVOV&quot;</span><span class="p">)</span>
+
+        <span class="n">nocc</span> <span class="o">=</span> <span class="n">gab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">gab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">nvir</span> <span class="o">=</span> <span class="n">gab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">gab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;nocc= </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2"> nvir= </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">nocc</span><span class="p">,</span> <span class="o">*</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">va</span><span class="p">,</span> <span class="n">vb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nvir</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nvir</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+        <span class="k">if</span> <span class="n">axis1</span> <span class="o">==</span> <span class="s2">&quot;fragment&quot;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="n">caa</span><span class="p">,</span> <span class="n">cab</span><span class="p">,</span> <span class="n">cba</span><span class="p">,</span> <span class="n">cbb</span> <span class="o">=</span> <span class="n">c2</span>
+
+            <span class="c1"># Remove padding</span>
+            <span class="n">caa</span> <span class="o">=</span> <span class="n">caa</span><span class="p">[</span><span class="n">oaf</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">]</span>
+            <span class="n">cab</span> <span class="o">=</span> <span class="n">cab</span><span class="p">[</span><span class="n">oaf</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span>
+            <span class="n">cba</span> <span class="o">=</span> <span class="n">cba</span><span class="p">[</span><span class="n">obf</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">va</span><span class="p">]</span>
+            <span class="n">cbb</span> <span class="o">=</span> <span class="n">cbb</span><span class="p">[</span><span class="n">obf</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">c2ba_order</span> <span class="o">==</span> <span class="s2">&quot;ab&quot;</span><span class="p">:</span>
+                <span class="n">cba</span> <span class="o">=</span> <span class="n">cba</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">e_doubles</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,iajb&quot;</span><span class="p">,</span> <span class="n">pxa</span><span class="p">,</span> <span class="n">caa</span><span class="p">,</span> <span class="n">gaa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,ibja&quot;</span><span class="p">,</span> <span class="n">pxa</span><span class="p">,</span> <span class="n">caa</span><span class="p">,</span> <span class="n">gaa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,iajb&quot;</span><span class="p">,</span> <span class="n">pxb</span><span class="p">,</span> <span class="n">cbb</span><span class="p">,</span> <span class="n">gbb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,ibja&quot;</span><span class="p">,</span> <span class="n">pxb</span><span class="p">,</span> <span class="n">cbb</span><span class="p">,</span> <span class="n">gbb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,iajb&quot;</span><span class="p">,</span> <span class="n">pxa</span><span class="p">,</span> <span class="n">cab</span><span class="p">,</span> <span class="n">gab</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,xjab,jbia&quot;</span><span class="p">,</span> <span class="n">pxb</span><span class="p">,</span> <span class="n">cba</span><span class="p">,</span> <span class="n">gab</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+            <span class="n">caa</span><span class="p">,</span> <span class="n">cab</span><span class="p">,</span> <span class="n">cbb</span> <span class="o">=</span> <span class="n">c2</span>
+
+            <span class="c1"># Remove padding</span>
+            <span class="n">caa</span> <span class="o">=</span> <span class="n">caa</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">]</span>
+            <span class="n">cab</span> <span class="o">=</span> <span class="n">cab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span>
+            <span class="n">cbb</span> <span class="o">=</span> <span class="n">cbb</span><span class="p">[</span><span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span>
+            
+            <span class="n">e_doubles</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,iajb&quot;</span><span class="p">,</span> <span class="n">caa</span><span class="p">,</span> <span class="n">gaa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,ibja&quot;</span><span class="p">,</span> <span class="n">caa</span><span class="p">,</span> <span class="n">gaa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,iajb&quot;</span><span class="p">,</span> <span class="n">cbb</span><span class="p">,</span> <span class="n">gbb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,ibja&quot;</span><span class="p">,</span> <span class="n">cbb</span><span class="p">,</span> <span class="n">gbb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,iajb&quot;</span><span class="p">,</span> <span class="n">cab</span><span class="p">,</span> <span class="n">gab</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># --- Singles energy (zero for HF-reference)</span>
+        <span class="k">if</span> <span class="n">c1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># if hasattr(eris, &#39;fock&#39;):</span>
+            <span class="c1">#    fa = eris.fock[0][oa,va]</span>
+            <span class="c1">#    fb = eris.fock[1][ob,vb]</span>
+            <span class="c1"># else:</span>
+            <span class="c1">#    fock = self.base.get_fock()</span>
+            <span class="c1">#    fa = dot(self.c_active_occ[0].T, fock[0], self.c_active_vir[0])</span>
+            <span class="c1">#    fb = dot(self.c_active_occ[1].T, fock[1], self.c_active_vir[1])</span>
+            <span class="k">if</span> <span class="n">fock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_fock_for_energy</span><span class="p">()</span>
+            <span class="n">fova</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">fovb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+            <span class="n">ca</span><span class="p">,</span> <span class="n">cb</span> <span class="o">=</span> <span class="n">c1</span>
+
+            <span class="c1"># Remove padding</span>
+            <span class="n">ca</span> <span class="o">=</span> <span class="n">ca</span><span class="p">[</span><span class="n">oaf</span><span class="p">,</span> <span class="n">va</span><span class="p">]</span>
+            <span class="n">cb</span> <span class="o">=</span> <span class="n">cb</span><span class="p">[</span><span class="n">obf</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span>
+
+            <span class="n">e_singles</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="k">if</span> <span class="n">fova</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">fova</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">axis1</span> <span class="o">==</span> <span class="s2">&quot;fragment&quot;</span><span class="p">:</span>
+                    <span class="n">e_singles</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,xi,xa-&gt;&quot;</span><span class="p">,</span> <span class="n">fova</span><span class="p">,</span> <span class="n">pxa</span><span class="p">,</span> <span class="n">ca</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">e_singles</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fova</span> <span class="o">*</span> <span class="n">ca</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">fovb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">fovb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">axis1</span> <span class="o">==</span> <span class="s2">&quot;fragment&quot;</span><span class="p">:</span>
+                    <span class="n">e_singles</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,xi,xa-&gt;&quot;</span><span class="p">,</span> <span class="n">fovb</span><span class="p">,</span> <span class="n">pxb</span><span class="p">,</span> <span class="n">cb</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">e_singles</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fovb</span> <span class="o">*</span> <span class="n">cb</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e_singles</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">e_singles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_factor</span> <span class="o">*</span> <span class="n">e_singles</span>
+        <span class="n">e_doubles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_factor</span> <span class="o">*</span> <span class="n">e_doubles</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="n">e_singles</span> <span class="o">+</span> <span class="n">e_doubles</span>
+        <span class="k">return</span> <span class="n">e_singles</span><span class="p">,</span> <span class="n">e_doubles</span><span class="p">,</span> <span class="n">e_corr</span></div>
+
+
+    <span class="nd">@with_doc</span><span class="p">(</span><span class="n">RFragment</span><span class="o">.</span><span class="n">_get_projected_gamma1_intermediates</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_projected_gamma1_intermediates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="nd">@with_doc</span><span class="p">(</span><span class="n">RFragment</span><span class="o">.</span><span class="n">_get_projected_gamma2_intermediates</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_projected_gamma2_intermediates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">t1x</span><span class="p">,</span> <span class="n">t2x</span><span class="p">,</span> <span class="n">l1x</span><span class="p">,</span> <span class="n">l2x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ccsd_amplitudes_for_dm</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">)</span>
+        <span class="c1"># Only incore for UCCSD:</span>
+        <span class="c1"># d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)</span>
+        <span class="n">d2ovov</span><span class="p">,</span> <span class="o">*</span><span class="n">d2</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">uccsd_rdm</span><span class="o">.</span><span class="n">_gamma2_intermediates</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1x</span><span class="p">,</span> <span class="n">l2x</span><span class="p">)</span>
+        <span class="c1"># Correction of unprojected terms (which do not involve L1/L2):</span>
+        <span class="c1"># dovov:</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t2x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">t1x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">4</span>
+        <span class="n">d2ovov</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dtau</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">d2ovov</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">-=</span> <span class="n">dtau</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># dovOV (symmetrize between t1x[0] and t1x[1]; t2x[1] should already be symmetrized):</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">t2x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">t1x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">t1x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">d2ovov</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dtau</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="c1"># dOVOV:</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t2x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">t2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">t1x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">4</span>
+        <span class="n">d2ovov</span><span class="p">[</span><span class="mi">3</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dtau</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">d2ovov</span><span class="p">[</span><span class="mi">3</span><span class="p">][:]</span> <span class="o">-=</span> <span class="n">dtau</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">d2</span> <span class="o">=</span> <span class="p">(</span><span class="n">d2ovov</span><span class="p">,</span> <span class="o">*</span><span class="n">d2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d2</span>
+
+<div class="viewcode-block" id="Fragment.make_fragment_dm2cumulant">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.Fragment.make_fragment_dm2cumulant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_fragment_dm2cumulant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">full_shape</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">approx_cumulant</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;MP2&quot;</span><span class="p">:</span>
+            <span class="n">t2xaa</span><span class="p">,</span> <span class="n">t2xab</span><span class="p">,</span> <span class="n">t2xbb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">pwf</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="n">sym</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">)</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span><span class="o">.</span><span class="n">t2</span>
+            <span class="n">dovov</span> <span class="o">=</span> <span class="n">t2xaa</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">dovOV</span> <span class="o">=</span> <span class="n">t2xab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">dOVOV</span> <span class="o">=</span> <span class="n">t2xbb</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">full_shape</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">dovov</span><span class="p">,</span> <span class="n">dovOV</span><span class="p">,</span> <span class="n">dOVOV</span><span class="p">)</span>
+            <span class="n">nocca</span><span class="p">,</span> <span class="n">nvira</span><span class="p">,</span> <span class="n">noccb</span><span class="p">,</span> <span class="n">nvirb</span> <span class="o">=</span> <span class="n">dovOV</span><span class="o">.</span><span class="n">shape</span>
+            <span class="n">norba</span> <span class="o">=</span> <span class="n">nocca</span> <span class="o">+</span> <span class="n">nvira</span>
+            <span class="n">norbb</span> <span class="o">=</span> <span class="n">noccb</span> <span class="o">+</span> <span class="n">nvirb</span>
+            <span class="n">oa</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocca</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocca</span><span class="p">:]</span>
+            <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">noccb</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">noccb</span><span class="p">:]</span>
+            <span class="n">dm2aa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">norba</span><span class="p">])</span>
+            <span class="n">dm2ab</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="n">norba</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="n">norbb</span><span class="p">])</span>
+            <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">norbb</span><span class="p">])</span>
+            <span class="n">dm2aa</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">]</span> <span class="o">=</span> <span class="n">dovov</span>
+            <span class="n">dm2aa</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">]</span> <span class="o">=</span> <span class="n">dovov</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">dovOV</span>
+            <span class="n">dm2ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">dovOV</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">dm2bb</span><span class="p">[</span><span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">dOVOV</span>
+            <span class="n">dm2bb</span><span class="p">[</span><span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">dOVOV</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span>
+
+        <span class="n">cc</span> <span class="o">=</span> <span class="n">d1</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">d2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_projected_gamma2_intermediates</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">)</span>
+        <span class="n">dm2</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">uccsd_rdm</span><span class="o">.</span><span class="n">_make_rdm2</span><span class="p">(</span><span class="n">cc</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_frozen</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm2</span></div>
+
+
+<div class="viewcode-block" id="Fragment.make_fragment_dm2cumulant_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.Fragment.make_fragment_dm2cumulant_energy">[docs]</a>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_fragment_dm2cumulant_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hamil</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">hamil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">hamil</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;MP2&quot;</span><span class="p">:</span>
+            <span class="n">dm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_fragment_dm2cumulant</span><span class="p">(</span>
+                <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="n">approx_cumulant</span><span class="p">,</span> <span class="n">full_shape</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">dm2</span>
+            <span class="n">gaa</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovov&quot;</span><span class="p">)</span>
+            <span class="n">gab</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovOV&quot;</span><span class="p">)</span>
+            <span class="n">gbb</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVOV&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="mf">2.0</span>
+                <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="o">/</span> <span class="mi">2</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">approx_cumulant</span><span class="p">:</span>
+            <span class="c1"># Working hypothesis: this branch will effectively always uses `approx_cumulant=True`.</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_dummy_eri_object</span><span class="p">(</span><span class="n">force_bare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_vext</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">d2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_projected_gamma2_intermediates</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">helper</span><span class="o">.</span><span class="n">contract_dm2intermeds_eris_uhf</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_fragment_dm2cumulant</span><span class="p">(</span>
+                <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">sym_t2</span><span class="o">=</span><span class="n">sym_t2</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="n">approx_cumulant</span><span class="p">,</span> <span class="n">full_shape</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+            <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">dm2</span>
+            <span class="n">gaa</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">gbb</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">()</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span>
+            <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

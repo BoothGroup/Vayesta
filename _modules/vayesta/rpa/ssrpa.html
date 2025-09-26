@@ -1,0 +1,477 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.ssrpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../rpa.html">vayesta.rpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.ssrpa</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.ssrpa</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Straightforward N^6 implementation for dRPA in a basis set, based upon the standard Hermitian reformulation</span>
+<span class="sd">used in TDHF approaches.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">timeit</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">time_string</span>
+
+
+<div class="viewcode-block" id="ssRPA">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ssRPA</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Approach based on equations expressed succinctly in the appendix of</span>
+<span class="sd">    Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120</span>
+<span class="sd">    WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ov_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="o">=</span> <span class="n">ov_rot</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nocc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovb</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ova</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ovb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Occupied MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_vir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Virtual MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_corr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Can only access rpa.e_corr after running rpa.kernel.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span>
+
+<div class="viewcode-block" id="ssRPA.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve same-spin component of dRPA response.</span>
+<span class="sd">        At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to</span>
+<span class="sd">        spin-flip contributions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="n">M</span><span class="p">,</span> <span class="n">AmB</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_arrays</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">=</span> <span class="n">e</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">XpY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,p,pn-&gt;pn&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">AmB</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">c</span><span class="p">)</span>
+            <span class="n">XmY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,p,pn-&gt;pn&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">AmB</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">c</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e2</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">AmB</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">e2</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">)</span>
+            <span class="n">AmBrt</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">e2</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">c2</span><span class="p">)</span>
+            <span class="n">AmBrtinv</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">e2</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">c2</span><span class="p">)</span>
+            <span class="n">XpY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,pq,qn-&gt;pn&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">AmBrt</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+            <span class="n">XmY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,pq,qn-&gt;pn&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">AmBrtinv</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+        <span class="n">nova</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nova</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span> <span class="o">=</span> <span class="p">(</span><span class="n">XpY</span><span class="p">[:</span><span class="n">nova</span><span class="p">],</span> <span class="n">XpY</span><span class="p">[</span><span class="n">nova</span><span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">XmY_ss</span> <span class="o">=</span> <span class="p">(</span><span class="n">XmY</span><span class="p">[:</span><span class="n">nova</span><span class="p">],</span> <span class="n">XmY</span><span class="p">[</span><span class="n">nova</span><span class="p">:])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs_sf</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time to solve RPA problem: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">=</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span><span class="p">)</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">eps</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">eps</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">v</span><span class="o">.</span><span class="n">trace</span><span class="p">())</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_energy_correction</span><span class="p">(</span><span class="n">xc_kernel</span><span class="o">=</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Total RPA wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span></div>
+
+
+<div class="viewcode-block" id="ssRPA.calc_energy_correction">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.calc_energy_correction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_energy_correction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Without an xc-kernel the plasmon formula energy is exact.&quot;</span><span class="p">)</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">M</span><span class="p">,</span> <span class="n">AmB</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">fullv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_arrays</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">)</span>
+        <span class="n">ApB_xc</span><span class="p">,</span> <span class="n">AmB_xc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_xc_contribs</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span>
+        <span class="n">A_xc</span> <span class="o">=</span> <span class="p">(</span><span class="n">ApB_xc</span> <span class="o">+</span> <span class="n">AmB_xc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">B_xc</span> <span class="o">=</span> <span class="p">(</span><span class="n">ApB_xc</span> <span class="o">-</span> <span class="n">AmB_xc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">full_mom0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+            <span class="n">newrpa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">newrpa</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">xc_kernel</span><span class="o">=</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="n">mom0</span> <span class="o">=</span> <span class="n">newrpa</span><span class="o">.</span><span class="n">gen_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="n">xc_kernel</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">mom0</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">run_ac_inter</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">points</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polynomial</span><span class="o">.</span><span class="n">legendre</span><span class="o">.</span><span class="n">leggauss</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span>
+            <span class="n">points</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">points</span> <span class="o">/=</span> <span class="mi">2</span>
+            <span class="n">weights</span> <span class="o">/=</span> <span class="mi">2</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">w</span> <span class="o">*</span> <span class="n">func</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">points</span><span class="p">)])</span>
+
+        <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">e_plasmon</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">full_mom0</span><span class="p">,</span> <span class="n">ApB</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ApB</span> <span class="o">+</span> <span class="n">AmB</span><span class="p">)</span> <span class="o">-</span> <span class="n">A_xc</span><span class="p">))</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+            <span class="c1"># Full integration of the adiabatic connection.</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">get_val_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+                <span class="n">eta0</span> <span class="o">=</span> <span class="n">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp&quot;</span><span class="p">,</span> <span class="n">A_xc</span> <span class="o">+</span> <span class="n">B_xc</span><span class="p">,</span> <span class="n">eta0</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp&quot;</span><span class="p">,</span> <span class="n">A_xc</span> <span class="o">-</span> <span class="n">B_xc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">eta0</span><span class="p">)))</span> <span class="o">/</span> <span class="mi">4</span>
+
+            <span class="n">e</span> <span class="o">=</span> <span class="n">e_plasmon</span> <span class="o">-</span> <span class="n">run_ac_inter</span><span class="p">(</span><span class="n">get_val_alpha</span><span class="p">)</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">get_val_alpha</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">e_plasmon</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">full_mom0</span><span class="p">,</span> <span class="n">ApB</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ApB</span> <span class="o">+</span> <span class="n">AmB</span><span class="p">)</span> <span class="o">-</span> <span class="n">A_xc</span><span class="p">))</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+            <span class="c1"># Integration of adiabatic connection, but with approximation of the inverse eta0`</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">get_val_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+                <span class="n">eta0</span> <span class="o">=</span> <span class="n">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">A_xc</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp&quot;</span><span class="p">,</span> <span class="n">B_xc</span><span class="p">,</span> <span class="n">eta0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)))</span> <span class="o">/</span> <span class="mi">2</span>
+
+            <span class="n">e</span> <span class="o">=</span> <span class="n">e_plasmon</span> <span class="o">-</span> <span class="n">run_ac_inter</span><span class="p">(</span><span class="n">get_val_alpha</span><span class="p">)</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">get_val_alpha</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Linear approximation of all quantities in adiabatic connection.</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">full_mom0</span><span class="p">,</span> <span class="n">ApB</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ApB</span> <span class="o">+</span> <span class="n">AmB</span><span class="p">)</span> <span class="o">-</span> <span class="n">A_xc</span><span class="p">))</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+            <span class="n">e</span> <span class="o">-=</span> <span class="p">(</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp-&gt;&quot;</span><span class="p">,</span> <span class="n">A_xc</span> <span class="o">+</span> <span class="n">B_xc</span><span class="p">,</span> <span class="n">full_mom0</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+                <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp-&gt;&quot;</span><span class="p">,</span> <span class="n">A_xc</span> <span class="o">-</span> <span class="n">B_xc</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">full_mom0</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="p">)</span> <span class="o">/</span> <span class="mi">8</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># Linear approximation in AC and approx of inverse.</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">full_mom0</span><span class="p">,</span> <span class="n">ApB</span> <span class="o">-</span> <span class="n">B_xc</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ApB</span> <span class="o">+</span> <span class="n">AmB</span><span class="p">)</span> <span class="o">-</span> <span class="n">B_xc</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">get_val_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+                <span class="n">eta0</span> <span class="o">=</span> <span class="n">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp-&gt;&quot;</span><span class="p">,</span> <span class="n">eta0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">),</span> <span class="n">fullv</span><span class="p">)</span>
+
+            <span class="n">e</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">run_ac_inter</span><span class="p">(</span><span class="n">get_val_alpha</span><span class="p">)</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">get_val_alpha</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,qp-&gt;&quot;</span><span class="p">,</span> <span class="n">full_mom0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">),</span> <span class="n">fullv</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown energy approach </span><span class="si">{:s}</span><span class="s2"> requested.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">version</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time to calculate RPA energy: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">e</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gen_eps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Only have diagonal components in canonical basis.</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">epsa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">epsa</span><span class="p">,</span> <span class="n">ca</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">epsa</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">ca</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">epsb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">eps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">epsb</span><span class="p">,</span> <span class="n">cb</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">epsb</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dot</span><span class="p">(</span><span class="n">cb</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">epsa</span> <span class="o">=</span> <span class="n">epsb</span> <span class="o">=</span> <span class="n">eps</span>
+        <span class="k">return</span> <span class="n">epsa</span><span class="p">,</span> <span class="n">epsb</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gen_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="n">epsa</span><span class="p">,</span> <span class="n">epsb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_eps</span><span class="p">()</span>
+
+        <span class="n">AmB</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">epsa</span><span class="p">,</span> <span class="n">epsb</span><span class="p">])</span>
+
+        <span class="n">fullv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_k</span><span class="p">()</span>
+        <span class="n">ApB</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">fullv</span> <span class="o">*</span> <span class="n">alpha</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fullrot</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">ApB</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">fullrot</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">fullrot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="c1"># At this point AmB is just epsilon so add in.</span>
+        <span class="n">ApB</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices_from</span><span class="p">(</span><span class="n">ApB</span><span class="p">)]</span> <span class="o">+=</span> <span class="n">AmB</span>
+
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,pq,q-&gt;pq&quot;</span><span class="p">,</span> <span class="n">AmB</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">AmB</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Grab A and B contributions for XC kernel.</span>
+            <span class="n">ApB_xc</span><span class="p">,</span> <span class="n">AmB_xc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_xc_contribs</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+            <span class="n">ApB</span> <span class="o">=</span> <span class="n">ApB</span> <span class="o">+</span> <span class="n">ApB_xc</span>
+            <span class="n">AmB</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">AmB</span><span class="p">)</span> <span class="o">+</span> <span class="n">AmB_xc</span>
+            <span class="k">del</span> <span class="n">ApB_xc</span><span class="p">,</span> <span class="n">AmB_xc</span>
+            <span class="n">AmBrt</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">sqrtm</span><span class="p">(</span><span class="n">AmB</span><span class="p">)</span>
+            <span class="n">M</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">AmBrt</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">AmBrt</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time to build RPA arrays: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">M</span><span class="p">,</span> <span class="n">AmB</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="p">(</span><span class="n">epsa</span><span class="p">,</span> <span class="n">epsb</span><span class="p">),</span> <span class="n">fullv</span>
+
+<div class="viewcode-block" id="ssRPA.get_k">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.get_k">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_k</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">()</span>
+        <span class="c1"># Get coulomb interaction in occupied-virtual space.</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">))</span>
+        <span class="n">fullv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+        <span class="n">fullv</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">=</span> <span class="n">fullv</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">fullv</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">fullv</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="n">fullv</span></div>
+
+
+<div class="viewcode-block" id="ssRPA.get_xc_contribs">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.get_xc_contribs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_xc_contribs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">,</span> <span class="n">c_o</span><span class="p">,</span> <span class="n">c_v</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">xc_kernel</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">xc_kernel</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="p">]</span>
+        <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_o_b</span> <span class="o">=</span> <span class="n">c_o</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c_o</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">c_o</span><span class="p">,</span> <span class="n">c_o</span><span class="p">)</span>
+        <span class="n">c_v_a</span><span class="p">,</span> <span class="n">c_v_b</span> <span class="o">=</span> <span class="n">c_v</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c_v</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">c_v</span><span class="p">,</span> <span class="n">c_v</span><span class="p">)</span>
+
+        <span class="n">ApB</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+        <span class="n">AmB</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ApB</span><span class="p">)</span>
+
+        <span class="n">V_A_aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">,</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_A_aa</span>
+        <span class="n">AmB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_A_aa</span>
+        <span class="k">del</span> <span class="n">V_A_aa</span>
+        <span class="n">V_B_aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqsr,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">,</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_B_aa</span>
+        <span class="n">AmB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">-=</span> <span class="n">V_B_aa</span>
+        <span class="k">del</span> <span class="n">V_B_aa</span>
+        <span class="n">V_A_ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">,</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_A_ab</span>
+        <span class="n">ApB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_A_ab</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">AmB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_A_ab</span>
+        <span class="n">AmB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_A_ab</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">del</span> <span class="n">V_A_ab</span>
+        <span class="n">V_B_ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqsr,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_o_a</span><span class="p">,</span> <span class="n">c_v_a</span><span class="p">,</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_B_ab</span>
+        <span class="n">ApB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">+=</span> <span class="n">V_B_ab</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">AmB</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">V_B_ab</span>
+        <span class="n">AmB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span><span class="p">]</span> <span class="o">-=</span> <span class="n">V_B_ab</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">del</span> <span class="n">V_B_ab</span>
+        <span class="n">V_A_bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">,</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_A_bb</span>
+        <span class="n">AmB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_A_bb</span>
+        <span class="k">del</span> <span class="n">V_A_bb</span>
+        <span class="n">V_B_bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqsr,pi,qa,rj,sb-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">,</span> <span class="n">c_o_b</span><span class="p">,</span> <span class="n">c_v_b</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovb</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ApB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">V_B_bb</span>
+        <span class="n">AmB</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">V_B_bb</span>
+        <span class="k">del</span> <span class="n">V_B_bb</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">fullrot</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fullrot</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">)</span>
+
+            <span class="n">ApB</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">fullrot</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">fullrot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">AmB</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">fullrot</span><span class="p">,</span> <span class="n">AmB</span><span class="p">,</span> <span class="n">fullrot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ApB</span> <span class="o">*</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">AmB</span> <span class="o">*</span> <span class="n">alpha</span></div>
+
+
+<div class="viewcode-block" id="ssRPA.gen_moms">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.gen_moms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_moms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_mom</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">nova</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ova</span>
+        <span class="n">nov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nova</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">nov</span> <span class="o">=</span> <span class="n">nova</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">max_mom</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nov</span><span class="p">,</span> <span class="n">nov</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_mom</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="c1"># Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="p">:</span><span class="n">nova</span><span class="p">,</span> <span class="p">:</span><span class="n">nova</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span><span class="o">**</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">nova</span><span class="p">:,</span> <span class="n">nova</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span><span class="o">**</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="p">:</span><span class="n">nova</span><span class="p">,</span> <span class="n">nova</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span><span class="o">**</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">nova</span><span class="p">:,</span> <span class="p">:</span><span class="n">nova</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="p">][:</span><span class="n">nova</span><span class="p">,</span> <span class="n">nova</span><span class="p">:]</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="k">return</span> <span class="n">res</span></div>
+
+
+<div class="viewcode-block" id="ssRPA.ao2mo">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.ssrpa.ssRPA.ao2mo">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ao2mo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the ERIs in MO basis&quot;&quot;&quot;</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">mo_coeff</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;with_df&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="n">compact</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="n">compact</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="n">compact</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">compact</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">shape</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">mo</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">mo</span> <span class="ow">in</span> <span class="n">mo_coeff</span><span class="p">]</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for AO-&gt;MO of ERIs:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">eris</span></div>
+</div>
+
+
+
+<span class="n">ssRRPA</span> <span class="o">=</span> <span class="n">ssRPA</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

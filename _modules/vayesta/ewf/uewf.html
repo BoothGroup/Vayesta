@@ -1,0 +1,275 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.ewf.uewf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../ewf.html">vayesta.ewf</a></li>
+      <li class="breadcrumb-item active">vayesta.ewf.uewf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.ewf.uewf</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.qemb</span><span class="w"> </span><span class="kn">import</span> <span class="n">UEmbedding</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">cache</span><span class="p">,</span> <span class="n">deprecated</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">log_method</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf</span><span class="w"> </span><span class="kn">import</span> <span class="n">REWF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.ufragment</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">corrfunc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span>
+
+<span class="c1"># Amplitudes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.amplitudes</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_t1_uhf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.amplitudes</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_t2_uhf</span>
+
+<span class="c1"># Density-matrices</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.urdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm1_ccsd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.urdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm1_ccsd_global_wf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.urdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm2_ccsd_global_wf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.urdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm2_ccsd_proj_lambda</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.icmp2</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_intercluster_mp2_energy_uhf</span>
+
+
+<div class="viewcode-block" id="UEWF">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.UEWF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UEWF</span><span class="p">(</span><span class="n">REWF</span><span class="p">,</span> <span class="n">UEmbedding</span><span class="p">):</span>
+    <span class="n">Fragment</span> <span class="o">=</span> <span class="n">Fragment</span>
+
+    <span class="c1"># --- CC Amplitudes</span>
+    <span class="c1"># -----------------</span>
+
+    <span class="c1"># T-amplitudes</span>
+    <span class="n">get_global_t1</span> <span class="o">=</span> <span class="n">get_global_t1_uhf</span>
+    <span class="n">get_global_t2</span> <span class="o">=</span> <span class="n">get_global_t2_uhf</span>
+
+<div class="viewcode-block" id="UEWF.t1_diagnostic">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.UEWF.t1_diagnostic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">warn_tol</span><span class="o">=</span><span class="mf">0.02</span><span class="p">):</span>
+        <span class="c1"># Per cluster</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">t1</span>
+            <span class="k">if</span> <span class="n">t1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No T1 amplitudes found for </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">nelec</span> <span class="o">=</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t1diag</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">t1diag</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">warn_tol</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;T1 diagnostic for </span><span class="si">%-20s</span><span class="s2"> alpha= </span><span class="si">%.5f</span><span class="s2"> beta= </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">t1diag</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;T1 diagnostic for </span><span class="si">%-20s</span><span class="s2"> alpha= </span><span class="si">%.5f</span><span class="s2"> beta= </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">t1diag</span><span class="p">)</span>
+        <span class="c1"># Global</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t1</span><span class="p">(</span><span class="n">mpi_target</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+            <span class="n">nelec</span> <span class="o">=</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t1diag</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">t1diag</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">warn_tol</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Global T1 diagnostic: alpha= </span><span class="si">%.5f</span><span class="s2"> beta= </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">t1diag</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Global T1 diagnostic: alpha= </span><span class="si">%.5f</span><span class="s2"> beta= </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">t1diag</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UEWF.d1_diagnostic">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.UEWF.d1_diagnostic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">d1_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global wave function diagnostic.&quot;&quot;&quot;</span>
+        <span class="n">t1a</span><span class="p">,</span> <span class="n">t1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t1</span><span class="p">()</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])))[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">d1ao</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">t1a</span><span class="o">.</span><span class="n">T</span><span class="p">)))</span>
+        <span class="n">d1av</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1a</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">t1a</span><span class="p">)))</span>
+        <span class="n">d1bo</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1b</span><span class="p">,</span> <span class="n">t1b</span><span class="o">.</span><span class="n">T</span><span class="p">)))</span>
+        <span class="n">d1bv</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1b</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">t1b</span><span class="p">)))</span>
+        <span class="n">d1norm</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">d1ao</span><span class="p">,</span> <span class="n">d1av</span><span class="p">,</span> <span class="n">d1bo</span><span class="p">,</span> <span class="n">d1bv</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">d1norm</span></div>
+
+
+    <span class="c1"># --- Density-matrices</span>
+    <span class="c1"># --------------------</span>
+
+    <span class="c1"># DM1</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_mp2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">mp2</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">mp2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf_cached</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">with_mf</span><span class="p">:</span>
+            <span class="n">dm1a</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">dm1b</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="n">dm1a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">dm1b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">)</span>
+
+    <span class="nd">@cache</span><span class="p">(</span><span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_global_wf_cached</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="c1"># DM2</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UEWF.get_intercluster_mp2_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.uewf.UEWF.get_intercluster_mp2_energy">[docs]</a>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_intercluster_mp2_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_intercluster_mp2_energy_uhf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_dm_corr_energy_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">global_dm2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate correlation energy from reduced density-matrices.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        global_dm1 : bool</span>
+<span class="sd">            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True.</span>
+<span class="sd">        global_dm2 : bool</span>
+<span class="sd">            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        e_corr : float</span>
+<span class="sd">            Correlation energy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_as_lambda</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_as_lambda</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">t_as_lambda</span>
+        <span class="k">if</span> <span class="n">global_dm1</span><span class="p">:</span>
+            <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># --- Core Hamiltonian + Non-cumulant 2DM contribution</span>
+        <span class="n">fa</span><span class="p">,</span> <span class="n">fb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fock_for_energy</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">e1</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pi,pq,qj,ij-&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">fa</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1a</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pi,pq,qj,ij-&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1b</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span>
+
+        <span class="c1"># --- Cumulant 2-DM contribution</span>
+        <span class="c1"># Use global 2-DM</span>
+        <span class="k">if</span> <span class="n">global_dm2</span><span class="p">:</span>
+            <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">eriaa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">eriaa</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">eriab</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+            <span class="n">e2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">eriab</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">)</span>
+            <span class="n">eribb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">e2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">eribb</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="c1"># Use fragment-local 2-DM</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy_e2</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">)</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span>
+        <span class="k">return</span> <span class="n">e_corr</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

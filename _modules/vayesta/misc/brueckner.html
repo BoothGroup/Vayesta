@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.misc.brueckner &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.misc.brueckner</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.misc.brueckner</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="update_mo_coeff">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.brueckner.update_mo_coeff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_mo_coeff</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">ovlp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">t1</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">nocc</span> <span class="o">+</span> <span class="n">nvir</span> <span class="o">==</span> <span class="n">nmo</span>
+    <span class="n">occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocc</span><span class="p">]</span>
+    <span class="n">vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocc</span><span class="p">:]</span>
+    <span class="n">delta_occ</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">damping</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">vir</span><span class="p">],</span> <span class="n">t1</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># qa,ai-&gt;qi</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Change of occupied Brueckner orbitals= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">delta_occ</span><span class="p">))</span>
+    <span class="n">bmo_occ</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">occ</span><span class="p">]</span> <span class="o">+</span> <span class="n">delta_occ</span>
+
+    <span class="c1"># Orthogonalize occupied orbitals</span>
+    <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bmo_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">qr</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dm_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_occ</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">dm_occ</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">ovlp</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">bmo_occ</span> <span class="o">=</span> <span class="n">v</span><span class="p">[:,</span> <span class="o">-</span><span class="n">nocc</span><span class="p">:]</span>
+    <span class="c1"># PCDIIS of occupied density</span>
+    <span class="k">if</span> <span class="n">diis</span><span class="p">:</span>
+        <span class="n">dm_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_occ</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">dm_occ</span> <span class="o">=</span> <span class="n">diis</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dm_occ</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">dm_occ</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">ovlp</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">bmo_occ</span> <span class="o">=</span> <span class="n">v</span><span class="p">[:,</span> <span class="o">-</span><span class="n">nocc</span><span class="p">:]</span>
+
+    <span class="c1"># Virtual space</span>
+    <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dm_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nmo</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_occ</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dm_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">ovlp</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_occ</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">dm_vir</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">ovlp</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">bmo_vir</span> <span class="o">=</span> <span class="n">v</span><span class="p">[:,</span> <span class="o">-</span><span class="n">nvir</span><span class="p">:]</span>
+
+    <span class="k">assert</span> <span class="n">bmo_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nocc</span>
+    <span class="k">assert</span> <span class="n">bmo_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nvir</span>
+    <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nmo</span><span class="p">)</span>
+    <span class="n">bmo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_vir</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">multi_dot</span><span class="p">((</span><span class="n">bmo</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">bmo</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nmo</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_vir</span></div>
+
+
+
+<div class="viewcode-block" id="update_mf">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.brueckner.update_mf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_mf</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">canonicalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Update occupied MOs based on T1 amplitudes, to converge to Brueckner MOs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mf : pyscf.scf.SCF</span>
+<span class="sd">        Mean-field object.</span>
+<span class="sd">    t1 : (n(Occ), n(Vir)) array</span>
+<span class="sd">        T1 amplitudes (i.e. C1 in intermediate normalization).</span>
+<span class="sd">    mo_coeff : (n(AO), n(MO)) array, optional</span>
+<span class="sd">        Molecular orbital coefficients. If None, `mf.mo_coeff` is used. Default: None.</span>
+<span class="sd">    inplace : bool, optional</span>
+<span class="sd">        If True, the mf object is updated inplace and the previous MO coefficients are overwritten. Default: False.</span>
+<span class="sd">    canonicalize : bool or str, optional</span>
+<span class="sd">        Diagonalize the Fock matrix within the new occupied and virtual space, to obtain quasi-canonical orbitals.</span>
+<span class="sd">        Default: False.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    mf : pyscf.scf.SCF</span>
+<span class="sd">        Mean-field object with updated mf.mo_coeff and mf.e_tot</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nocc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">nvir</span> <span class="o">=</span> <span class="n">nmo</span> <span class="o">-</span> <span class="n">nocc</span>
+    <span class="k">assert</span> <span class="n">t1</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">)</span>
+
+    <span class="n">ovlp</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">ovlp</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">ovlp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])):</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_vir</span> <span class="o">=</span> <span class="n">update_mo_coeff</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="n">damping</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="n">diis</span><span class="p">)</span>
+    <span class="c1"># Diagonalize one-electron Hamiltonian or Fock matrix within occupied and virtual space:</span>
+    <span class="k">if</span> <span class="n">canonicalize</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">canonicalize</span> <span class="o">==</span> <span class="s2">&quot;hcore&quot;</span><span class="p">:</span>
+            <span class="n">h1e</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">h1e</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">multi_dot</span><span class="p">((</span><span class="n">bmo_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e</span><span class="p">,</span> <span class="n">bmo_occ</span><span class="p">)))</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Occupied BMO energies:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+        <span class="n">bmo_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">multi_dot</span><span class="p">((</span><span class="n">bmo_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e</span><span class="p">,</span> <span class="n">bmo_vir</span><span class="p">)))</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Virtual BMO energies:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+        <span class="n">bmo_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo_vir</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+
+    <span class="n">bmo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">bmo_occ</span><span class="p">,</span> <span class="n">bmo_vir</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bmo</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">bmo</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nmo</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">multi_dot</span><span class="p">((</span><span class="n">bmo</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">bmo</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nmo</span><span class="p">))</span>
+
+    <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">bmo</span>
+    <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">energy_tot</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">mf</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,362 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.fragmentation.iao &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../fragmentation.html">vayesta.core.fragmentation</a></li>
+      <li class="breadcrumb-item active">vayesta.core.fragmentation.iao</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.fragmentation.iao</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os.path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lo</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">fix_orbital_sign</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.fragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragmentation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.ufragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragmentation_UHF</span>
+
+<span class="c1"># Load default minimal basis set on module initialization</span>
+<span class="n">default_minao</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;minao.dat&quot;</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">minao</span><span class="p">)</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">minao</span> <span class="o">==</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+            <span class="n">minao</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">default_minao</span><span class="p">[</span><span class="n">basis</span><span class="p">]</span> <span class="o">=</span> <span class="n">minao</span>
+
+
+<div class="viewcode-block" id="get_default_minao">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.get_default_minao">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_default_minao</span><span class="p">(</span><span class="n">basis</span><span class="p">):</span>
+    <span class="c1"># TODO: Add more to data file</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;minao&quot;</span>
+    <span class="n">bas</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">minao</span> <span class="o">=</span> <span class="n">default_minao</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bas</span><span class="p">,</span> <span class="s2">&quot;minao&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">minao</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not chose minimal basis for basis </span><span class="si">%s</span><span class="s2"> automatically!&quot;</span><span class="p">,</span> <span class="n">basis</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">minao</span></div>
+
+
+
+<div class="viewcode-block" id="IAO_Fragmentation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IAO_Fragmentation</span><span class="p">(</span><span class="n">Fragmentation</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;IAO&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">minao</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">minao</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
+            <span class="n">minao</span> <span class="o">=</span> <span class="n">get_default_minao</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;IAO:  computational basis= </span><span class="si">%s</span><span class="s2">  minimal reference basis= </span><span class="si">%s</span><span class="s2"> (automatically chosen)&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span><span class="p">,</span>
+                <span class="n">minao</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;IAO:  computational basis= </span><span class="si">%s</span><span class="s2">  minimal reference basis= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span><span class="p">,</span> <span class="n">minao</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minao</span> <span class="o">=</span> <span class="n">minao</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lo</span><span class="o">.</span><span class="n">iao</span><span class="o">.</span><span class="n">reference_mol</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="n">minao</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">minao</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="s2">&quot;space_group_symmetry&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">space_group_symmetry</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not find IAOs when using space group symmetry.&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;This is a known issue with some PySCF versions.&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                        <span class="s2">&quot;Please set `emb.mf.mol.space_group_symmetry=False` when initialising the fragmentation (it can be turned back on afterwards).&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Could not find IAOs when using space group symmetry. Please set `emb.mf.mol.space_group_symmetry=False`.&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_iao</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">nao</span>
+
+<div class="viewcode-block" id="IAO_Fragmentation.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mo_occ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make intrinsic atomic orbitals (IAOs).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        c_iao : (n(AO), n(IAO)) array</span>
+<span class="sd">            Orthonormalized IAO coefficients.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="k">if</span> <span class="n">mo_occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+
+        <span class="n">c_occ</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">c_iao</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lo</span><span class="o">.</span><span class="n">iao</span><span class="o">.</span><span class="n">iao</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="n">c_occ</span><span class="p">,</span> <span class="n">minao</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">minao</span><span class="p">)</span>
+        <span class="n">n_iao</span> <span class="o">=</span> <span class="n">c_iao</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;n(AO)= </span><span class="si">%4d</span><span class="s2">  n(MO)= </span><span class="si">%4d</span><span class="s2">  n(occ-MO)= </span><span class="si">%4d</span><span class="s2">  n(IAO)= </span><span class="si">%4d</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">c_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">n_iao</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Orthogonalize IAO using symmetric (Lowdin) orthogonalization</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">e_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symmetric_orth</span><span class="p">(</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span>
+            <span class="s2">&quot;Lowdin orthogonalization of IAOs: n(in)= </span><span class="si">%3d</span><span class="s2"> -&gt; n(out)= </span><span class="si">%3d</span><span class="s2"> , min(eig)= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">e_min</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">e_min</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Small eigenvalue in Lowdin orthogonalization: </span><span class="si">%.3e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">e_min</span><span class="p">)</span>
+        <span class="n">c_iao</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Check that all electrons are in IAO space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_nelectron</span><span class="p">(</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">add_virtuals</span><span class="p">:</span>
+            <span class="n">c_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_virtual_coeff</span><span class="p">(</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">mo_coeff</span><span class="p">)</span>
+            <span class="n">c_iao</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">))</span>
+        <span class="c1"># Test orthogonality of IAO</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_orthonormal</span><span class="p">(</span><span class="n">c_iao</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">c_iao</span></div>
+
+
+<div class="viewcode-block" id="IAO_Fragmentation.check_nelectron">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation.check_nelectron">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_nelectron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_iao</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">):</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,i,bi-&gt;ab&quot;</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">ne_iao</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bc,cd,di-&gt;&quot;</span><span class="p">,</span> <span class="n">c_iao</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_iao</span><span class="p">)</span>
+        <span class="n">ne_tot</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ab,ab-&gt;&quot;</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ne_iao</span> <span class="o">-</span> <span class="n">ne_tot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;IAOs do not contain the correct number of electrons: IAO= </span><span class="si">%.8f</span><span class="s2">  total= </span><span class="si">%.8f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ne_iao</span><span class="p">,</span> <span class="n">ne_tot</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Number of electrons: IAO= </span><span class="si">%.8f</span><span class="s2">  total= </span><span class="si">%.8f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ne_iao</span><span class="p">,</span> <span class="n">ne_tot</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ne_iao</span></div>
+
+
+<div class="viewcode-block" id="IAO_Fragmentation.get_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation.get_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get labels of IAOs.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        iao_labels : list of length nIAO</span>
+<span class="sd">            Orbital label (atom-id, atom symbol, nl string, m string) for each IAO.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">iao_labels_refmol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;iao_labels_refmol: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iao_labels_refmol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">natm</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span><span class="p">:</span>
+            <span class="n">iao_labels</span> <span class="o">=</span> <span class="n">iao_labels_refmol</span>
+        <span class="c1"># If there are ghost atoms in the system, they will be removed in refmol.</span>
+        <span class="c1"># For this reason, the atom IDs of mol and refmol will not agree anymore.</span>
+        <span class="c1"># Here we will correct the atom IDs of refmol to agree with mol</span>
+        <span class="c1"># (they will no longer be contiguous integers).</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ref2mol</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">refatm</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">natm</span><span class="p">):</span>
+                <span class="n">ref_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">atom_coord</span><span class="p">(</span><span class="n">refatm</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">atm</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span><span class="p">):</span>
+                    <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_coord</span><span class="p">(</span><span class="n">atm</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">ref_coords</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;reference cell atom </span><span class="si">%r</span><span class="s2"> maps to atom </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">refatm</span><span class="p">,</span> <span class="n">atm</span><span class="p">)</span>
+                        <span class="n">ref2mol</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atm</span><span class="p">)</span>
+                        <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No atom found with coordinates </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ref_coords</span><span class="p">)</span>
+            <span class="n">iao_labels</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">iao</span> <span class="ow">in</span> <span class="n">iao_labels_refmol</span><span class="p">:</span>
+                <span class="n">iao_labels</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">ref2mol</span><span class="p">[</span><span class="n">iao</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">iao</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">iao</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">iao</span><span class="p">[</span><span class="mi">3</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;iao_labels: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iao_labels</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">iao_labels_refmol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">iao_labels</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">iao_labels</span></div>
+
+
+<div class="viewcode-block" id="IAO_Fragmentation.search_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation.search_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">search_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">refmol</span><span class="o">.</span><span class="n">search_ao_label</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IAO_Fragmentation.get_virtual_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation.get_virtual_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_virtual_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_iao</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="c1"># Add remaining virtual space, work in MO space, so that we automatically get the</span>
+        <span class="c1"># correct linear dependency treatment, if n(MO) &lt; n(AO)</span>
+        <span class="n">c_iao_mo</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_iao</span><span class="p">)</span>
+        <span class="c1"># Get eigenvectors of projector into complement</span>
+        <span class="n">p_iao</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c_iao_mo</span><span class="p">,</span> <span class="n">c_iao_mo</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">p_rest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">p_iao</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">p_iao</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">p_rest</span><span class="p">)</span>
+
+        <span class="c1"># Corresponding expression in AO basis (but no linear-dependency treatment):</span>
+        <span class="c1"># p_rest = ovlp - ovlp.dot(c_iao).dot(c_iao.T).dot(ovlp)</span>
+        <span class="c1"># e, c = scipy.linalg.eigh(p_rest, ovlp)</span>
+        <span class="c1"># c_rest = c[:,e&gt;0.5]</span>
+
+        <span class="c1"># Ideally, all eigenvalues of P_env should be 0 (IAOs) or 1 (non-IAO)</span>
+        <span class="c1"># Error if &gt; 1e-3</span>
+        <span class="n">mask_iao</span><span class="p">,</span> <span class="n">mask_rest</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span> <span class="o">&lt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">e_iao</span><span class="p">,</span> <span class="n">e_rest</span> <span class="o">=</span> <span class="n">e</span><span class="p">[</span><span class="n">mask_iao</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="n">mask_rest</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">e_iao</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;CRITICAL: Some IAO eigenvalues of 1-P_IAO are not close to 0:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e_iao</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">e_iao</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Some IAO eigenvalues e of 1-P_IAO are not close to 0: n= </span><span class="si">%d</span><span class="s2"> max|e|= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">e_iao</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">),</span>
+                <span class="nb">abs</span><span class="p">(</span><span class="n">e_iao</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e_rest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;CRITICAL: Some non-IAO eigenvalues of 1-P_IAO are not close to 1:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e_rest</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e_rest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Some non-IAO eigenvalues e of 1-P_IAO are not close to 1: n= </span><span class="si">%d</span><span class="s2"> max|1-e|= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e_rest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">),</span>
+                <span class="nb">abs</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e_rest</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask_rest</span><span class="p">)</span> <span class="o">+</span> <span class="n">c_iao</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span>
+                <span class="s2">&quot;Error in construction of remaining virtual orbitals! Eigenvalues of projector 1-P_IAO:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Number of eigenvalues above 0.5 = </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask_rest</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Total number of orbitals = </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Incorrect number of remaining virtual orbitals&quot;</span><span class="p">)</span>
+        <span class="n">c_rest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">mask_rest</span><span class="p">])</span>  <span class="c1"># Transform back to AO basis</span>
+        <span class="n">c_rest</span> <span class="o">=</span> <span class="n">fix_orbital_sign</span><span class="p">(</span><span class="n">c_rest</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_orthonormal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">c_iao</span><span class="p">,</span> <span class="n">c_rest</span><span class="p">)),</span> <span class="s2">&quot;IAO+virtual orbital&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">c_rest</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IAO_Fragmentation_UHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation_UHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IAO_Fragmentation_UHF</span><span class="p">(</span><span class="n">Fragmentation_UHF</span><span class="p">,</span> <span class="n">IAO_Fragmentation</span><span class="p">):</span>
+<div class="viewcode-block" id="IAO_Fragmentation_UHF.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iao.IAO_Fragmentation_UHF.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mo_occ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="k">if</span> <span class="n">mo_occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mo_occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Alpha-IAOs:&quot;</span><span class="p">)</span>
+        <span class="n">c_iao_a</span> <span class="o">=</span> <span class="n">IAO_Fragmentation</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mo_occ</span><span class="o">=</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="n">add_virtuals</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot; Beta-IAOs:&quot;</span><span class="p">)</span>
+        <span class="n">c_iao_b</span> <span class="o">=</span> <span class="n">IAO_Fragmentation</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">mo_occ</span><span class="o">=</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="n">add_virtuals</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">c_iao_a</span><span class="p">,</span> <span class="n">c_iao_b</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

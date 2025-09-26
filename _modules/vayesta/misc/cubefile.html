@@ -1,0 +1,446 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.misc.cubefile &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.misc.cubefile</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.misc.cubefile</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Modified from PySCF - at the moment only for PBC systems&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os.path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.dft</span><span class="w"> </span><span class="kn">import</span> <span class="n">numint</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CubeFile">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CubeFile</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cell</span><span class="p">,</span>
+        <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">gridsize</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">comment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%13.5E</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">crop</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a cube file object. Data can be added using the `add_orbital` and `add_density` methods.</span>
+
+<span class="sd">        This class can also be used as a context manager:</span>
+
+<span class="sd">        &gt;&gt;&gt; with CubeFile(cell, &quot;mycubefile.cube&quot;) as f:</span>
+<span class="sd">        &gt;&gt;&gt;     f.add_orbital(hf.mo_coeff[:,0])</span>
+<span class="sd">        &gt;&gt;&gt;     f.add_orbital(hf.mo_coeff[:,5:10])</span>
+<span class="sd">        &gt;&gt;&gt;     f.add_density(hf.make_rdm1())</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            cell : pbc.gto.Cell object</span>
+<span class="sd">            filename : str</span>
+<span class="sd">                Filename for cube file. Should include &quot;.cube&quot; extension.</span>
+<span class="sd">            nx, ny, nz : int, optional</span>
+<span class="sd">                Number of grid points in x, y, and z direction. If specified,</span>
+<span class="sd">                they take precedence over `resolution` parameter. Default: None.</span>
+<span class="sd">            resolution : float, optional</span>
+<span class="sd">                Resolution in units of 1/Bohr for automatic choice of `nx`,`ny`, and `nz`. Default: 15.0.</span>
+<span class="sd">            title : str, optional</span>
+<span class="sd">                First comment line in cube-file.</span>
+<span class="sd">            comment : str, optional</span>
+<span class="sd">                Second comment line in cube-file.</span>
+<span class="sd">            origin : array(3), optional</span>
+<span class="sd">                Origin in x, y, z coordinates.</span>
+<span class="sd">            fmt : str, optional</span>
+<span class="sd">                Float formatter for voxel data. According to the cube-file standard this is required to</span>
+<span class="sd">                be &quot;%13.5E&quot;, but some applications may support a different format. Default: &quot;%13.5E&quot;</span>
+<span class="sd">            crop : dict, optional</span>
+<span class="sd">                By default, the coordinate grid will span the entire unit cell. `crop` can be set</span>
+<span class="sd">                to crop the unit cell. `crop` should be a dictionary with possible keys</span>
+<span class="sd">                [&quot;a0&quot;, &quot;a1&quot;, &quot;b0&quot;, &quot;b1&quot;, &quot;c0&quot;, &quot;c1&quot;], where &quot;a0&quot; crops the first lattice vector at the</span>
+<span class="sd">                start, &quot;a1&quot; crops the first lattice vector at the end, &quot;b0&quot; crops the second lattice vector</span>
+<span class="sd">                at the start etc. The corresponding values is the distance which should be cropped in</span>
+<span class="sd">                units of Bohr.</span>
+<span class="sd">                EXPERIMENTAL FEATURE - NOT FULLY TESTED.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="n">cell</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="c1"># Make user aware of different behavior of resolution, compared to pyscf.tools.cubegen</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">resolution</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="s2">&quot;Warning: resolution is below 1/Bohr. Recommended values are 5/Bohr or higher.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_box_and_origin</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">crop</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-=</span> <span class="p">(</span><span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;a0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;a1&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-=</span> <span class="p">(</span><span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b1&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="p">(</span><span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">+=</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;a0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">+=</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">+=</span> <span class="n">crop</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="c1"># Use resolution if provided, else gridsize</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">resolution</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="mi">192</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ny</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">resolution</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="mi">192</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nz</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">*</span> <span class="n">resolution</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="mi">192</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ny</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nz</span> <span class="o">=</span> <span class="n">gridsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span> <span class="ow">or</span> <span class="s2">&quot;&lt;title&gt;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">comment</span> <span class="o">=</span> <span class="n">comment</span> <span class="ow">or</span> <span class="p">(</span><span class="s2">&quot;Generated with Vayesta v</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">=</span> <span class="n">fmt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_coords</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_pbc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="s2">&quot;lattice_vectors&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CubeFile.get_box_and_origin">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.get_box_and_origin">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_box_and_origin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_pbc</span><span class="p">:</span>
+            <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">atom_coords</span><span class="p">()</span>
+            <span class="n">margin</span> <span class="o">=</span> <span class="mf">3.0</span>
+            <span class="n">extent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">margin</span>
+            <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">extent</span><span class="p">)</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">margin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">box</span><span class="p">,</span> <span class="n">origin</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.get_coords">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.get_coords">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nx</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ny</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ny</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">zs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nz</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">cartesian_prod</span><span class="p">([</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">zs</span><span class="p">])</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span>
+        <span class="k">return</span> <span class="n">coords</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ncoords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of grod points.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nx</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ny</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nz</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nfields</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of datasets (orbitals + density matrices).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CubeFile.save_state">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.save_state">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="n">cell</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="kc">None</span>  <span class="c1"># Do not pickle cell</span>
+        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="n">cell</span>  <span class="c1"># Restore self.cell</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.load_state">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.load_state">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="n">cell</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="c1"># Context manager support</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CubeFile.add_orbital">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.add_orbital">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_orbital</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">dset_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add one or more orbitals to the cube file.</span>
+
+<span class="sd">        Arguments</span>
+<span class="sd">        ---------</span>
+<span class="sd">        coeff : (N) or (N,M) array</span>
+<span class="sd">            AO coefficients of orbitals. Supports adding a single orbitals,</span>
+<span class="sd">            where `coeff` is a one-dimensional array, or multiple orbitals,</span>
+<span class="sd">            in which case the second dimension of `coeff` labels the orbitals.</span>
+<span class="sd">        dset_idx : int, optional</span>
+<span class="sd">            Dataset index of orbital(s). In the application, the orbitals will</span>
+<span class="sd">            be labelled as &#39;Orbital &lt;dset_idx&gt;&#39; or similar. If set to `None`,</span>
+<span class="sd">            the smallest unused, positive integer will be used. Default: None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>  <span class="c1"># Force copy</span>
+        <span class="k">if</span> <span class="n">coeff</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">coeff</span> <span class="o">=</span> <span class="n">coeff</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">coeff</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coeff</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">dset_idx</span> <span class="o">+</span> <span class="n">i</span> <span class="k">if</span> <span class="n">dset_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">c</span><span class="p">,</span> <span class="s2">&quot;orbital&quot;</span><span class="p">,</span> <span class="n">idx</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.add_density">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.add_density">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="n">dset_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add one or more densities to the cube file.</span>
+
+<span class="sd">        Arguments</span>
+<span class="sd">        ---------</span>
+<span class="sd">        dm : (N,N) or (M,N,N) array</span>
+<span class="sd">            Density-matrix in AO-representation. Supports adding a single density-matrix,</span>
+<span class="sd">            where `dm` is a two-dimensional array, or multiple density-matrices,</span>
+<span class="sd">            in which case the first dimension of `dm` labels the matrices.</span>
+<span class="sd">        dset_idx : int, optional</span>
+<span class="sd">            Dataset index of density-matrix. In the application, the density-matrix will</span>
+<span class="sd">            be labelled as &#39;Orbital &lt;dset_idx&gt;&#39; or similar. If set to `None`,</span>
+<span class="sd">            the smallest unused, positive integer will be used. Default: None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>  <span class="c1"># Force copy</span>
+        <span class="k">if</span> <span class="n">dm</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">dm</span> <span class="o">=</span> <span class="n">dm</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">dm</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dm</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">dset_idx</span> <span class="o">+</span> <span class="n">i</span> <span class="k">if</span> <span class="n">dset_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">d</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">,</span> <span class="n">idx</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.add_mep">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.add_mep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_mep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="n">dset_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.write">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.write">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span>
+        <span class="c1"># Create directories if necessary</span>
+        <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">directory</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Get dataset IDs</span>
+        <span class="n">dset_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">ftype</span><span class="p">,</span> <span class="n">fid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">dset_ids</span><span class="p">:</span>
+                    <span class="n">fid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dset_ids</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">fid</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">dset_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_header</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dset_ids</span><span class="o">=</span><span class="n">dset_ids</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_fields</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.write_header">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.write_header">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">dset_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write header of cube-file.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dset_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dset_ids</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">comment</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">natm</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">natm</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%12.6f%12.6f%12.6f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Lattice vectors</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d%12.6f%12.6f%12.6f</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nx</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))))</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d%12.6f%12.6f%12.6f</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ny</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ny</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))))</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d%12.6f%12.6f%12.6f</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nz</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nz</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))))</span>
+            <span class="c1"># Atoms</span>
+            <span class="k">for</span> <span class="n">atm</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">natm</span><span class="p">):</span>
+                <span class="n">sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atm</span><span class="p">)</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d%12.6f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">charge</span><span class="p">(</span><span class="n">sym</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">))</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%12.6f%12.6f%12.6f</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">atom_coords</span><span class="p">()[</span><span class="n">atm</span><span class="p">]))</span>
+            <span class="c1"># Data set indices</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nfields</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">dset_ids</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CubeFile.write_fields">
+<a class="viewcode-back" href="../../../apidoc/vayesta.misc.html#vayesta.misc.cubefile.CubeFile.write_fields">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write voxel data of registered fields in `self.fields` to cube-file.&quot;&quot;&quot;</span>
+        <span class="n">blksize</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ncoords</span><span class="p">,</span> <span class="mi">8000</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="c1"># Loop over x,y,z coordinates first, then fields!</span>
+            <span class="k">for</span> <span class="n">blk0</span><span class="p">,</span> <span class="n">blk1</span> <span class="ow">in</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">prange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncoords</span><span class="p">,</span> <span class="n">blksize</span><span class="p">):</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">blk1</span> <span class="o">-</span> <span class="n">blk0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfields</span><span class="p">))</span>
+                <span class="n">blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">blk0</span><span class="p">:</span><span class="n">blk1</span><span class="p">]</span>
+                <span class="n">intor</span> <span class="o">=</span> <span class="s2">&quot;PBCGTOval&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_pbc</span> <span class="k">else</span> <span class="s2">&quot;GTOval&quot;</span>
+                <span class="n">ao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">eval_gto</span><span class="p">(</span><span class="n">intor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">blk</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">ftype</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">ftype</span> <span class="o">==</span> <span class="s2">&quot;orbital&quot;</span><span class="p">:</span>
+                        <span class="n">data</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ao</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">ftype</span> <span class="o">==</span> <span class="s2">&quot;density&quot;</span><span class="p">:</span>
+                        <span class="n">data</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">numint</span><span class="o">.</span><span class="n">eval_rho</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="n">ao</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown field type: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ftype</span><span class="p">)</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span> <span class="ow">in</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">prange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mi">6</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(((</span><span class="n">d1</span> <span class="o">-</span> <span class="n">d0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">d0</span><span class="p">:</span><span class="n">d1</span><span class="p">]))</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_graphene</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">supercell</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">amat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="n">a</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">c</span><span class="p">]])</span>
+        <span class="n">coords_internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]])</span> <span class="o">/</span> <span class="mi">6</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords_internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">supercell</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atom</span> <span class="o">=</span> <span class="p">[(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">atom</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">ncopy</span> <span class="o">=</span> <span class="n">supercell</span>
+            <span class="n">nr</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncopy</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncopy</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                    <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncopy</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+                        <span class="n">shift</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">amat</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span> <span class="o">*</span> <span class="n">amat</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">z</span> <span class="o">*</span> <span class="n">amat</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">nr</span><span class="p">),</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">shift</span><span class="p">))</span>
+                        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">nr</span><span class="p">),</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">shift</span><span class="p">))</span>
+                        <span class="n">nr</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">amat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;i,ij-&gt;ij&quot;</span><span class="p">,</span> <span class="n">ncopy</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">pbc</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="n">basis</span><span class="o">=</span><span class="s2">&quot;gth-dzv&quot;</span><span class="p">,</span> <span class="n">pseudo</span><span class="o">=</span><span class="s2">&quot;gth-pade&quot;</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="n">make_graphene</span><span class="p">(</span><span class="mf">2.46</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">hf</span> <span class="o">=</span> <span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">HF</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+    <span class="n">hf</span> <span class="o">=</span> <span class="n">hf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">()</span>
+    <span class="n">hf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="n">CubeFile</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="s2">&quot;graphene.cube&quot;</span><span class="p">,</span> <span class="n">crop</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;c0&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">})</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">add_orbital</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">add_orbital</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="mi">6</span><span class="p">:</span><span class="mi">10</span><span class="p">])</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">add_density</span><span class="p">([</span><span class="n">hf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">())</span> <span class="o">-</span> <span class="n">hf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()])</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

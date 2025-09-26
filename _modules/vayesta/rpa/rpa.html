@@ -1,0 +1,310 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.rpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../rpa.html">vayesta.rpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.rpa</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.rpa</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Straightforward N^6 implementation for RPA in a finite basis set with arbitrary interaction kernel, based upon the</span>
+<span class="sd">standard Hermitian reformulation used in TDHF approaches.</span>
+<span class="sd">Note that we only use the spin-block formulation of all matrices, rather than full spin-adaptation, which means our</span>
+<span class="sd">final diagonalisation is 2^3=8 times more expensive than hypothetically possible. However, this code is only for</span>
+<span class="sd">comparison.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">timeit</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">time_string</span>
+
+
+<div class="viewcode-block" id="RPA">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.rpa.RPA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RPA</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Approach based on equations expressed succinctly in the appendix of</span>
+<span class="sd">    Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120</span>
+<span class="sd">    WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nocc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_corr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_sf</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Can only access rpa.e_corr after running rpa.kernel.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span>
+
+<div class="viewcode-block" id="RPA.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.rpa.RPA.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="s2">&quot;rpax&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve for RPA response; solve same-spin (ss) and spin-flip (sf) separately.</span>
+<span class="sd">        If doing dRPA spin-flip is trivial, so for large calculations use dRPA specific</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="n">ApB_ss</span><span class="p">,</span> <span class="n">AmB_ss</span><span class="p">,</span> <span class="n">ApB_sf</span><span class="p">,</span> <span class="n">AmB_sf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_arrays</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">solve_RPA_problem</span><span class="p">(</span><span class="n">ApB</span><span class="p">,</span> <span class="n">AmB</span><span class="p">):</span>
+            <span class="n">AmB_rt</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">sqrtm</span><span class="p">(</span><span class="n">AmB</span><span class="p">)</span>
+            <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">multi_dot</span><span class="p">([</span><span class="n">AmB_rt</span><span class="p">,</span> <span class="n">ApB</span><span class="p">,</span> <span class="n">AmB_rt</span><span class="p">])</span>
+            <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+            <span class="n">freqs</span> <span class="o">=</span> <span class="n">e</span><span class="o">**</span><span class="mf">0.5</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">)</span>
+            <span class="n">ecorr_contrib</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">freqs</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ApB</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span> <span class="o">+</span> <span class="n">AmB</span><span class="o">.</span><span class="n">trace</span><span class="p">()))</span>
+            <span class="n">XpY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,pn-&gt;pn&quot;</span><span class="p">,</span> <span class="n">freqs</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">AmB_rt</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span>
+            <span class="n">XmY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,pn-&gt;pn&quot;</span><span class="p">,</span> <span class="n">freqs</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">AmB_rt</span><span class="p">),</span> <span class="n">c</span><span class="p">))</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">freqs</span><span class="p">,</span>
+                <span class="n">ecorr_contrib</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">XpY</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">],</span> <span class="n">XpY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]),</span>
+                <span class="p">(</span><span class="n">XmY</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">],</span> <span class="n">XmY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]),</span>
+            <span class="p">)</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs_ss</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XmY_ss</span> <span class="o">=</span> <span class="n">solve_RPA_problem</span><span class="p">(</span><span class="n">ApB_ss</span><span class="p">,</span> <span class="n">AmB_ss</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">freqs_sf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_sf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XpY_sf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">XmY_sf</span> <span class="o">=</span> <span class="n">solve_RPA_problem</span><span class="p">(</span><span class="n">ApB_sf</span><span class="p">,</span> <span class="n">AmB_sf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time to solve RPA problems: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="o">==</span> <span class="s2">&quot;rpax&quot;</span><span class="p">:</span>
+            <span class="c1"># Additional factor of 0.5.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">*=</span> <span class="mf">0.5</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_sf</span> <span class="o">*=</span> <span class="mf">0.5</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Total RPA wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="s2">&quot;rpax&quot;</span><span class="p">):</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="c1"># Only have diagonal components in canonical basis.</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,))</span>
+        <span class="c1"># Get interaction kernel</span>
+        <span class="p">(</span><span class="n">k_pss</span><span class="p">,</span> <span class="n">k_mss</span><span class="p">,</span> <span class="n">k_psf</span><span class="p">,</span> <span class="n">k_msf</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_interaction_kernel</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">combine_spin_components</span><span class="p">(</span><span class="n">k1</span><span class="p">,</span> <span class="n">k2</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="n">res</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">k1</span>
+            <span class="n">res</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">]</span> <span class="o">=</span> <span class="n">k2</span>
+            <span class="k">return</span> <span class="n">res</span>
+
+        <span class="n">ApB_ss</span> <span class="o">=</span> <span class="n">combine_spin_components</span><span class="p">(</span><span class="o">*</span><span class="n">k_pss</span><span class="p">)</span>
+        <span class="n">AmB_ss</span> <span class="o">=</span> <span class="n">combine_spin_components</span><span class="p">(</span><span class="o">*</span><span class="n">k_mss</span><span class="p">)</span>
+        <span class="n">ApB_sf</span> <span class="o">=</span> <span class="n">combine_spin_components</span><span class="p">(</span><span class="o">*</span><span class="n">k_psf</span><span class="p">)</span>
+        <span class="n">AmB_sf</span> <span class="o">=</span> <span class="n">combine_spin_components</span><span class="p">(</span><span class="o">*</span><span class="n">k_msf</span><span class="p">)</span>
+
+        <span class="c1"># Construct full irreducible polarisability, then add in to diagonal.</span>
+        <span class="n">fulleps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">eps</span><span class="p">,</span> <span class="n">eps</span><span class="p">])</span>
+        <span class="n">ix_diag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+        <span class="n">ApB_ss</span><span class="p">[</span><span class="n">ix_diag</span><span class="p">]</span> <span class="o">+=</span> <span class="n">fulleps</span>
+        <span class="n">ApB_sf</span><span class="p">[</span><span class="n">ix_diag</span><span class="p">]</span> <span class="o">+=</span> <span class="n">fulleps</span>
+        <span class="n">AmB_ss</span><span class="p">[</span><span class="n">ix_diag</span><span class="p">]</span> <span class="o">+=</span> <span class="n">fulleps</span>
+        <span class="n">AmB_sf</span><span class="p">[</span><span class="n">ix_diag</span><span class="p">]</span> <span class="o">+=</span> <span class="n">fulleps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time to build RPA arrays: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">ApB_ss</span><span class="p">,</span> <span class="n">AmB_ss</span><span class="p">,</span> <span class="n">ApB_sf</span><span class="p">,</span> <span class="n">AmB_sf</span>
+
+<div class="viewcode-block" id="RPA.get_interaction_kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.rpa.RPA.get_interaction_kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_interaction_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="s2">&quot;rpax&quot;</span><span class="p">,</span> <span class="n">tda</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the required components of the interaction kernel, separated into same-spin and spin-flip</span>
+<span class="sd">        components, as well as spin contributions for A+B and A-B.</span>
+<span class="sd">        The results is a length-4 tuple, giving the spin components of respectively</span>
+<span class="sd">            (ss K_(A+B), ss K_(A-B), sf K_(A+B), sf K_(A-B)).</span>
+<span class="sd">        In RHF both contributions both only have two distinct spin components, so there are a total of</span>
+<span class="sd">        8 distinct spatial kernels for a general interaction.</span>
+<span class="sd">        For spin contributions we use the orderings</span>
+<span class="sd">            -(aaaa, aabb) for ss contributions.</span>
+<span class="sd">            -(abab, abba) for st contributions (ie, whether the particle states have the</span>
+<span class="sd">                same spin in both pairs or not). Sorry for clunky description...</span>
+
+<span class="sd">        If TDA is specified all appropriate couplings will be zeroed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">xc_kernel</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;drpa&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA using coulomb interaction kernel.&quot;</span><span class="p">)</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">()</span>
+
+            <span class="n">v</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="c1"># Only nonzero contribution is between same-spin excitations due to coulomb interaction.</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">)),</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">)),</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">)),</span>
+            <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">xc_kernel</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;rpax&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA using coulomb-exchange interaction kernel.&quot;</span><span class="p">)</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">()</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+            <span class="n">ka</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">eris</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">kb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ibja-&gt;iajb&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span> <span class="o">-</span> <span class="n">ka</span> <span class="o">-</span> <span class="n">kb</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">kb</span> <span class="o">-</span> <span class="n">ka</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">v</span><span class="p">)),</span>
+                <span class="p">(</span><span class="o">-</span><span class="n">ka</span><span class="p">,</span> <span class="o">-</span><span class="n">kb</span><span class="p">),</span>
+                <span class="p">(</span>
+                    <span class="o">-</span><span class="n">ka</span><span class="p">,</span>
+                    <span class="n">kb</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA using provided arbitrary exchange-correlation kernel.&quot;</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="n">xc_kernel</span>
+
+        <span class="k">return</span> <span class="n">kernel</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nao</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao</span>
+
+<div class="viewcode-block" id="RPA.ao2mo">
+<a class="viewcode-back" href="../../../apidoc/vayesta.rpa.html#vayesta.rpa.rpa.RPA.ao2mo">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ao2mo</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the ERIs in MO basis&quot;&quot;&quot;</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;ERIs will be four centered&quot;</span><span class="p">)</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eri</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="o">.</span><span class="n">incore</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eri</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for AO-&gt;MO:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">eri</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

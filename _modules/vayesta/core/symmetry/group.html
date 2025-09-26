@@ -1,0 +1,201 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.symmetry.group &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.symmetry.group</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.symmetry.group</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SymmetryGroup">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SymmetryGroup</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detect symmetry group automatically (use spglib?).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mol</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">check_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_label</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mol</span> <span class="o">=</span> <span class="n">mol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xtol</span> <span class="o">=</span> <span class="n">xtol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_basis</span> <span class="o">=</span> <span class="n">check_basis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_label</span> <span class="o">=</span> <span class="n">check_label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">translation</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">natom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nao</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="s2">&quot;dimension&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SymmetryGroup.compare_atoms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup.compare_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom1</span><span class="p">,</span> <span class="n">atom2</span><span class="p">,</span> <span class="n">check_basis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare atom symbol and (optionally) basis between atom1 and atom2.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">check_basis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">check_basis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_basis</span>
+        <span class="k">if</span> <span class="n">check_label</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">check_label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_label</span>
+        <span class="k">if</span> <span class="n">check_label</span><span class="p">:</span>
+            <span class="n">type1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)</span>
+            <span class="n">type2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">type1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_pure_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)</span>
+            <span class="n">type2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_pure_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">type1</span> <span class="o">!=</span> <span class="n">type2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">check_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">bas1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">_basis</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)]</span>
+        <span class="n">bas2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">_basis</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">bas1</span> <span class="o">==</span> <span class="n">bas2</span></div>
+
+
+<div class="viewcode-block" id="SymmetryGroup.get_closest_atom">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup.get_closest_atom">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_closest_atom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;pos in internal coordinates.&quot;&quot;&quot;</span>
+        <span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_coords</span><span class="p">()</span> <span class="o">-</span> <span class="n">coords</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">dists</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">idx</span><span class="p">,</span> <span class="n">dists</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SymmetryGroup.add_rotation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup.add_rotation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_rotation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;ang&quot;</span><span class="p">):</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;The specification of rotational symmetry between fragments has changed.&quot;</span>
+                <span class="s2">&quot; Check examples/ewf/73-rotational-symmetry.py for the new syntax.&quot;</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="SymmetryGroup.set_translations">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup.set_translations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_translations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nimages</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set translational symmetry.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nimages : array(3)</span>
+<span class="sd">            Number of translationally symmetric images in the direction of the first, second,</span>
+<span class="sd">            and third lattice vector.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">translation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nimages</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SymmetryGroup.clear_translations">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.group.SymmetryGroup.clear_translations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_translations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">translations</span> <span class="o">=</span> <span class="kc">None</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

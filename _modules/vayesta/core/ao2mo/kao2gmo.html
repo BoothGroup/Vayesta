@@ -1,0 +1,381 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.ao2mo.kao2gmo &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.ao2mo.kao2gmo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.ao2mo.kao2gmo</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;AO to MO transformation from k-space (AOs) to supercell real space (MOs)</span>
+
+<span class="sd">Author: Max Nusspickel</span>
+<span class="sd">Email:  max.nusspickel@gmail.com</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Standard</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="c1"># External</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.tools</span>
+
+<span class="c1"># Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">call_once</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.libs</span><span class="w"> </span><span class="kn">import</span> <span class="n">libcore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.ao2mo</span><span class="w"> </span><span class="kn">import</span> <span class="n">helper</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="kao2gmo_cderi">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.kao2gmo.kao2gmo_cderi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kao2gmo_cderi</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">mo_coeffs</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tril_kij</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform density-fitted ERIs from primtive cell k-AO, to Gamma-point MOs.</span>
+
+<span class="sd">    (L|ka,k&#39;b) * C1_(Ra)i * C2_(R&#39;b)j -&gt; (R&#39;&#39;L|Ri,R&#39;j)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    gdf: pyscf.pbc.df.GDF</span>
+<span class="sd">        Gaussian density-fitting object of primitive unit cell.</span>
+<span class="sd">    mo_coeffs: array or tuple(2) of arrays</span>
+<span class="sd">        MO coefficients C1_(Ra)i and C2_(R&#39;b)j for the transformation. If only one coefficient matrix is</span>
+<span class="sd">        passed, it will be used for both C1 and C2.</span>
+<span class="sd">    make_real: bool, optional</span>
+<span class="sd">        Fourier-transform the auxiliary DF dimension, such that the final three-center integrals are real.</span>
+<span class="sd">        Default: True.</span>
+<span class="sd">    blksize: int, optional</span>
+<span class="sd">        Blocksize for the auxiliary dimension.</span>
+<span class="sd">    tril_kij: bool, optional</span>
+<span class="sd">        Only load k-point pairs k &gt;= k&#39;, and use the symmetry (L|ka,k&#39;b) = (L|k&#39;b,ka)*.</span>
+<span class="sd">        Default: True.</span>
+<span class="sd">    driver: {None, &#39;c&#39;, &#39;python&#39;}</span>
+<span class="sd">        Use Python or C driver for the transformation. If None, use C if compiled library is present,</span>
+<span class="sd">        if so use C, else use python. Default: None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cderi_mo: array</span>
+<span class="sd">        Density-fitted supercell three-center integrals in MO basis.</span>
+<span class="sd">    cderi_mo_neg: array or None</span>
+<span class="sd">        Negative part of density-fitted supercell three-center integrals in MO basis.</span>
+<span class="sd">        None for 3D systems.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">mo_coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">mo_coeffs</span> <span class="o">=</span> <span class="p">(</span><span class="n">mo_coeffs</span><span class="p">,</span> <span class="n">mo_coeffs</span><span class="p">)</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">cell</span>
+    <span class="n">nao</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">nao</span>
+    <span class="n">naux</span> <span class="o">=</span> <span class="n">naux_pos</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">auxcell</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cell</span><span class="o">.</span><span class="n">dimension</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">naux_pos</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="n">kpts</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">kpts</span>
+    <span class="n">nk</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kpts</span><span class="p">)</span>
+    <span class="n">kconserv</span> <span class="o">=</span> <span class="n">helper</span><span class="o">.</span><span class="n">get_kconserv</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">nk</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="c1"># Fourier transform MOs from supercell Gamma point to primitive cell k-points</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="p">(</span><span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">k2gamma</span><span class="o">.</span><span class="n">get_phase</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">if</span> <span class="n">blksize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">max_memory</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e9</span><span class="p">)</span>  <span class="c1"># 1 GB</span>
+        <span class="n">max_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_memory</span> <span class="o">/</span> <span class="p">(</span><span class="n">nao</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">16</span><span class="p">))</span>  <span class="c1"># how many naux fit in max_memory</span>
+        <span class="n">blksize</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">max_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e9</span><span class="p">))</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;max_memory= </span><span class="si">%.3f</span><span class="s2"> MB  max_size= </span><span class="si">%d</span><span class="s2">  blksize= </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">max_memory</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">,</span> <span class="n">max_size</span><span class="p">,</span> <span class="n">blksize</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">libcore</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">driver</span> <span class="o">=</span> <span class="s2">&quot;python&quot;</span>
+            <span class="n">call_once</span><span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">,</span> <span class="s2">&quot;Libary &#39;vayesta/libs/libcore.so&#39; not found, using fallback Python driver.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">driver</span> <span class="o">=</span> <span class="s2">&quot;c&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Driver for kao2gmo_cderi= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">driver</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">driver</span> <span class="o">==</span> <span class="s2">&quot;python&quot;</span><span class="p">:</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">cderi_kij</span><span class="p">,</span> <span class="n">mo1_ki</span><span class="p">,</span> <span class="n">mo2_kj</span><span class="p">:</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lab,ai,bj-&gt;Lij&quot;</span><span class="p">,</span> <span class="n">cderi_kij</span><span class="p">,</span> <span class="n">mo1_ki</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo2_kj</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">driver</span> <span class="o">==</span> <span class="s2">&quot;c&quot;</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="n">cderi_kij</span><span class="p">,</span> <span class="n">mo1_ki</span><span class="p">,</span> <span class="n">mo2_kj</span><span class="p">):</span>
+            <span class="n">naux</span> <span class="o">=</span> <span class="n">cderi_kij</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">nao</span> <span class="o">=</span> <span class="n">cderi_kij</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">nmo1</span> <span class="o">=</span> <span class="n">mo1_ki</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">nmo2</span> <span class="o">=</span> <span class="n">mo2_kj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">buf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">naux</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+            <span class="n">cderi_kij</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cderi_kij</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+            <span class="n">mo1_ki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mo1_ki</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+            <span class="n">mo2_kj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mo2_kj</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+            <span class="n">ierr</span> <span class="o">=</span> <span class="n">libcore</span><span class="o">.</span><span class="n">ao2mo_cderi</span><span class="p">(</span>
+                <span class="c1"># In</span>
+                <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int64</span><span class="p">(</span><span class="n">nao</span><span class="p">),</span>
+                <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int64</span><span class="p">(</span><span class="n">nmo1</span><span class="p">),</span>
+                <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int64</span><span class="p">(</span><span class="n">nmo2</span><span class="p">),</span>
+                <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int64</span><span class="p">(</span><span class="n">naux</span><span class="p">),</span>
+                <span class="n">mo1_ki</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data_as</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">),</span>
+                <span class="n">mo2_kj</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data_as</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">),</span>
+                <span class="n">cderi_kij</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data_as</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">),</span>
+                <span class="c1"># Out</span>
+                <span class="n">buf</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data_as</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">ierr</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">buf</span>
+
+    <span class="n">nmo1</span> <span class="o">=</span> <span class="n">mo_coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nmo2</span> <span class="o">=</span> <span class="n">mo_coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">mo1</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kR,Rai-&gt;kai&quot;</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo_coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nk</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">))</span>
+    <span class="n">mo2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kR,Rai-&gt;kai&quot;</span><span class="p">,</span> <span class="n">phase</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo_coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nk</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">))</span>
+
+    <span class="n">cderi_mo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nk</span><span class="p">,</span> <span class="n">naux</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cell</span><span class="o">.</span><span class="n">dimension</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">cderi_mo_neg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cderi_mo_neg</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Rare case that one of the MO sets is empty - exit early</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">nmo1</span> <span class="o">*</span> <span class="n">nmo2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">cderi_mo</span> <span class="o">=</span> <span class="n">cderi_mo</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nk</span> <span class="o">*</span> <span class="n">naux</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">))</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">if</span> <span class="n">cderi_mo_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cderi_mo_neg</span> <span class="o">=</span> <span class="n">cderi_mo_neg</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">return</span> <span class="n">cderi_mo</span><span class="p">,</span> <span class="n">cderi_mo_neg</span>
+
+    <span class="k">for</span> <span class="n">ki</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nk</span><span class="p">):</span>
+        <span class="n">kjmax</span> <span class="o">=</span> <span class="p">(</span><span class="n">ki</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">tril_kij</span> <span class="k">else</span> <span class="n">nk</span>
+        <span class="k">for</span> <span class="n">kj</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">kjmax</span><span class="p">):</span>
+            <span class="n">kk</span> <span class="o">=</span> <span class="n">kconserv</span><span class="p">[</span><span class="n">ki</span><span class="p">,</span> <span class="n">kj</span><span class="p">]</span>
+            <span class="c1"># Load entire 3c-integrals at k-point pair (ki, kj) into memory:</span>
+            <span class="n">kpts_ij</span> <span class="o">=</span> <span class="p">(</span><span class="n">kpts</span><span class="p">[</span><span class="n">ki</span><span class="p">],</span> <span class="n">kpts</span><span class="p">[</span><span class="n">kj</span><span class="p">])</span>
+            <span class="n">blk0</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">labr</span><span class="p">,</span> <span class="n">labi</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">gdf</span><span class="o">.</span><span class="n">sr_loop</span><span class="p">(</span><span class="n">kpts_ij</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="n">blksize</span><span class="p">):</span>
+                <span class="n">blk1</span> <span class="o">=</span> <span class="n">blk0</span> <span class="o">+</span> <span class="n">labr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">blk0</span><span class="p">:</span><span class="n">blk1</span><span class="p">]</span>
+                <span class="n">blk0</span> <span class="o">=</span> <span class="n">blk1</span>
+                <span class="n">lab</span> <span class="o">=</span> <span class="p">(</span><span class="n">labr</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">labi</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nao</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sign</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">lij</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">lab</span><span class="p">,</span> <span class="n">mo1</span><span class="p">[</span><span class="n">ki</span><span class="p">],</span> <span class="n">mo2</span><span class="p">[</span><span class="n">kj</span><span class="p">])</span>
+                    <span class="n">cderi_mo</span><span class="p">[</span><span class="n">kk</span><span class="p">,</span> <span class="n">blk</span><span class="p">]</span> <span class="o">+=</span> <span class="n">lij</span>
+                    <span class="k">if</span> <span class="n">tril_kij</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ki</span> <span class="o">&gt;</span> <span class="n">kj</span><span class="p">):</span>
+                        <span class="n">kk</span> <span class="o">=</span> <span class="n">kconserv</span><span class="p">[</span><span class="n">kj</span><span class="p">,</span> <span class="n">ki</span><span class="p">]</span>
+                        <span class="n">lij</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">lab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo1</span><span class="p">[</span><span class="n">kj</span><span class="p">],</span> <span class="n">mo2</span><span class="p">[</span><span class="n">ki</span><span class="p">])</span>
+                        <span class="n">cderi_mo</span><span class="p">[</span><span class="n">kk</span><span class="p">,</span> <span class="n">blk</span><span class="p">]</span> <span class="o">+=</span> <span class="n">lij</span>
+                <span class="c1"># For 2D systems:</span>
+                <span class="k">elif</span> <span class="n">sign</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="p">(</span><span class="n">ki</span> <span class="o">==</span> <span class="n">kj</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">sign</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">lab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">cderi_mo_neg</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lab,ai,bj-&gt;Lij&quot;</span><span class="p">,</span> <span class="n">lab</span><span class="p">,</span> <span class="n">mo1</span><span class="p">[</span><span class="n">ki</span><span class="p">]</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">mo2</span><span class="p">[</span><span class="n">kj</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sign = </span><span class="si">%f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sign</span><span class="p">)</span>
+
+    <span class="n">cderi_mo</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nk</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cderi_mo_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cderi_mo_neg</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nk</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">make_real</span><span class="p">:</span>
+        <span class="c1"># kR,kLij-&gt;RLij</span>
+        <span class="n">cderi_mo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">cderi_mo</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">cderi_mo</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">im</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Imaginary part of (L|ij)= </span><span class="si">%.2e</span><span class="s2"> !!!&quot;</span><span class="p">,</span> <span class="n">im</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">im</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Imaginary part of (L|ij)= </span><span class="si">%.2e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">im</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Imaginary part of (L|ij)= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">im</span><span class="p">)</span>
+        <span class="n">cderi_mo</span> <span class="o">=</span> <span class="n">cderi_mo</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">if</span> <span class="n">cderi_mo_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">cderi_mo_neg</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">1e-10</span>
+            <span class="n">cderi_mo_neg</span> <span class="o">=</span> <span class="n">cderi_mo_neg</span><span class="o">.</span><span class="n">real</span>
+
+    <span class="n">cderi_mo</span> <span class="o">=</span> <span class="n">cderi_mo</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nk</span> <span class="o">*</span> <span class="n">naux</span><span class="p">,</span> <span class="n">nmo1</span><span class="p">,</span> <span class="n">nmo2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">cderi_mo</span><span class="p">,</span> <span class="n">cderi_mo_neg</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.gto</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.df</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.tools</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.core.ao2mo</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">kao2gmo</span>  <span class="c1"># import gdf_to_eris</span>
+
+    <span class="n">card</span> <span class="o">=</span> <span class="s2">&quot;D&quot;</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mf">20.0</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;He 0 0 0&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pV</span><span class="si">%s</span><span class="s2">Z&quot;</span> <span class="o">%</span> <span class="n">card</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">dimension</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+    <span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># kmesh = [3,3,3]</span>
+    <span class="n">kpts</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">make_kpts</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">GDF</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+    <span class="n">gdf</span><span class="o">.</span><span class="n">auxbasis</span> <span class="o">=</span> <span class="s2">&quot;cc-pV</span><span class="si">%s</span><span class="s2">Z-ri&quot;</span> <span class="o">%</span> <span class="n">card</span>
+    <span class="n">gdf</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+    <span class="n">scell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">super_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">)</span>
+    <span class="n">sgdf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">GDF</span><span class="p">(</span><span class="n">scell</span><span class="p">)</span>
+    <span class="n">sgdf</span><span class="o">.</span><span class="n">auxbasis</span> <span class="o">=</span> <span class="s2">&quot;cc-pV</span><span class="si">%s</span><span class="s2">Z-ri&quot;</span> <span class="o">%</span> <span class="n">card</span>
+    <span class="n">sgdf</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Naux= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sgdf</span><span class="o">.</span><span class="n">auxcell</span><span class="o">.</span><span class="n">nao</span><span class="p">)</span>
+
+    <span class="n">nao_sc</span> <span class="o">=</span> <span class="n">scell</span><span class="o">.</span><span class="n">nao</span>
+    <span class="c1"># mf = pyscf.pbc.dft.RKS(scell)</span>
+    <span class="c1"># mf.with_df = sgdf</span>
+    <span class="c1"># mf.max_cycle = 1</span>
+    <span class="c1"># mf.kernel()</span>
+    <span class="c1"># mo_coeff = mf.mo_coeff</span>
+    <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nao_sc</span><span class="p">,</span> <span class="n">nao_sc</span><span class="p">)</span>
+
+    <span class="c1"># Exact</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+    <span class="n">seri</span> <span class="o">=</span> <span class="n">sgdf</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">nao_sc</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Time SC= </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+    <span class="c1"># Old code</span>
+    <span class="n">nocc</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+    <span class="n">eris_old</span> <span class="o">=</span> <span class="n">kao2gmo</span><span class="o">.</span><span class="n">gdf_to_eris</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">nocc</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Time old= </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">Object</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="n">eris_old_2</span> <span class="o">=</span> <span class="n">Object</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">eris_old</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">eris_old_2</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+    <span class="n">eris_old_2</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao_sc</span><span class="p">,</span> <span class="n">nao_sc</span><span class="p">))</span>
+    <span class="n">eris_old_2</span><span class="o">.</span><span class="n">nocc</span> <span class="o">=</span> <span class="n">nocc</span>
+    <span class="n">eris_old</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">helper</span><span class="o">.</span><span class="n">get_full_array</span><span class="p">(</span><span class="n">eris_old_2</span><span class="p">)</span>
+
+    <span class="n">mo_occ</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="p">:</span><span class="n">nocc</span><span class="p">]</span>
+    <span class="n">mo_vir</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">nocc</span><span class="p">:]</span>
+
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+    <span class="n">cderi</span><span class="p">,</span> <span class="n">cderi_neg</span> <span class="o">=</span> <span class="n">kao2gmo_cderi</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">),</span> <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">make_real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># cderi_oo, cderi_neg_oo = kao2gmo_gdf(gdf, (mo_occ, mo_occ), driver=&#39;python&#39;)</span>
+    <span class="c1"># cderi_ov, cderi_neg_ov = kao2gmo_gdf(gdf, (mo_occ, mo_vir), driver=&#39;python&#39;)</span>
+    <span class="c1"># cderi_vv, cderi_neg_vv = kao2gmo_gdf(gdf, (mo_vir, mo_vir), driver=&#39;python&#39;)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Time k(Py)= </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+    <span class="n">eri</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lij,Lkl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">cderi</span><span class="o">.</span><span class="n">conj</span><span class="p">(),</span> <span class="n">cderi</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cderi_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">eri</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lij,Lkl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">)</span>
+
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+    <span class="n">cderi</span><span class="p">,</span> <span class="n">cderi_neg</span> <span class="o">=</span> <span class="n">kao2gmo_cderi</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">),</span> <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;c&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Time k(C)= </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+    <span class="n">eri2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lij,Lkl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">cderi</span><span class="p">,</span> <span class="n">cderi</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cderi_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">eri2</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lij,Lkl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">)</span>
+
+    <span class="c1"># print(seri[0,0,0,:])</span>
+    <span class="c1"># print(eri[0,0,0,:])</span>
+    <span class="c1"># print(eris_old[0,0,0,:])</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eri</span> <span class="o">-</span> <span class="n">seri</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eri2</span> <span class="o">-</span> <span class="n">seri</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eris_old</span> <span class="o">-</span> <span class="n">seri</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eris_old</span> <span class="o">-</span> <span class="n">eri</span><span class="p">))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

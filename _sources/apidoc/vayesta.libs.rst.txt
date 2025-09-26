@@ -1,0 +1,21 @@
+vayesta.libs
+============
+
+Submodules
+----------
+
+vayesta.libs.libcore
+--------------------
+
+.. automodule:: vayesta.libs.libcore
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.libs
+   :members:
+   :undoc-members:
+   :show-inheritance:

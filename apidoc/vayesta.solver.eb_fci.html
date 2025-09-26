@@ -1,0 +1,722 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.eb_fci &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="vayesta.solver" href="vayesta.solver.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.eb_fci</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.solver.eb_fci.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-solver-eb-fci">
+<h1>vayesta.solver.eb_fci<a class="headerlink" href="#vayesta-solver-eb-fci" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.solver.eb_fci.ebfci">
+<span id="vayesta-solver-eb-fci-ebfci"></span><h2>vayesta.solver.eb_fci.ebfci<a class="headerlink" href="#module-vayesta.solver.eb_fci.ebfci" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci.</span></span><span class="sig-name descname"><span class="pre">REBFCI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hamil</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">couplings</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Performs FCI on coupled electron-boson systems.
+Input:</p>
+<blockquote>
+<div><p>-system specification, via hamiltonian object along with bosonic parameters.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Output:</dt><dd><p>-FCI RDMs.
+-FCI response specification.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.solver">
+<span class="sig-name descname"><span class="pre">solver</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;module</span> <span class="pre">'vayesta.solver.eb_fci.ebfci_slow'</span> <span class="pre">from</span> <span class="pre">'/home/runner/.local/lib/python3.10/site-packages/vayesta/solver/eb_fci/ebfci_slow.py'&gt;</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.solver" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_boson_occ</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conv_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.Options"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="vayesta.core.html#vayesta.core.util.OptionsBase" title="vayesta.core.util.OptionsBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptionsBase</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.max_boson_occ">
+<span class="sig-name descname"><span class="pre">max_boson_occ</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.max_boson_occ" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.conv_tol">
+<span class="sig-name descname"><span class="pre">conv_tol</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-12</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.conv_tol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.max_cycle">
+<span class="sig-name descname"><span class="pre">max_cycle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.max_cycle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.asdict">
+<span class="sig-name descname"><span class="pre">asdict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deepcopy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.asdict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.change_dict_defaults">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">change_dict_defaults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.change_dict_defaults" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.dict_with_defaults">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dict_with_defaults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.dict_with_defaults" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.get" title="Link to this definition"></a></dt>
+<dd><p>Dictionary-like access to attributes.
+Allows the definition of a default value, of the attribute is not present.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.get_default">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.get_default" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.get_default_factory">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_default_factory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.get_default_factory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.items" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.keys" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.replace">
+<span class="sig-name descname"><span class="pre">replace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.replace" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.update" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.Options.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.Options.values" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.nelec">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nelec</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.nelec" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.nbos">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nbos</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.nbos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.get_hamil">
+<span class="sig-name descname"><span class="pre">get_hamil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.get_hamil"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.get_hamil" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm1">
+<span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.make_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm2">
+<span class="sig-name descname"><span class="pre">make_rdm2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.make_rdm2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm12">
+<span class="sig-name descname"><span class="pre">make_rdm12</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.make_rdm12"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm_eb">
+<span class="sig-name descname"><span class="pre">make_rdm_eb</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.make_rdm_eb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.make_rdm_eb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.REBFCI.make_dd_moms">
+<span class="sig-name descname"><span class="pre">make_dd_moms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">civec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#REBFCI.make_dd_moms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.REBFCI.make_dd_moms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci.</span></span><span class="sig-name descname"><span class="pre">UEBFCI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hamil</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">couplings</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#UEBFCI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.solver.eb_fci.ebfci.REBFCI" title="vayesta.solver.eb_fci.ebfci.REBFCI"><code class="xref py py-class docutils literal notranslate"><span class="pre">REBFCI</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.solver">
+<span class="sig-name descname"><span class="pre">solver</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">&lt;module</span> <span class="pre">'vayesta.solver.eb_fci.uebfci_slow'</span> <span class="pre">from</span> <span class="pre">'/home/runner/.local/lib/python3.10/site-packages/vayesta/solver/eb_fci/uebfci_slow.py'&gt;</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.solver" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm12">
+<span class="sig-name descname"><span class="pre">make_rdm12</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci.html#UEBFCI.make_rdm12"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_boson_occ</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conv_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="vayesta.core.html#vayesta.core.util.OptionsBase" title="vayesta.core.util.OptionsBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptionsBase</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.asdict">
+<span class="sig-name descname"><span class="pre">asdict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deepcopy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.asdict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.change_dict_defaults">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">change_dict_defaults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.change_dict_defaults" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.conv_tol">
+<span class="sig-name descname"><span class="pre">conv_tol</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-12</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.conv_tol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.dict_with_defaults">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dict_with_defaults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.dict_with_defaults" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get" title="Link to this definition"></a></dt>
+<dd><p>Dictionary-like access to attributes.
+Allows the definition of a default value, of the attribute is not present.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get_default">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get_default" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get_default_factory">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_default_factory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.get_default_factory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.items" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.keys" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.max_boson_occ">
+<span class="sig-name descname"><span class="pre">max_boson_occ</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.max_boson_occ" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.max_cycle">
+<span class="sig-name descname"><span class="pre">max_cycle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.max_cycle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.replace">
+<span class="sig-name descname"><span class="pre">replace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.replace" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.update" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.Options.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.Options.values" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.get_hamil">
+<span class="sig-name descname"><span class="pre">get_hamil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.get_hamil" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.make_dd_moms">
+<span class="sig-name descname"><span class="pre">make_dd_moms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">civec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.make_dd_moms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm1">
+<span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm2">
+<span class="sig-name descname"><span class="pre">make_rdm2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm_eb">
+<span class="sig-name descname"><span class="pre">make_rdm_eb</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.make_rdm_eb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.nbos">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nbos</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.nbos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.nelec">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nelec</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.nelec" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci.UEBFCI.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci.UEBFCI.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.solver.eb_fci.ebfci_slow">
+<span id="vayesta-solver-eb-fci-ebfci-slow"></span><h2>vayesta.solver.eb_fci.ebfci_slow<a class="headerlink" href="#module-vayesta.solver.eb_fci.ebfci_slow" title="Link to this heading"></a></h2>
+<p>Module for slow, exact diagonalisation-based coupled electron-boson FCI code.
+Based on the fci_slow.py code within pyscf.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_all">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norbs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_all" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_shape">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">norbs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_shape" title="Link to this definition"></a></dt>
+<dd><p>Construct the shape of a single FCI vector in the coupled electron-boson space.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_1e">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_1e</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_1e"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_1e" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_2e">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_2e</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_2e"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_2e" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_ep">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_ep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">heb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_ep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_ep" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_pp">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_pp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_pp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_pp" title="Link to this definition"></a></dt>
+<dd><p>Arbitrary phonon-phonon coupling.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.apply_bos_annihilation">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">apply_bos_annihilation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#apply_bos_annihilation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.apply_bos_annihilation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.apply_bos_creation">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">apply_bos_creation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#apply_bos_creation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.apply_bos_creation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.contract_pp_for_future">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_pp_for_future</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#contract_pp_for_future"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.contract_pp_for_future" title="Link to this definition"></a></dt>
+<dd><p>Our bosons are decoupled; only have diagonal couplings,
+ie. to the boson number.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.slices_for">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#slices_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.slices_for" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.slices_for_cre">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_cre</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#slices_for_cre"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.slices_for_cre" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.slices_for_des">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_des</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#slices_for_des"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.slices_for_des" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.slices_for_occ_reduction">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_occ_reduction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#slices_for_occ_reduction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.slices_for_occ_reduction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_hdiag">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_hdiag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_hdiag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_hdiag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.kernel">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.kernel_multiroot">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">kernel_multiroot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nroots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#kernel_multiroot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.kernel_multiroot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_rdm1">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_rdm1" title="Link to this definition"></a></dt>
+<dd><p>1-electron density matrix dm_pq = &lt;<a href="#id1"><span class="problematic" id="id2">|p^+ q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_rdm12">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm12</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_rdm12"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_rdm12" title="Link to this definition"></a></dt>
+<dd><p>1-electron and 2-electron density matrices
+dm_qp = &lt;<a href="#id3"><span class="problematic" id="id4">|q^+ p|</span></a>&gt;
+dm_{pqrs} = &lt;<a href="#id5"><span class="problematic" id="id6">|p^+ r^+ s q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_rdm12s">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm12s</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_rdm12s"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_rdm12s" title="Link to this definition"></a></dt>
+<dd><p>1-electron and 2-electron spin-resolved density matrices
+dm_qp = &lt;<a href="#id7"><span class="problematic" id="id8">|q^+ p|</span></a>&gt;
+dm_{pqrs} = &lt;<a href="#id9"><span class="problematic" id="id10">|p^+ r^+ s q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.make_eb_rdm">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_eb_rdm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#make_eb_rdm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.make_eb_rdm" title="Link to this definition"></a></dt>
+<dd><p>We calculate the value &lt;0|b^+ p^+ q|0&gt; and return this in value P[p,q,b]
+:param fcivec:
+:param norb:
+:param nelec:
+:param max_occ:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.calc_dd_resp_mom">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">calc_dd_resp_mom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_boson_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rdm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#calc_dd_resp_mom"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.calc_dd_resp_mom" title="Link to this definition"></a></dt>
+<dd><p>Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace
+preceding function.
+:param m: maximum moment order of response to return.
+:param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying</p>
+<blockquote>
+<div><p>orthogonal basis hfbas is specified in (defaults to False).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.run">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nroots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.run" title="Link to this definition"></a></dt>
+<dd><p>run a calculation using a pyscf mf object.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.run_hub_test">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run_hub_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#run_hub_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.run_hub_test" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.ebfci_slow.run_ep_hubbard">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.ebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run_ep_hubbard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nphonon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/ebfci_slow.html#run_ep_hubbard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.ebfci_slow.run_ep_hubbard" title="Link to this definition"></a></dt>
+<dd><p>Run a calculation using a hubbard model coupled to some phonon modes.</p>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.solver.eb_fci.uebfci_slow">
+<span id="vayesta-solver-eb-fci-uebfci-slow"></span><h2>vayesta.solver.eb_fci.uebfci_slow<a class="headerlink" href="#module-vayesta.solver.eb_fci.uebfci_slow" title="Link to this heading"></a></h2>
+<p>Module for slow, exact diagonalisation-based coupled electron-boson FCI code.
+Based on the fci_slow.py code within pyscf.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_all">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norbs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_all" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_shape">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">norbs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_shape" title="Link to this definition"></a></dt>
+<dd><p>Construct the shape of a single FCI vector in the coupled electron-boson space.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_1e">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_1e</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_1e"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_1e" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_2e">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_2e</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_2e"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_2e" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_ep">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_ep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">heb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_ep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_ep" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_pp">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_pp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_pp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_pp" title="Link to this definition"></a></dt>
+<dd><p>Arbitrary phonon-phonon coupling.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.apply_bos_annihilation">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">apply_bos_annihilation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#apply_bos_annihilation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.apply_bos_annihilation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.apply_bos_creation">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">apply_bos_creation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#apply_bos_creation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.apply_bos_creation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.contract_pp_for_future">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">contract_pp_for_future</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#contract_pp_for_future"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.contract_pp_for_future" title="Link to this definition"></a></dt>
+<dd><p>Our bosons are decoupled; only have diagonal couplings,
+ie. to the boson number.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.slices_for">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#slices_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.slices_for" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.slices_for_cre">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_cre</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#slices_for_cre"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.slices_for_cre" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.slices_for_des">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_des</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#slices_for_des"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.slices_for_des" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.slices_for_occ_reduction">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">slices_for_occ_reduction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#slices_for_occ_reduction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.slices_for_occ_reduction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_hdiag">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_hdiag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_hdiag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_hdiag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.kernel">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.kernel_multiroot">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">kernel_multiroot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cycle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nroots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_zero_pho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#kernel_multiroot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.kernel_multiroot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_rdm1">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_rdm1" title="Link to this definition"></a></dt>
+<dd><p>1-electron density matrix dm_pq = &lt;<a href="#id11"><span class="problematic" id="id12">|p^+ q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_rdm12">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm12</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_rdm12"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_rdm12" title="Link to this definition"></a></dt>
+<dd><p>1-electron and 2-electron density matrices
+dm_qp = &lt;<a href="#id13"><span class="problematic" id="id14">|q^+ p|</span></a>&gt;
+dm_{pqrs} = &lt;<a href="#id15"><span class="problematic" id="id16">|p^+ r^+ s q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_rdm12s">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_rdm12s</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reorder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_rdm12s"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_rdm12s" title="Link to this definition"></a></dt>
+<dd><p>1-electron and 2-electron spin-resolved density matrices
+dm_qp = &lt;<a href="#id17"><span class="problematic" id="id18">|q^+ p|</span></a>&gt;
+dm_{pqrs} = &lt;<a href="#id19"><span class="problematic" id="id20">|p^+ r^+ s q|</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.make_eb_rdm">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">make_eb_rdm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fcivec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbosons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#make_eb_rdm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.make_eb_rdm" title="Link to this definition"></a></dt>
+<dd><p>We calculate the value &lt;0|b^+ p^+ q|0&gt; and return this in value P[p,q,b]
+:param fcivec:
+:param norb:
+:param nelec:
+:param max_occ:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.calc_dd_resp_mom">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">calc_dd_resp_mom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ci0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_boson_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rdm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#calc_dd_resp_mom"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.calc_dd_resp_mom" title="Link to this definition"></a></dt>
+<dd><p>Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace
+preceding function.
+:param m: maximum moment order of response to return.
+:param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying</p>
+<blockquote>
+<div><p>orthogonal basis hfbas is specified in (defaults to False).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.run">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h1e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hpp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nroots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.run" title="Link to this definition"></a></dt>
+<dd><p>run a calculation using a pyscf mf object.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.run_hub_test">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run_hub_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#run_hub_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.run_hub_test" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.solver.eb_fci.uebfci_slow.run_ep_hubbard">
+<span class="sig-prename descclassname"><span class="pre">vayesta.solver.eb_fci.uebfci_slow.</span></span><span class="sig-name descname"><span class="pre">run_ep_hubbard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nelec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nphonon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnhop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/solver/eb_fci/uebfci_slow.html#run_ep_hubbard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.solver.eb_fci.uebfci_slow.run_ep_hubbard" title="Link to this definition"></a></dt>
+<dd><p>Run a calculation using a hubbard model coupled to some phonon modes.</p>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.solver.eb_fci">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.solver.eb_fci" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.solver.html" class="btn btn-neutral float-left" title="vayesta.solver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

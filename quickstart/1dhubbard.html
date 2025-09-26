@@ -1,0 +1,177 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Hamiltonians &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Custom Hamiltonians</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/1dhubbard.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="custom-hamiltonians">
+<span id="dhubbard"></span><h1>Custom Hamiltonians<a class="headerlink" href="#custom-hamiltonians" title="Link to this heading"></a></h1>
+<p>Model Hamiltonians are commonly used for simulating systems of interest both in Quantum Chemistry calculations as well as in Condensed-matter studies.
+<a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> enables the creation of customized Hamiltonians by employing the module <cite>ref:lattmod</cite> and the functions <cite>ref:Hubbard_1d</cite> and <cite>ref:LatticeMF</cite>
+contained in this class.</p>
+<p>To perform calculations using this feature, the required modules should be imported as shown in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.ewf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.lattmod</span>
+</pre></div>
+</div>
+<p>The initial conditions for an user-defined Hubbard’s model are declared as shown in the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nsite</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">nelectron</span> <span class="o">=</span> <span class="n">nsite</span>
+<span class="n">hubbard_u</span> <span class="o">=</span> <span class="mf">2.0</span>
+</pre></div>
+</div>
+<p>The creation of the Lattice model is performed automatically by <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> using these commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nsite</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">nelectron</span> <span class="o">=</span> <span class="n">nsite</span>
+<span class="n">hubbard_u</span> <span class="o">=</span> <span class="mf">2.0</span>
+</pre></div>
+</div>
+<p>where the function <cite>ref:Hubbard1D</cite> is specialized to create a 1-D Hubbard’s model based on the user-defined variables such as <em>nsite</em>, <em>nelectron</em>, and
+<em>hubbard_u</em>. An important feature of <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> is the way in which desired properties are printed and stored. This is done in a new folder created in the
+current working directory and called <strong>vayesta_output</strong> where a <em>log_file</em> and <em>error_log</em> are placed. The user has the possibility to name the output
+file provided in <cite>ref:Hubbard1D</cite> function.</p>
+<p>The declared model can be further studied by using the module <cite>ref:LatticeMF</cite>, where a mean-field calculation can be carried out using the object created
+in <cite>ref:Hubbard1D</cite> function as is shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mf</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">lattmod</span><span class="o">.</span><span class="n">LatticeMF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Likewise, the  <cite>ref:LatticeMf</cite> function will automatically select to carry out between <strong>HF</strong> or <strong>UHF</strong> mean-field methods based on the total spin
+number.</p>
+<p>The <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> embedding methods can be further used to numerically study these systems as introduced in the previous tutorials. In this sense, the
+<cite>ref:EWF</cite> function employs the <em>mf</em> object created by <cite>ref:LatticeMF</cite> and complemented with the options <em>bno_threshold</em> and the option <em>fragment_type</em>
+which indicates the use of <strong>sites</strong> instead of <strong>atoms</strong> as displayed in the following snipet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ewf</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">fragment_type</span><span class="o">=</span><span class="s2">&quot;Site&quot;</span><span class="p">)</span>
+<span class="n">ewf</span><span class="o">.</span><span class="n">site_fragmentation</span><span class="p">()</span>
+<span class="n">ewf</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sym_factor</span><span class="o">=</span><span class="n">nsite</span><span class="p">)</span>
+<span class="n">ewf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The fragmentation procedure is carried out in the function <cite>ref:site_fragmentation</cite> and all the corresponding fragements are added utilizing the function
+<cite>ref:add_atomic_fragment</cite>. At this point, the extension of the embedding can be declared as a first argument of this function, where the combination
+<strong>0</strong> and <strong>sym_factor=nsite</strong> indicates a single-site embedding. The corresponding calculation is performed using the attribute <strong>.kernel()</strong>. The
+energy per electron can be computed for both cases (i.e MF and EWF) as indicated below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(MF)=       </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">/</span> <span class="n">nelectron</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(EWF-CCSD)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ewf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">/</span> <span class="n">nelectron</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Due to the flexibility of the embedding methodology different combinations of site-size clusters can be explored. To do so, the function
+‘ref:add_atomic_fragment’ should be correspondingly changed. As an example, a double-site embedding can be declared as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ewf</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sym_factor</span><span class="o">=</span><span class="n">nsite</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+
+</pre></div>
+</div>
+<p>where the arguments <strong>[0,1]</strong> and <strong>sym_factor=nsite//2</strong> indicates the use of a <em>dimerized</em> version of the 1-D Hubbard’s model which is depicted in
+<strong>Figure(1)</strong>.</p>
+<figure class="align-center" id="id1">
+<img alt="aperiodic hubbard model" src="../_images/1dhubbfig.png" />
+<figcaption>
+<p><span class="caption-text"><strong>Figure(1)</strong> Schematic depiction of the 1-D Hubbard model, half filling with double-site embedding fragmentation.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Finally, the results for this calculation can be obtained as indicated in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(MF)=       </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">/</span> <span class="n">nelectron</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(EWF-CCSD)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ewf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">/</span> <span class="n">nelectron</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

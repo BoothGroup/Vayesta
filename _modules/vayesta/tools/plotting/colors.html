@@ -1,0 +1,229 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.tools.plotting.colors &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.tools.plotting.colors</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.tools.plotting.colors</h1><div class="highlight"><pre>
+<span></span><span class="n">colors_jmol</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;He&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">217</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;Li&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">204</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Be&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">194</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">181</span><span class="p">,</span> <span class="mi">181</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">144</span><span class="p">,</span> <span class="mi">144</span><span class="p">,</span> <span class="mi">144</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">48</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">248</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">13</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">144</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">80</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;Ne&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">179</span><span class="p">,</span> <span class="mi">227</span><span class="p">,</span> <span class="mi">245</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;Na&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">171</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">242</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="s2">&quot;Mg&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">138</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="s2">&quot;Al&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">191</span><span class="p">,</span> <span class="mi">166</span><span class="p">,</span> <span class="mi">166</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="s2">&quot;Si&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">240</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">160</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">48</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">31</span><span class="p">,</span> <span class="mi">240</span><span class="p">,</span> <span class="mi">31</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="s2">&quot;Ar&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">209</span><span class="p">,</span> <span class="mi">227</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">19</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">143</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">212</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Ca&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">61</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">21</span><span class="p">,</span> <span class="s2">&quot;Sc&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">230</span><span class="p">,</span> <span class="mi">230</span><span class="p">,</span> <span class="mi">230</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="s2">&quot;Ti&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">191</span><span class="p">,</span> <span class="mi">194</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">166</span><span class="p">,</span> <span class="mi">171</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;Cr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">138</span><span class="p">,</span> <span class="mi">153</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;Mn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">156</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">26</span><span class="p">,</span> <span class="s2">&quot;Fe&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">224</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">51</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="s2">&quot;Co&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">240</span><span class="p">,</span> <span class="mi">144</span><span class="p">,</span> <span class="mi">160</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="s2">&quot;Ni&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">80</span><span class="p">,</span> <span class="mi">208</span><span class="p">,</span> <span class="mi">80</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">29</span><span class="p">,</span> <span class="s2">&quot;Cu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">51</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="s2">&quot;Zn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">125</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">176</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">31</span><span class="p">,</span> <span class="s2">&quot;Ga&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">194</span><span class="p">,</span> <span class="mi">143</span><span class="p">,</span> <span class="mi">143</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;Ge&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">143</span><span class="p">,</span> <span class="mi">143</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">33</span><span class="p">,</span> <span class="s2">&quot;As&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">189</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">227</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">34</span><span class="p">,</span> <span class="s2">&quot;Se&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">161</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">35</span><span class="p">,</span> <span class="s2">&quot;Br&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">41</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">36</span><span class="p">,</span> <span class="s2">&quot;Kr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">92</span><span class="p">,</span> <span class="mi">184</span><span class="p">,</span> <span class="mi">209</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">37</span><span class="p">,</span> <span class="s2">&quot;Rb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">112</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">176</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">38</span><span class="p">,</span> <span class="s2">&quot;Sr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">39</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">148</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="s2">&quot;Zr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">148</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">41</span><span class="p">,</span> <span class="s2">&quot;Nb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">115</span><span class="p">,</span> <span class="mi">194</span><span class="p">,</span> <span class="mi">201</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="s2">&quot;Mo&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">84</span><span class="p">,</span> <span class="mi">181</span><span class="p">,</span> <span class="mi">181</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">43</span><span class="p">,</span> <span class="s2">&quot;Tc&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">59</span><span class="p">,</span> <span class="mi">158</span><span class="p">,</span> <span class="mi">158</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">44</span><span class="p">,</span> <span class="s2">&quot;Ru&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">36</span><span class="p">,</span> <span class="mi">143</span><span class="p">,</span> <span class="mi">143</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">45</span><span class="p">,</span> <span class="s2">&quot;Rh&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">125</span><span class="p">,</span> <span class="mi">140</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">46</span><span class="p">,</span> <span class="s2">&quot;Pd&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">133</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">47</span><span class="p">,</span> <span class="s2">&quot;Ag&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">192</span><span class="p">,</span> <span class="mi">192</span><span class="p">,</span> <span class="mi">192</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">48</span><span class="p">,</span> <span class="s2">&quot;Cd&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">217</span><span class="p">,</span> <span class="mi">143</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">49</span><span class="p">,</span> <span class="s2">&quot;In&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">117</span><span class="p">,</span> <span class="mi">115</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="s2">&quot;Sn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">51</span><span class="p">,</span> <span class="s2">&quot;Sb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">158</span><span class="p">,</span> <span class="mi">99</span><span class="p">,</span> <span class="mi">181</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">52</span><span class="p">,</span> <span class="s2">&quot;Te&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">212</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">53</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">148</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">148</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">54</span><span class="p">,</span> <span class="s2">&quot;Xe&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">66</span><span class="p">,</span> <span class="mi">158</span><span class="p">,</span> <span class="mi">176</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">55</span><span class="p">,</span> <span class="s2">&quot;Cs&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">87</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">143</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">56</span><span class="p">,</span> <span class="s2">&quot;Ba&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">201</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">57</span><span class="p">,</span> <span class="s2">&quot;La&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">112</span><span class="p">,</span> <span class="mi">212</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">58</span><span class="p">,</span> <span class="s2">&quot;Ce&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">59</span><span class="p">,</span> <span class="s2">&quot;Pr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">217</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="s2">&quot;Nd&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">199</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">61</span><span class="p">,</span> <span class="s2">&quot;Pm&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">163</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">62</span><span class="p">,</span> <span class="s2">&quot;Sm&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">143</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">63</span><span class="p">,</span> <span class="s2">&quot;Eu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">97</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="s2">&quot;Gd&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">69</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">65</span><span class="p">,</span> <span class="s2">&quot;Tb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">48</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">66</span><span class="p">,</span> <span class="s2">&quot;Dy&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">31</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">199</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">67</span><span class="p">,</span> <span class="s2">&quot;Ho&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">156</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">68</span><span class="p">,</span> <span class="s2">&quot;Er&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">230</span><span class="p">,</span> <span class="mi">117</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">69</span><span class="p">,</span> <span class="s2">&quot;Tm&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">212</span><span class="p">,</span> <span class="mi">82</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">70</span><span class="p">,</span> <span class="s2">&quot;Yb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">191</span><span class="p">,</span> <span class="mi">56</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">71</span><span class="p">,</span> <span class="s2">&quot;Lu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">171</span><span class="p">,</span> <span class="mi">36</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">72</span><span class="p">,</span> <span class="s2">&quot;Hf&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">194</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">73</span><span class="p">,</span> <span class="s2">&quot;Ta&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">166</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">74</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">33</span><span class="p">,</span> <span class="mi">148</span><span class="p">,</span> <span class="mi">214</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">75</span><span class="p">,</span> <span class="s2">&quot;Re&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">38</span><span class="p">,</span> <span class="mi">125</span><span class="p">,</span> <span class="mi">171</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">76</span><span class="p">,</span> <span class="s2">&quot;Os&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">38</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">150</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">77</span><span class="p">,</span> <span class="s2">&quot;Ir&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">23</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="mi">135</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">78</span><span class="p">,</span> <span class="s2">&quot;Pt&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">208</span><span class="p">,</span> <span class="mi">208</span><span class="p">,</span> <span class="mi">224</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">79</span><span class="p">,</span> <span class="s2">&quot;Au&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">209</span><span class="p">,</span> <span class="mi">35</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="s2">&quot;Hg&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">184</span><span class="p">,</span> <span class="mi">184</span><span class="p">,</span> <span class="mi">208</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">81</span><span class="p">,</span> <span class="s2">&quot;Tl&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">166</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="mi">77</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">82</span><span class="p">,</span> <span class="s2">&quot;Pb&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">87</span><span class="p">,</span> <span class="mi">89</span><span class="p">,</span> <span class="mi">97</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">83</span><span class="p">,</span> <span class="s2">&quot;Bi&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">158</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">181</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="s2">&quot;Po&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">171</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">85</span><span class="p">,</span> <span class="s2">&quot;At&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">117</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">69</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">86</span><span class="p">,</span> <span class="s2">&quot;Rn&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">66</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">150</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">87</span><span class="p">,</span> <span class="s2">&quot;Fr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">66</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">102</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">88</span><span class="p">,</span> <span class="s2">&quot;Ra&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">125</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">89</span><span class="p">,</span> <span class="s2">&quot;Ac&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">112</span><span class="p">,</span> <span class="mi">171</span><span class="p">,</span> <span class="mi">250</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="s2">&quot;Th&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">186</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">91</span><span class="p">,</span> <span class="s2">&quot;Pa&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">161</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">143</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">93</span><span class="p">,</span> <span class="s2">&quot;Np&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">94</span><span class="p">,</span> <span class="s2">&quot;Pu&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">255</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">95</span><span class="p">,</span> <span class="s2">&quot;Am&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">84</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">242</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">96</span><span class="p">,</span> <span class="s2">&quot;Cm&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">120</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">227</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">97</span><span class="p">,</span> <span class="s2">&quot;Bk&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">138</span><span class="p">,</span> <span class="mi">79</span><span class="p">,</span> <span class="mi">227</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">98</span><span class="p">,</span> <span class="s2">&quot;Cf&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">161</span><span class="p">,</span> <span class="mi">54</span><span class="p">,</span> <span class="mi">212</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">99</span><span class="p">,</span> <span class="s2">&quot;Es&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">179</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">212</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;Fm&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">179</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">186</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="s2">&quot;Md&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">179</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">166</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">102</span><span class="p">,</span> <span class="s2">&quot;No&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">189</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">135</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">103</span><span class="p">,</span> <span class="s2">&quot;Lr&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">199</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">102</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">104</span><span class="p">,</span> <span class="s2">&quot;Rf&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">204</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">89</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">105</span><span class="p">,</span> <span class="s2">&quot;Db&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">209</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">79</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">106</span><span class="p">,</span> <span class="s2">&quot;Sg&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">217</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">69</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">107</span><span class="p">,</span> <span class="s2">&quot;Bh&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">224</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">56</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">108</span><span class="p">,</span> <span class="s2">&quot;Hs&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">230</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">46</span><span class="p">]),</span>
+    <span class="p">(</span><span class="mi">109</span><span class="p">,</span> <span class="s2">&quot;Mt&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">235</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">38</span><span class="p">]),</span>
+<span class="p">]</span>
+
+
+<span class="n">atom_colors</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">colors_jmol</span><span class="p">}</span>
+<span class="n">unknown</span> <span class="o">=</span> <span class="s2">&quot;#FF1493&quot;</span>
+
+
+<div class="viewcode-block" id="get_atom_color">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.tools.plotting.html#vayesta.tools.plotting.colors.get_atom_color">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_atom_color</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">unknown</span><span class="p">):</span>
+    <span class="n">sym</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">symbol</span> <span class="k">if</span> <span class="n">l</span><span class="o">.</span><span class="n">isalpha</span><span class="p">()])</span>
+    <span class="k">return</span> <span class="n">atom_colors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sym</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

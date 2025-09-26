@@ -1,0 +1,469 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.bath.dmet &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../bath.html">vayesta.core.bath</a></li>
+      <li class="breadcrumb-item active">vayesta.core.bath.dmet</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.bath.dmet</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">fix_orbital_sign</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.bath.bath</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bath</span>
+
+<span class="n">DEFAULT_DMET_THRESHOLD</span> <span class="o">=</span> <span class="mf">1e-6</span>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DMET_Bath_RHF</span><span class="p">(</span><span class="n">Bath</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">dmet_threshold</span><span class="o">=</span><span class="n">DEFAULT_DMET_THRESHOLD</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fragment</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dmet_threshold</span> <span class="o">=</span> <span class="n">dmet_threshold</span>
+        <span class="c1"># Output</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_dmet</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_dmet</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_occ</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_vir</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_env_occ</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_env_vir</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dmet_bath</span> <span class="o">=</span> <span class="bp">self</span>
+
+<div class="viewcode-block" id="DMET_Bath_RHF.get_cluster_electrons">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.get_cluster_electrons">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cluster_electrons</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of cluster electrons.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.get_occupied_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.get_occupied_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_occupied_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inherited bath classes can overwrite this to return additional occupied bath orbitals.&quot;&quot;&quot;</span>
+        <span class="n">nao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_occ</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.get_virtual_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.get_virtual_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_virtual_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inherited bath classes can overwrite this to return additional virtual bath orbitals.&quot;&quot;&quot;</span>
+        <span class="n">nao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_vir</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># --- DMET bath</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Making DMET Bath&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;----------------&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">c_dmet</span><span class="p">,</span> <span class="n">n_dmet</span><span class="p">,</span> <span class="n">c_env_occ</span><span class="p">,</span> <span class="n">c_env_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_dmet_bath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_env</span><span class="p">)</span>
+
+        <span class="c1"># --- Separate occupied and virtual in cluster</span>
+        <span class="n">cluster</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span> <span class="n">c_dmet</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">_check_orthonormal</span><span class="p">(</span><span class="o">*</span><span class="n">cluster</span><span class="p">,</span> <span class="n">mo_name</span><span class="o">=</span><span class="s2">&quot;cluster MO&quot;</span><span class="p">)</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">bath_options</span><span class="p">[</span><span class="s2">&quot;occupation_tolerance&quot;</span><span class="p">]</span>
+        <span class="n">c_cluster_occ</span><span class="p">,</span> <span class="n">c_cluster_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">diagonalize_cluster_dm</span><span class="p">(</span><span class="o">*</span><span class="n">cluster</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">)</span>
+        <span class="c1"># Canonicalize</span>
+        <span class="n">c_cluster_occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">canonicalize_mo</span><span class="p">(</span><span class="n">c_cluster_occ</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">c_cluster_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">canonicalize_mo</span><span class="p">(</span><span class="n">c_cluster_vir</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">is_rhf</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Cluster orbitals:  n(occ)= </span><span class="si">%3d</span><span class="s2">  n(vir)= </span><span class="si">%3d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">c_cluster_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_cluster_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Alpha-cluster orbitals:  n(occ)= </span><span class="si">%3d</span><span class="s2">  n(vir)= </span><span class="si">%3d</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">c_cluster_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                <span class="n">c_cluster_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot; Beta-cluster orbitals:  n(occ)= </span><span class="si">%3d</span><span class="s2">  n(vir)= </span><span class="si">%3d</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">c_cluster_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                <span class="n">c_cluster_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for DMET bath:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_dmet</span> <span class="o">=</span> <span class="n">c_dmet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_dmet</span> <span class="o">=</span> <span class="n">n_dmet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_env_occ</span> <span class="o">=</span> <span class="n">c_env_occ</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_env_vir</span> <span class="o">=</span> <span class="n">c_env_vir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_occ</span> <span class="o">=</span> <span class="n">c_cluster_occ</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_vir</span> <span class="o">=</span> <span class="n">c_cluster_vir</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.get_environment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.get_environment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_vir</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.make_dmet_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_dmet_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_env</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">c_ref</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nbath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reftol</span><span class="o">=</span><span class="mf">0.8</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate DMET bath, occupied environment and virtual environment orbitals.</span>
+
+<span class="sd">        If c_ref is not None, complete DMET orbital space using active transformation of reference orbitals.</span>
+
+<span class="sd">        TODO:</span>
+<span class="sd">        * reftol should not be necessary - just determine how many DMET bath orbital N are missing</span>
+<span class="sd">        from C_ref and take the N largest eigenvalues over the combined occupied and virtual</span>
+<span class="sd">        eigenvalues.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        c_env : (n(AO), n(env)) array</span>
+<span class="sd">            MO-coefficients of environment orbitals.</span>
+<span class="sd">        dm1 : (n(AO), n(AO)) array, optional</span>
+<span class="sd">            Mean-field one-particle reduced density matrix in AO representation. If None, `self.mf.make_rdm1()` is used.</span>
+<span class="sd">            Default: None.</span>
+<span class="sd">        c_ref : ndarray, optional</span>
+<span class="sd">            Reference DMET bath orbitals from previous calculation.</span>
+<span class="sd">        nbath : int, optional</span>
+<span class="sd">            Number of DMET bath orbitals. If set, the parameter `tol` is ignored. Default: None.</span>
+<span class="sd">        tol : float, optional</span>
+<span class="sd">            Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.</span>
+<span class="sd">        reftol : float, optional</span>
+<span class="sd">            Tolerance for DMET orbitals in projection of reference orbitals.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        c_bath : (n(AO), n(bath)) array</span>
+<span class="sd">            DMET bath orbitals.</span>
+<span class="sd">        eig : n(bath) array</span>
+<span class="sd">            DMET orbital occupation numbers (in [0,1]).</span>
+<span class="sd">        c_occenv : (n(AO), n(occ. env)) array</span>
+<span class="sd">            Occupied environment orbitals.</span>
+<span class="sd">        c_virenv : (n(AO), n(vir. env)) array</span>
+<span class="sd">            Virtual environment orbitals.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># No environemnt -&gt; no bath/environment orbitals</span>
+        <span class="k">if</span> <span class="n">c_env</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">nao</span> <span class="o">=</span> <span class="n">c_env</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dmet_threshold</span>
+
+        <span class="c1"># Divide by 2 to get eigenvalues in [0,1]</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">(),</span> <span class="n">c_env</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">dm_env</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">sc</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">eig</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">dm_env</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+            <span class="n">eig</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">dm_env</span><span class="p">)</span>
+        <span class="c1"># Sort: occ. env -&gt; DMET bath -&gt; vir. env</span>
+        <span class="n">eig</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">r</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">eig</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-8</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Smallest eigenvalue of environment 1-DM below 0:  n= </span><span class="si">%.10e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">eig</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">eig</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Largest eigenvalue of environment 1-DM above 1:  n= </span><span class="si">%.10e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">eig</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="n">c_env</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c_env</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+        <span class="n">c_env</span> <span class="o">=</span> <span class="n">fix_orbital_sign</span><span class="p">(</span><span class="n">c_env</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">nbath</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># FIXME</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+            <span class="c1"># Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.</span>
+            <span class="n">abseig</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">eig</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">eig</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">))])</span>
+            <span class="n">low</span><span class="p">,</span> <span class="n">up</span> <span class="o">=</span> <span class="n">abseig</span><span class="p">[</span><span class="n">nbath</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">abseig</span><span class="p">[</span><span class="n">nbath</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">low</span> <span class="o">-</span> <span class="n">up</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-14</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Degeneracy in env. DM does not allow for clear identification of </span><span class="si">%d</span><span class="s2"> bath orbitals!</span><span class="se">\n</span><span class="s2">abs(eig)= </span><span class="si">%r</span><span class="s2">&quot;</span>
+                    <span class="o">%</span> <span class="p">(</span><span class="n">nbath</span><span class="p">,</span> <span class="n">abseig</span><span class="p">[:</span> <span class="n">nbath</span> <span class="o">+</span> <span class="mi">5</span><span class="p">])</span>
+                <span class="p">)</span>
+            <span class="n">tol</span> <span class="o">=</span> <span class="p">(</span><span class="n">low</span> <span class="o">+</span> <span class="n">up</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Tolerance for </span><span class="si">%3d</span><span class="s2"> bath orbitals= </span><span class="si">%.8g</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">nbath</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+
+        <span class="n">mask_bath</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">eig</span> <span class="o">&gt;=</span> <span class="n">tol</span><span class="p">,</span> <span class="n">eig</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tol</span><span class="p">)</span>
+        <span class="n">mask_occenv</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tol</span>
+        <span class="n">mask_virenv</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&lt;</span> <span class="n">tol</span>
+        <span class="n">nbath</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mask_bath</span><span class="p">)</span>
+
+        <span class="n">noccenv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mask_occenv</span><span class="p">)</span>
+        <span class="n">nvirenv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mask_virenv</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;DMET bath:  n(Bath)= </span><span class="si">%4d</span><span class="s2">  n(occ-Env)= </span><span class="si">%4d</span><span class="s2">  n(vir-Env)= </span><span class="si">%4d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">nbath</span><span class="p">,</span> <span class="n">noccenv</span><span class="p">,</span> <span class="n">nvirenv</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">nbath</span> <span class="o">+</span> <span class="n">noccenv</span> <span class="o">+</span> <span class="n">nvirenv</span> <span class="o">==</span> <span class="n">c_env</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">c_bath</span> <span class="o">=</span> <span class="n">c_env</span><span class="p">[:,</span> <span class="n">mask_bath</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">c_occenv</span> <span class="o">=</span> <span class="n">c_env</span><span class="p">[:,</span> <span class="n">mask_occenv</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">c_virenv</span> <span class="o">=</span> <span class="n">c_env</span><span class="p">[:,</span> <span class="n">mask_virenv</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_info</span><span class="p">(</span><span class="n">eig</span><span class="p">,</span> <span class="n">c_env</span><span class="p">)</span>
+        <span class="n">n_dmet</span> <span class="o">=</span> <span class="n">eig</span><span class="p">[</span><span class="n">mask_bath</span><span class="p">]</span>
+        <span class="c1"># Complete DMET orbital space using reference orbitals</span>
+        <span class="c1"># NOT MAINTAINED!</span>
+        <span class="k">if</span> <span class="n">c_ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">c_bath</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">,</span> <span class="n">c_virenv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ref_orbitals</span><span class="p">(</span><span class="n">c_bath</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">,</span> <span class="n">c_virenv</span><span class="p">,</span> <span class="n">c_ref</span><span class="p">,</span> <span class="n">reftol</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">c_bath</span><span class="p">,</span> <span class="n">n_dmet</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">,</span> <span class="n">c_virenv</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.make_dmet_bath_fast">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath_fast">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_dmet_bath_fast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_env</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fast DMET orbitals.</span>
+<span class="sd">        from Ref. J. Chem. Phys. 151, 064108 (2019); https://doi.org/10.1063/1.5108818</span>
+
+<span class="sd">        Problem: How to get C_occenv and C_virenv without N^3 diagonalization?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">c_occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_occ</span>
+        <span class="n">ca</span><span class="p">,</span> <span class="n">cb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span> <span class="n">c_env</span>
+        <span class="n">ra</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">ca</span><span class="p">)</span>
+        <span class="n">rb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">cb</span><span class="p">)</span>
+        <span class="n">d11</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ra</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ra</span><span class="p">)</span>
+        <span class="n">ea</span><span class="p">,</span> <span class="n">ua</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">d11</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ea</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-9</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Min eigenvalue of frag. DM = </span><span class="si">%.6e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">ea</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Max eigenvalue of frag. DM = </span><span class="si">%.6e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">ea</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="c1"># Fragment singular values:</span>
+        <span class="n">ea</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">ea</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ea</span><span class="p">)</span>
+        <span class="n">d21</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">rb</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ra</span><span class="p">)</span>
+        <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">d21</span><span class="p">,</span> <span class="n">ua</span><span class="p">)</span>
+        <span class="n">sab</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">sb</span> <span class="o">=</span> <span class="n">sab</span> <span class="o">/</span> <span class="n">sa</span>
+        <span class="n">mask_bath</span> <span class="o">=</span> <span class="n">sb</span><span class="o">**</span><span class="mi">2</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dmet_threshold</span>
+        <span class="n">ub</span> <span class="o">=</span> <span class="n">ub</span><span class="p">[:,</span> <span class="n">mask_bath</span><span class="p">]</span>
+        <span class="c1"># In AO basis</span>
+        <span class="n">c_bath</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="n">ub</span> <span class="o">/</span> <span class="n">sab</span><span class="p">[</span><span class="n">mask_bath</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">c_bath</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.log_info">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.log_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eig</span><span class="p">,</span> <span class="n">c_env</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dmet_threshold</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">eig</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">eig</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">maxocc</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Mean-field entangled orbitals:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;      Bath  Occupation  Entanglement  Character&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;      ----  ----------  ------------  ------------------------------------------------------&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">eig</span><span class="p">[</span><span class="n">mask</span><span class="p">]):</span>
+                <span class="n">bath</span> <span class="o">=</span> <span class="s2">&quot;Yes&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="n">tol</span> <span class="o">&lt;=</span> <span class="n">e</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tol</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;No&quot;</span>
+                <span class="n">entang</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">e</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e</span><span class="p">)</span>
+                <span class="c1"># Mulliken population of DMET orbital:</span>
+                <span class="n">pop</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;a,b,ba-&gt;a&quot;</span><span class="p">,</span> <span class="n">c_env</span><span class="p">[:,</span> <span class="n">mask</span><span class="p">][:,</span> <span class="n">idx</span><span class="p">],</span> <span class="n">c_env</span><span class="p">[:,</span> <span class="n">mask</span><span class="p">][:,</span> <span class="n">idx</span><span class="p">],</span> <span class="n">ovlp</span><span class="p">)</span>
+                <span class="n">sort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">pop</span><span class="p">)</span>
+                <span class="n">pop</span> <span class="o">=</span> <span class="n">pop</span><span class="p">[</span><span class="n">sort</span><span class="p">]</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">(</span><span class="kc">None</span><span class="p">))[</span><span class="n">sort</span><span class="p">][:</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pop</span><span class="p">),</span> <span class="mi">4</span><span class="p">)]</span>
+                <span class="n">char</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s%s</span><span class="s2"> (</span><span class="si">%.0f%%</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">pop</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%2d</span><span class="s2">  </span><span class="si">%4s</span><span class="s2">  </span><span class="si">%10.3g</span><span class="s2">  </span><span class="si">%12.3g</span><span class="s2">  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">bath</span><span class="p">,</span> <span class="n">e</span> <span class="o">*</span> <span class="n">maxocc</span><span class="p">,</span> <span class="n">entang</span><span class="p">,</span> <span class="n">char</span><span class="p">)</span>
+        <span class="c1"># Calculate entanglement entropy</span>
+        <span class="n">mask_bath</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">eig</span> <span class="o">&gt;=</span> <span class="n">tol</span><span class="p">,</span> <span class="n">eig</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">tol</span><span class="p">)</span>
+        <span class="n">entropy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">eig</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">eig</span><span class="p">))</span>
+        <span class="n">entropy_bath</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">eig</span><span class="p">[</span><span class="n">mask_bath</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">eig</span><span class="p">[</span><span class="n">mask_bath</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Entanglement entropy: total= </span><span class="si">%.3e</span><span class="s2">  bath= </span><span class="si">%.3e</span><span class="s2"> (</span><span class="si">%.2f</span><span class="s2"> </span><span class="si">%%</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="n">entropy</span><span class="p">,</span>
+            <span class="n">entropy_bath</span><span class="p">,</span>
+            <span class="mi">100</span> <span class="o">*</span> <span class="n">entropy_bath</span> <span class="o">/</span> <span class="n">entropy</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_RHF.use_ref_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_RHF.use_ref_orbitals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">use_ref_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_bath</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">,</span> <span class="n">c_virenv</span><span class="p">,</span> <span class="n">c_ref</span><span class="p">,</span> <span class="n">reftol</span><span class="o">=</span><span class="mf">0.8</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Not maintained!&quot;&quot;&quot;</span>
+        <span class="n">nref</span> <span class="o">=</span> <span class="n">c_ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nbath</span> <span class="o">=</span> <span class="n">c_bath</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> reference DMET orbitals given.&quot;</span><span class="p">,</span> <span class="n">nref</span><span class="p">)</span>
+        <span class="n">nmissing</span> <span class="o">=</span> <span class="n">nref</span> <span class="o">-</span> <span class="n">nbath</span>
+
+        <span class="c1"># DEBUG</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">eig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_ref_orbitals</span><span class="p">(</span><span class="n">c_ref</span><span class="p">,</span> <span class="n">c_bath</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Eigenvalues of reference orbitals projected into DMET bath:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">eig</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">nmissing</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Number of DMET orbitals equal to reference.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">nmissing</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Perform the projection separately for occupied and virtual environment space</span>
+            <span class="c1"># Otherwise, it is not guaranteed that the additional bath orbitals are</span>
+            <span class="c1"># fully (or very close to fully) occupied or virtual.</span>
+            <span class="c1"># --- Occupied</span>
+            <span class="n">C_occenv</span><span class="p">,</span> <span class="n">eig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_ref_orbitals</span><span class="p">(</span><span class="n">c_ref</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">)</span>
+            <span class="n">mask_occref</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&gt;=</span> <span class="n">reftol</span>
+            <span class="n">mask_occenv</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&lt;</span> <span class="n">reftol</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Eigenvalues of projected occupied reference: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">eig</span><span class="p">[</span><span class="n">mask_occref</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask_occenv</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Largest remaining: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">eig</span><span class="p">[</span><span class="n">mask_occenv</span><span class="p">]))</span>
+            <span class="c1"># --- Virtual</span>
+            <span class="n">c_virenv</span><span class="p">,</span> <span class="n">eig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_ref_orbitals</span><span class="p">(</span><span class="n">c_ref</span><span class="p">,</span> <span class="n">c_virenv</span><span class="p">)</span>
+            <span class="n">mask_virref</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&gt;=</span> <span class="n">reftol</span>
+            <span class="n">mask_virenv</span> <span class="o">=</span> <span class="n">eig</span> <span class="o">&lt;</span> <span class="n">reftol</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Eigenvalues of projected virtual reference: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">eig</span><span class="p">[</span><span class="n">mask_virref</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask_virenv</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Largest remaining: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">eig</span><span class="p">[</span><span class="n">mask_virenv</span><span class="p">]))</span>
+            <span class="c1"># -- Update coefficient matrices</span>
+            <span class="n">c_bath</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">c_bath</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">[:,</span> <span class="n">mask_occref</span><span class="p">],</span> <span class="n">c_virenv</span><span class="p">[:,</span> <span class="n">mask_virref</span><span class="p">]))</span>
+            <span class="n">c_occenv</span> <span class="o">=</span> <span class="n">c_occenv</span><span class="p">[:,</span> <span class="n">mask_occenv</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">c_virenv</span> <span class="o">=</span> <span class="n">c_virenv</span><span class="p">[:,</span> <span class="n">mask_virenv</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">nbath</span> <span class="o">=</span> <span class="n">c_bath</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;New number of occupied environment orbitals: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">c_occenv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;New number of virtual environment orbitals: </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">c_virenv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">nbath</span> <span class="o">!=</span> <span class="n">nref</span><span class="p">:</span>
+                <span class="n">err</span> <span class="o">=</span> <span class="s2">&quot;Number of DMET bath orbitals=</span><span class="si">%d</span><span class="s2"> not equal to reference=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nbath</span><span class="p">,</span> <span class="n">nref</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="s2">&quot;More DMET bath orbitals found than in reference!&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">c_bath</span><span class="p">,</span> <span class="n">c_occenv</span><span class="p">,</span> <span class="n">c_virenv</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DMET_Bath_UHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_UHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DMET_Bath_UHF</span><span class="p">(</span><span class="n">DMET_Bath_RHF</span><span class="p">):</span>
+<div class="viewcode-block" id="DMET_Bath_UHF.get_cluster_electrons">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_UHF.get_cluster_electrons">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cluster_electrons</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of (alpha, beta) cluster electrons.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_UHF.get_occupied_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_UHF.get_occupied_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_occupied_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inherited bath classes can overwrite this to return additional occupied bath orbitals.&quot;&quot;&quot;</span>
+        <span class="n">nao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_occ</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_UHF.get_virtual_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_UHF.get_virtual_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_virtual_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inherited bath classes can overwrite this to return additional virtual bath orbitals.&quot;&quot;&quot;</span>
+        <span class="n">nao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao_nr</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env_vir</span></div>
+
+
+<div class="viewcode-block" id="DMET_Bath_UHF.make_dmet_bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bath.html#vayesta.core.bath.dmet.DMET_Bath_UHF.make_dmet_bath">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_dmet_bath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_env</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">spin</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;beta&quot;</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Making </span><span class="si">%s</span><span class="s2">-DMET bath&quot;</span><span class="p">,</span> <span class="n">spin</span><span class="p">)</span>
+            <span class="c1"># Use restricted DMET bath routine for each spin:</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">make_dmet_bath</span><span class="p">(</span><span class="n">c_env</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">dm1</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dm1</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

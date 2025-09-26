@@ -1,0 +1,424 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.types.orbitals &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.types.orbitals</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.types.orbitals</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack_arrays</span><span class="p">,</span> <span class="n">unpack_arrays</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Orbitals&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SpatialOrbitals&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SpinOrbitals&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeneralOrbitals&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MolecularOrbitals</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(norb= </span><span class="si">%r</span><span class="s2">, nocc= </span><span class="si">%r</span><span class="s2">, nvir= </span><span class="si">%r</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">norb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_copy</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_copy</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">x</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">_copy</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">coeff</span><span class="o">=</span><span class="n">_copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">),</span>
+            <span class="n">energy</span><span class="o">=</span><span class="n">_copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">),</span>
+            <span class="n">occ</span><span class="o">=</span><span class="n">_copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">occ</span><span class="p">),</span>
+            <span class="n">labels</span><span class="o">=</span><span class="n">_copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">),</span>
+            <span class="n">maxocc</span><span class="o">=</span><span class="n">_copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maxocc</span><span class="p">),</span>
+        <span class="p">)</span>
+
+
+<div class="viewcode-block" id="Orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.Orbitals">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">Orbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SpinOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">SpatialOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="SpatialOrbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpatialOrbitals</span><span class="p">(</span><span class="n">MolecularOrbitals</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">maxocc</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">if</span> <span class="n">energy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxocc</span> <span class="o">=</span> <span class="n">maxocc</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">occ</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="n">occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">occ</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">maxocc</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">norb</span> <span class="o">-</span> <span class="n">occ</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">occ</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">if</span> <span class="n">occ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="n">labels</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nspin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">norb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nocc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nelec</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">ne</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">occ</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">ne</span><span class="p">)</span> <span class="o">-</span> <span class="n">ne</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-14</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">ne</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">ne</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coeff_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coeff_vir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+
+<div class="viewcode-block" id="SpatialOrbitals.basis_transform">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals.basis_transform">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trafo</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">cp</span> <span class="o">=</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">coeff</span> <span class="o">=</span> <span class="n">trafo</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">coeff</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="SpatialOrbitals.to_spin_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals.to_spin_orbitals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_spin_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">SpinOrbitals</span><span class="o">.</span><span class="n">from_spatial_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpatialOrbitals.to_general_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals.to_general_orbitals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_general_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">GeneralOrbitals</span><span class="o">.</span><span class="n">from_spatial_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpatialOrbitals.pack">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals.pack">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pack into a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">occ</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pack_arrays</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpatialOrbitals.unpack">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpatialOrbitals.unpack">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unpack</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">packed</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unpack from a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">occ</span> <span class="o">=</span> <span class="n">unpack_arrays</span><span class="p">(</span><span class="n">packed</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SpinOrbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpinOrbitals</span><span class="p">(</span><span class="n">MolecularOrbitals</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">maxocc</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">energy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">energy</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">occ</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">occ</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">maxocc</span><span class="p">):</span>
+            <span class="n">maxocc</span> <span class="o">=</span> <span class="p">(</span><span class="n">maxocc</span><span class="p">,</span> <span class="n">maxocc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">SpatialOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">maxocc</span><span class="o">=</span><span class="n">maxocc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">SpatialOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">maxocc</span><span class="o">=</span><span class="n">maxocc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<div class="viewcode-block" id="SpinOrbitals.from_spatial_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals.from_spatial_orbitals">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_spatial_orbitals</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="p">(</span><span class="n">orbitals</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">energy</span><span class="p">)</span> <span class="k">if</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">energy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="p">(</span><span class="n">orbitals</span><span class="o">.</span><span class="n">occ</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">occ</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">occ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">(</span><span class="n">orbitals</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span> <span class="k">if</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">((</span><span class="n">orbitals</span><span class="o">.</span><span class="n">coeff</span><span class="p">,</span> <span class="n">orbitals</span><span class="o">.</span><span class="n">coeff</span><span class="p">),</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpinOrbitals.to_general_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals.to_general_orbitals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_general_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">GeneralOrbitals</span><span class="o">.</span><span class="n">from_spin_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">norba</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">norb</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">norbb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">norb</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nocca</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">nocc</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">noccb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">nocc</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvira</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">nvir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvirb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">nvir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nspin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="s2">&quot;norb&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;nocc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;nvir&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;nelec&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;energy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;coeff&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;coeff_occ&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;coeff_vir&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;occ&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;labels&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;maxocc&quot;</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39; object has no attribute &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;energy&quot;</span><span class="p">,</span> <span class="s2">&quot;coeff&quot;</span><span class="p">,</span> <span class="s2">&quot;occ&quot;</span><span class="p">,</span> <span class="s2">&quot;labels&quot;</span><span class="p">):</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">return</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SpinOrbitals.basis_transform">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals.basis_transform">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trafo</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">trafo</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
+            <span class="n">trafo</span> <span class="o">=</span> <span class="p">(</span><span class="n">trafo</span><span class="p">,</span> <span class="n">trafo</span><span class="p">)</span>
+        <span class="n">cp</span> <span class="o">=</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">basis_transform</span><span class="p">(</span><span class="n">trafo</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">cp</span><span class="o">.</span><span class="n">beta</span><span class="o">.</span><span class="n">basis_transform</span><span class="p">(</span><span class="n">trafo</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="SpinOrbitals.pack">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals.pack">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pack into a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">coeff</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">occ</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pack_arrays</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpinOrbitals.unpack">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.SpinOrbitals.unpack">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unpack</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">packed</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unpack from a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">unpacked</span> <span class="o">=</span> <span class="n">unpack_arrays</span><span class="p">(</span><span class="n">packed</span><span class="p">)</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">unpacked</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="n">unpacked</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="n">unpacked</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">6</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GeneralOrbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.GeneralOrbitals">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GeneralOrbitals</span><span class="p">(</span><span class="n">SpatialOrbitals</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nspin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">3</span>
+
+<div class="viewcode-block" id="GeneralOrbitals.from_spatial_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.GeneralOrbitals.from_spatial_orbitals">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_spatial_orbitals</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="GeneralOrbitals.from_spin_orbitals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.types.html#vayesta.core.types.orbitals.GeneralOrbitals.from_spin_orbitals">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_spin_orbitals</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_spatial</span><span class="p">(</span><span class="n">nao</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">nocc</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">nvir</span><span class="o">=</span><span class="mi">15</span><span class="p">):</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nao</span><span class="p">,</span> <span class="n">nao</span><span class="p">)</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nao</span><span class="p">)</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nocc</span> <span class="o">*</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">nvir</span> <span class="o">*</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">orbs</span> <span class="o">=</span> <span class="n">SpatialOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">)</span>
+        <span class="c1"># packed = orbs.pack()</span>
+        <span class="c1"># orbs2 = SpatialOrbitals.unpack(packed)</span>
+        <span class="n">orbs2</span> <span class="o">=</span> <span class="n">orbs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">coeff</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">coeff</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">energy</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">energy</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">occ</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">occ</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_spin</span><span class="p">(</span><span class="n">nao</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">nocc</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">nvir</span><span class="o">=</span><span class="mi">15</span><span class="p">):</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">coeff</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nao</span><span class="p">,</span> <span class="n">nao</span><span class="p">))</span>
+            <span class="n">energy</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nao</span><span class="p">))</span>
+            <span class="n">occ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nocc</span> <span class="o">*</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">nvir</span> <span class="o">*</span> <span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="n">orbs</span> <span class="o">=</span> <span class="n">SpinOrbitals</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="n">energy</span><span class="p">,</span> <span class="n">occ</span><span class="o">=</span><span class="n">occ</span><span class="p">)</span>
+        <span class="n">packed</span> <span class="o">=</span> <span class="n">orbs</span><span class="o">.</span><span class="n">pack</span><span class="p">()</span>
+        <span class="n">orbs2</span> <span class="o">=</span> <span class="n">SpinOrbitals</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">packed</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">energy</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">energy</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">orbs</span><span class="o">.</span><span class="n">occ</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">==</span> <span class="n">orbs2</span><span class="o">.</span><span class="n">occ</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+
+    <span class="n">test_spatial</span><span class="p">()</span>
+    <span class="n">test_spin</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

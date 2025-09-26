@@ -1,0 +1,278 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">vayesta</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os.path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">cmdargs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_mpi</span>
+
+
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0.1&quot;</span>
+
+<span class="c1"># Command line arguments</span>
+<span class="n">args</span> <span class="o">=</span> <span class="n">cmdargs</span><span class="o">.</span><span class="n">parse_cmd_args</span><span class="p">()</span>
+
+<span class="c1"># Initialization of MPI</span>
+<span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">mpi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">init_mpi</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">init_mpi</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">mpi</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span>
+
+<span class="c1"># Logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">vlog</span>
+
+
+<span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">vlog</span><span class="o">.</span><span class="n">init_logging</span><span class="p">()</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+
+<span class="n">fmt</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VFormatter</span><span class="p">(</span><span class="n">indent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># Log to stream</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">quiet</span> <span class="ow">and</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+    <span class="c1"># Everything except logging.OUTPUT goes to stderr:</span>
+    <span class="n">errh</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VStreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="n">fmt</span><span class="p">)</span>
+    <span class="n">errh</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">vlog</span><span class="o">.</span><span class="n">LevelExcludeFilter</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">]))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">errh</span><span class="p">)</span>
+    <span class="c1"># Log level logging.OUTPUT to stdout</span>
+    <span class="n">outh</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VStreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="n">fmt</span><span class="p">)</span>
+    <span class="n">outh</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">vlog</span><span class="o">.</span><span class="n">LevelIncludeFilter</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">]))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">outh</span><span class="p">)</span>
+<span class="c1"># Log to file</span>
+<span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">log</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+    <span class="n">logname</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">log</span> <span class="ow">or</span> <span class="s2">&quot;output&quot;</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
+        <span class="n">logname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">logname</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">vlog</span><span class="o">.</span><span class="n">VFileHandler</span><span class="p">(</span><span class="n">logname</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="n">fmt</span><span class="p">))</span>
+<span class="c1"># Error handler</span>
+<span class="n">errlog</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">errlog</span>
+<span class="k">if</span> <span class="n">errlog</span><span class="p">:</span>
+    <span class="n">errfmt</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VFormatter</span><span class="p">(</span><span class="n">show_mpi_rank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
+        <span class="n">errlog</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">errlog</span><span class="p">)</span>
+    <span class="n">errhandler</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VFileHandler</span><span class="p">(</span><span class="n">errlog</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="n">errfmt</span><span class="p">,</span> <span class="n">add_mpi_rank</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">errhandler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">errlog_level</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">errhandler</span><span class="p">)</span>
+
+<span class="c1"># Print Logo, unless interactive Python interpreter</span>
+<span class="n">is_interactive</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s2">&quot;ps1&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">is_interactive</span><span class="p">:</span>
+    <span class="n">logofile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;logo.txt&quot;</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">logofile</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">logo</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">logo</span> <span class="o">=</span> <span class="n">logo</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found.&quot;</span><span class="p">,</span> <span class="n">logofile</span><span class="p">)</span>
+        <span class="n">logo</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">logo</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;version &quot;</span> <span class="o">+</span> <span class="n">__version__</span><span class="p">)</span>
+
+<span class="c1"># --- Required modules</span>
+
+
+<div class="viewcode-block" id="import_package">
+<a class="viewcode-back" href="../apidoc/vayesta.html#vayesta.import_package">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">import_package</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">fmt</span> <span class="o">=</span> <span class="s2">&quot;  * </span><span class="si">%-10s</span><span class="s2">  v</span><span class="si">%-8s</span><span class="s2">  location: </span><span class="si">%s</span><span class="s2">&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">package</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">package</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="vm">__file__</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">package</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">required</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Required packages:&quot;</span><span class="p">)</span>
+<span class="n">numpy</span> <span class="o">=</span> <span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;NumPy&quot;</span><span class="p">)</span>
+<span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;SciPy&quot;</span><span class="p">)</span>
+<span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;h5py&quot;</span><span class="p">)</span>
+<span class="n">pyscf</span> <span class="o">=</span> <span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;PySCF&quot;</span><span class="p">)</span>
+<span class="c1"># Optional</span>
+<span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;mpi4py&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;cvxpy&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<span class="n">dyson</span> <span class="o">=</span> <span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;dyson&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<span class="n">ebcc</span> <span class="o">=</span> <span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;ebcc&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<span class="n">import_package</span><span class="p">(</span><span class="s2">&quot;pygnme&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+
+<span class="c1"># --- Git hashes</span>
+
+
+<div class="viewcode-block" id="get_git_hash">
+<a class="viewcode-back" href="../apidoc/vayesta.html#vayesta.get_git_hash">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_git_hash</span><span class="p">(</span><span class="nb">dir</span><span class="p">):</span>
+    <span class="n">git_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="s2">&quot;.git&quot;</span><span class="p">)</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;--git-dir=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">git_dir</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;--short&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">githash</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">universal_newlines</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+        <span class="n">githash</span> <span class="o">=</span> <span class="s2">&quot;&lt;Not Found&gt;&quot;</span>
+    <span class="k">return</span> <span class="n">githash</span></div>
+
+
+
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Git hashes:&quot;</span><span class="p">)</span>
+<span class="n">vdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">vhash</span> <span class="o">=</span> <span class="n">get_git_hash</span><span class="p">(</span><span class="n">vdir</span><span class="p">)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  * Vayesta:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">vhash</span><span class="p">)</span>
+<span class="n">pdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">pyscf</span><span class="o">.</span><span class="vm">__file__</span><span class="p">))</span>
+<span class="n">phash</span> <span class="o">=</span> <span class="n">get_git_hash</span><span class="p">(</span><span class="n">pdir</span><span class="p">)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  * PySCF:    </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">phash</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">dyson</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">ddir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dyson</span><span class="o">.</span><span class="vm">__file__</span><span class="p">))</span>
+    <span class="n">dhash</span> <span class="o">=</span> <span class="n">get_git_hash</span><span class="p">(</span><span class="n">ddir</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  * Dyson:    </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">dhash</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">ebcc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">edir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">ebcc</span><span class="o">.</span><span class="vm">__file__</span><span class="p">))</span>
+    <span class="n">ehash</span> <span class="o">=</span> <span class="n">get_git_hash</span><span class="p">(</span><span class="n">edir</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  * EBCC:     </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ehash</span><span class="p">)</span>
+
+<span class="c1"># --- System information</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;System:  node= </span><span class="si">%s</span><span class="s2">  processor= </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">platform</span><span class="o">.</span><span class="n">node</span><span class="p">(),</span> <span class="n">platform</span><span class="o">.</span><span class="n">processor</span><span class="p">()))</span>
+
+<span class="c1"># --- MPI</span>
+<span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;MPI:  rank= </span><span class="si">%d</span><span class="s2">  size= </span><span class="si">%d</span><span class="s2">  node= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="n">mpi</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">platform</span><span class="o">.</span><span class="n">node</span><span class="p">())</span>
+
+<span class="c1"># --- Environment</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Environment variables:&quot;</span><span class="p">)</span>
+<span class="n">omp_num_threads</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;OMP_NUM_THREADS&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">omp_num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">omp_num_threads</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">omp_num_threads</span><span class="p">)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;  OMP_NUM_THREADS= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">omp_num_threads</span><span class="p">)</span>
+
+<span class="c1"># ---</span>
+
+
+<div class="viewcode-block" id="new_log">
+<a class="viewcode-back" href="../apidoc/vayesta.html#vayesta.new_log">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">new_log</span><span class="p">(</span><span class="n">logname</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remove_existing</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">fmt</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fmt</span> <span class="o">=</span> <span class="n">vlog</span><span class="o">.</span><span class="n">VFormatter</span><span class="p">(</span><span class="n">indent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">remove_existing</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">hdl</span> <span class="ow">in</span> <span class="n">log</span><span class="o">.</span><span class="n">handlers</span><span class="p">[:]:</span>
+            <span class="c1"># Do not remove error handler</span>
+            <span class="k">if</span> <span class="n">hdl</span> <span class="ow">is</span> <span class="n">errhandler</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">hdl</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">vlog</span><span class="o">.</span><span class="n">VFileHandler</span><span class="p">(</span><span class="n">logname</span><span class="p">,</span> <span class="n">formatter</span><span class="o">=</span><span class="n">fmt</span><span class="p">))</span></div>
+
+
+
+<span class="c1"># --- NumPy</span>
+<span class="n">numpy</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

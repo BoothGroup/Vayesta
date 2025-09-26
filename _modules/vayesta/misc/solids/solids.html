@@ -1,0 +1,321 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.misc.solids.solids &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.misc.solids.solids</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.misc.solids.solids</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">SQRT2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="bcc">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.bcc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bcc</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Body-centered cubic.</span>
+<span class="sd">    Li: 3.51 A</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="diamond">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.diamond">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">diamond</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">3.57</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Silicon: a=5.431 A&quot;&quot;&quot;</span>
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]])</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span> <span class="o">/</span> <span class="mi">4</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="graphene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.graphene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">graphene</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">2.46</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">20.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    hBN: a=2.5A</span>
+<span class="sd">    hBeO: a=2.68A (VASP)&quot;&quot;&quot;</span>
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="n">a</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">c</span><span class="p">]])</span>
+    <span class="n">coords_internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]])</span> <span class="o">/</span> <span class="mi">6</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords_internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="graphite">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.graphite">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">graphite</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">2.461</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">6.708</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;a = 2.461 A , c = 6.708 A&quot;&quot;&quot;</span>
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="o">+</span><span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">c</span><span class="p">]])</span>
+    <span class="n">coords_internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+        <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">3.0</span> <span class="o">/</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">3.0</span> <span class="o">/</span> <span class="mi">4</span><span class="p">]]</span>
+    <span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords_internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="rocksalt">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.rocksalt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rocksalt</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Na&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">5.6402</span><span class="p">,</span> <span class="n">unitcell</span><span class="o">=</span><span class="s2">&quot;primitive&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    LiH: a=4.0834</span>
+<span class="sd">    LiF: a=4.0351</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">unitcell</span> <span class="o">==</span> <span class="s2">&quot;primitive&quot;</span><span class="p">:</span>
+        <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]])</span>
+        <span class="n">internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]])</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span>
+
+    <span class="k">if</span> <span class="n">unitcell</span> <span class="o">==</span> <span class="s2">&quot;primitive-af1&quot;</span><span class="p">:</span>
+        <span class="c1"># wrong:</span>
+        <span class="c1"># amat = a * np.asarray([</span>
+        <span class="c1">#    [1/SQRT2,   0,          0],</span>
+        <span class="c1">#    [0,         1/SQRT2,    0],</span>
+        <span class="c1">#    [0,         0,          1]])</span>
+        <span class="c1"># internal = np.asarray([</span>
+        <span class="c1">#    [0.0, 0.0, 0.0],</span>
+        <span class="c1">#    [0.5, 0.5, 0.0],</span>
+        <span class="c1">#    [0.0, 0.0, 0.5],</span>
+        <span class="c1">#    [0.5, 0.5, 0.5]])</span>
+        <span class="c1"># arXiv:2207.12064v1:</span>
+        <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span>
+
+    <span class="k">if</span> <span class="n">unitcell</span> <span class="o">==</span> <span class="s2">&quot;primitive-af2&quot;</span><span class="p">:</span>
+        <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">1.00</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">1.00</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mf">1.00</span><span class="p">]])</span>
+        <span class="n">internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mf">0.00</span><span class="p">,</span> <span class="mf">0.00</span><span class="p">,</span> <span class="mf">0.00</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">]])</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span>
+
+    <span class="k">if</span> <span class="n">unitcell</span> <span class="o">==</span> <span class="s2">&quot;cubic&quot;</span><span class="p">:</span>
+        <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="c1"># Atom 1:</span>
+                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="c1"># Atom 2:</span>
+                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span></div>
+
+
+
+<div class="viewcode-block" id="perovskite">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.perovskite">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">perovskite</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Sr&quot;</span><span class="p">,</span> <span class="s2">&quot;Ti&quot;</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">3.905</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="perovskite_tetragonal">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.solids.html#vayesta.misc.solids.solids.perovskite_tetragonal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">perovskite_tetragonal</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Sr&quot;</span><span class="p">,</span> <span class="s2">&quot;Ti&quot;</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span> <span class="n">a</span><span class="o">=</span><span class="mf">5.507</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">7.796</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="mf">0.241</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is the crystallographic (&#39;quadruple&#39;) cell, not the primitive (&#39;double&#39;) cell.</span>
+
+<span class="sd">    Lattice constants from PHYSICAL REVIEW MATERIALS 2, 013807 (2018).</span>
+<span class="sd">    DOI:10.1103/PhysRevMaterials.2.013807</span>
+
+<span class="sd">    becomes cubic with parameters:</span>
+<span class="sd">    a = 5.522 A, c = 2a0 = 7.810 A , u = 0.25</span>
+<span class="sd">    (see DOI: 10.1103/PhysRevB.83.134108)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">c</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">c</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">atoms</span>
+
+    <span class="n">amat</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">amat</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
+
+    <span class="c1"># coords_internal = a*np.asarray([</span>
+    <span class="c1">#            [0      ,   0.5     ,   0.25],  # Sr</span>
+    <span class="c1">#            [0.5    ,   0       ,   0.75],  # Sr</span>
+    <span class="c1">#            [0.5    ,   0       ,   0.25],  # Sr</span>
+    <span class="c1">#            [0      ,   0.5     ,   0.75],  # Sr</span>
+    <span class="c1">#            [0      ,   0       ,   0],     # Ti</span>
+    <span class="c1">#            [0.5    ,   0.5     ,   0.5],   # Ti</span>
+    <span class="c1">#            [0      ,   0       ,   0.5],   # Ti</span>
+    <span class="c1">#            [0.5    ,   0.5     ,   0],     # Ti</span>
+    <span class="c1">#            [0      ,   0       ,   0.25],  # O (4a)</span>
+    <span class="c1">#            [0.5    ,   0.5     ,   0.75],  # O (4a)</span>
+    <span class="c1">#            [0      ,   0       ,   0.75],  # O (4a)</span>
+    <span class="c1">#            [0.5    ,   0.5     ,   0.25],  # O (4a)</span>
+    <span class="c1">#            [u      ,   0.5+u   ,   0],     # O</span>
+    <span class="c1">#            [0.5+u  ,   u       ,   0.5],   # O</span>
+    <span class="c1">#            [-u     ,   0.5-u   ,   0],     # O</span>
+    <span class="c1">#            [0.5-u  ,   -u      ,   0.5],   # O</span>
+    <span class="c1">#            [0.5-u  ,   u       ,   0],     # O</span>
+    <span class="c1">#            [-u     ,   0.5+u   ,   0.5],   # O</span>
+    <span class="c1">#            [0.5+u  ,   -u      ,   0],     # O</span>
+    <span class="c1">#            [u      ,   0.5-u   ,   0.5],   # O</span>
+    <span class="c1">#            ])</span>
+    <span class="c1"># Order?</span>
+    <span class="n">coords_internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>  <span class="c1"># Sr</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># Ti</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>  <span class="c1"># O (4a)</span>
+            <span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">],</span>  <span class="c1"># Sr</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># Ti</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">],</span>  <span class="c1"># O (4a)</span>
+            <span class="p">[</span><span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">-</span> <span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="mf">0.5</span> <span class="o">-</span> <span class="n">u</span><span class="p">,</span> <span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>  <span class="c1"># Sr</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># Ti</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">],</span>  <span class="c1"># O (4a)</span>
+            <span class="p">[</span><span class="mf">0.5</span> <span class="o">-</span> <span class="n">u</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">],</span>  <span class="c1"># Sr</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># Ti</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>  <span class="c1"># O (4a)</span>
+            <span class="p">[</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">u</span><span class="p">,</span> <span class="o">-</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>  <span class="c1"># O</span>
+            <span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">-</span> <span class="n">u</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>  <span class="c1"># O</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coords_internal</span><span class="p">,</span> <span class="n">amat</span><span class="p">)</span>
+
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amat</span><span class="p">,</span> <span class="n">atom</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_atom</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+    <span class="k">return</span> <span class="n">atom</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

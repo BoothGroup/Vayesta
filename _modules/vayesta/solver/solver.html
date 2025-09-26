@@ -1,0 +1,339 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.solver &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.solver</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.solver.solver</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.optimize</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">OptionsBase</span><span class="p">,</span> <span class="n">break_into_lines</span><span class="p">,</span> <span class="n">AbstractMethodError</span><span class="p">,</span> <span class="n">replace_attr</span><span class="p">,</span> <span class="n">ConvergenceError</span>
+
+
+<div class="viewcode-block" id="ClusterSolver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ClusterSolver</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for cluster solver&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ClusterSolver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">OptionsBase</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hamil</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Arguments</span>
+<span class="sd">        ---------</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span> <span class="o">=</span> <span class="n">hamil</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">hamil</span><span class="o">.</span><span class="n">log</span>
+        <span class="c1"># --- Options:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Parameters of </span><span class="si">%s</span><span class="s2">:&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">break_into_lines</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="p">),</span> <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">    &quot;</span><span class="p">))</span>
+
+        <span class="c1"># --- Results</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hole_moments</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">particle_moments</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">v_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">v_ext</span>
+
+    <span class="nd">@v_ext</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">v_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">v_ext</span> <span class="o">=</span> <span class="n">val</span>
+
+<div class="viewcode-block" id="ClusterSolver.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set up everything for a calculation on the CAS and pass this to the solver-specific kernel that runs on this</span>
+<span class="sd">        information.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">AbstractMethodError</span></div>
+
+
+<div class="viewcode-block" id="ClusterSolver.optimize_cpt">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver.optimize_cpt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">optimize_cpt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nelectron</span><span class="p">,</span> <span class="n">c_frag</span><span class="p">,</span> <span class="n">cpt_guess</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">cpt_radius</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Enables chemical potential optimization to match a number of electrons in the fragment space.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nelectron: float</span>
+<span class="sd">            Target number of electrons.</span>
+<span class="sd">        c_frag: array</span>
+<span class="sd">            Fragment orbitals.</span>
+<span class="sd">        cpt_guess: float, optional</span>
+<span class="sd">            Initial guess for fragment chemical potential. Default: 0.</span>
+<span class="sd">        atol: float, optional</span>
+<span class="sd">            Absolute electron number tolerance. Default: 1e-6.</span>
+<span class="sd">        rtol: float, optional</span>
+<span class="sd">            Relative electron number tolerance. Default: 1e-6</span>
+<span class="sd">        cpt_radius: float, optional</span>
+<span class="sd">            Search radius for chemical potential. Default: 0.5.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        results:</span>
+<span class="sd">            Solver results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">kernel_orig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel</span>
+        <span class="c1"># Make projector into fragment space</span>
+
+        <span class="n">p_frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">target_space_projector</span><span class="p">(</span><span class="n">c</span><span class="o">=</span><span class="n">c_frag</span><span class="p">)</span>
+
+        <span class="k">class</span><span class="w"> </span><span class="nc">CptFound</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Raise when electron error is below tolerance.&quot;&quot;&quot;</span>
+
+            <span class="k">pass</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">cpt_opt</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">iterations</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">init_guess</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">err0</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">electron_err</span><span class="p">(</span><span class="n">cpt</span><span class="p">):</span>
+                <span class="k">nonlocal</span> <span class="n">result</span><span class="p">,</span> <span class="n">err</span><span class="p">,</span> <span class="n">err0</span><span class="p">,</span> <span class="n">cpt_opt</span><span class="p">,</span> <span class="n">iterations</span><span class="p">,</span> <span class="n">init_guess</span>
+                <span class="c1"># Avoid recalculation of cpt=0.0 in SciPy:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">cpt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">err0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Chemical potential </span><span class="si">%f</span><span class="s2"> already calculated - returning error= </span><span class="si">%.8f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">cpt</span><span class="p">,</span> <span class="n">err0</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">err0</span>
+
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">init_guess</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;kwargs keys for solver: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+                <span class="n">replace</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="n">cpt</span><span class="p">:</span>
+                    <span class="n">v_ext_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_ext</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_ext</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+                    <span class="n">replace</span><span class="p">[</span><span class="s2">&quot;v_ext&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_v_ext</span><span class="p">(</span><span class="n">v_ext_0</span><span class="p">,</span> <span class="n">cpt</span><span class="p">)</span>
+                <span class="c1"># self.reset()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">with</span> <span class="n">replace_attr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="p">,</span> <span class="o">**</span><span class="n">replace</span><span class="p">):</span>
+                    <span class="n">results</span> <span class="o">=</span> <span class="n">kernel_orig</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ConvergenceError</span><span class="p">()</span>
+                <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">ne_frag</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,ij,xj-&gt;&quot;</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ne_frag</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,ij,xj-&gt;&quot;</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span>
+                        <span class="s2">&quot;xi,ij,xj-&gt;&quot;</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="p">)</span>
+
+                <span class="n">err</span> <span class="o">=</span> <span class="n">ne_frag</span> <span class="o">-</span> <span class="n">nelectron</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;Fragment chemical potential= </span><span class="si">%+12.8f</span><span class="s2"> Ha:  electrons= </span><span class="si">%.8f</span><span class="s2">  error= </span><span class="si">%+.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">cpt</span><span class="p">,</span> <span class="n">ne_frag</span><span class="p">,</span> <span class="n">err</span>
+                <span class="p">)</span>
+                <span class="n">iterations</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">atol</span> <span class="o">+</span> <span class="n">rtol</span> <span class="o">*</span> <span class="n">nelectron</span><span class="p">):</span>
+                    <span class="n">cpt_opt</span> <span class="o">=</span> <span class="n">cpt</span>
+                    <span class="k">raise</span> <span class="n">CptFound</span><span class="p">()</span>
+                <span class="c1"># Initial guess for next chemical potential</span>
+                <span class="c1"># init_guess = results.get_init_guess()</span>
+                <span class="n">init_guess</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_init_guess</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">err</span>
+
+            <span class="c1"># First run with cpt_guess:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">err0</span> <span class="o">=</span> <span class="n">electron_err</span><span class="p">(</span><span class="n">cpt_guess</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">CptFound</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;Chemical potential= </span><span class="si">%.6f</span><span class="s2"> leads to electron error= </span><span class="si">%.3e</span><span class="s2"> within tolerance (atol= </span><span class="si">%.1e</span><span class="s2">, rtol= </span><span class="si">%.1e</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="n">cpt_guess</span><span class="p">,</span>
+                    <span class="n">err</span><span class="p">,</span>
+                    <span class="n">atol</span><span class="p">,</span>
+                    <span class="n">rtol</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">result</span>
+
+            <span class="c1"># Not enough electrons in fragment space -&gt; raise fragment chemical potential:</span>
+            <span class="k">if</span> <span class="n">err0</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">lower</span> <span class="o">=</span> <span class="n">cpt_guess</span>
+                <span class="n">upper</span> <span class="o">=</span> <span class="n">cpt_guess</span> <span class="o">+</span> <span class="n">cpt_radius</span>
+            <span class="c1"># Too many electrons in fragment space -&gt; lower fragment chemical potential:</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lower</span> <span class="o">=</span> <span class="n">cpt_guess</span> <span class="o">-</span> <span class="n">cpt_radius</span>
+                <span class="n">upper</span> <span class="o">=</span> <span class="n">cpt_guess</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Estimated bounds: </span><span class="si">%.3e</span><span class="s2"> </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">ntry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">cpt</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">brentq</span><span class="p">(</span>
+                        <span class="n">electron_err</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">b</span><span class="o">=</span><span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">full_output</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="s2">&quot;Chemical potential converged to </span><span class="si">%+16.8f</span><span class="s2">, but electron error is still </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cpt</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+                        <span class="p">)</span>
+                <span class="k">except</span> <span class="n">CptFound</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="c1"># Could not find chemical potential in bracket:</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="n">bounds</span> <span class="o">*=</span> <span class="mi">2</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;Interval for chemical potential search too small. New search interval: [</span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2">]&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">bounds</span>
+                    <span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="c1"># Could not convergence in bracket:</span>
+                <span class="k">except</span> <span class="n">ConvergenceError</span><span class="p">:</span>
+                    <span class="n">bounds</span> <span class="o">/=</span> <span class="mi">2</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Solver did not converge. New search interval: [</span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2">]&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">bounds</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Invalid state: electron error= </span><span class="si">%.3e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">errmsg</span> <span class="o">=</span> <span class="s2">&quot;Could not find chemical potential within interval [</span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2">]!&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="n">errmsg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">errmsg</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Chemical potential optimized in </span><span class="si">%d</span><span class="s2"> iterations= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span><span class="p">,</span> <span class="n">iterations</span><span class="p">,</span> <span class="n">cpt_opt</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="c1"># Replace kernel:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ClusterSolver.calc_v_ext">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver.calc_v_ext">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_v_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v_ext_0</span><span class="p">,</span> <span class="n">cpt</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">v_ext_0</span> <span class="o">-</span> <span class="n">cpt</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">target_space_projector</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ClusterSolver.get_init_guess">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.ClusterSolver.get_init_guess">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_init_guess</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UClusterSolver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.UClusterSolver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UClusterSolver</span><span class="p">(</span><span class="n">ClusterSolver</span><span class="p">):</span>
+<div class="viewcode-block" id="UClusterSolver.calc_v_ext">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.callback.UClusterSolver.calc_v_ext">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_v_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v_ext_0</span><span class="p">,</span> <span class="n">cpt</span><span class="p">):</span>
+        <span class="n">pfrag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">target_space_projector</span><span class="p">()</span>
+        <span class="c1"># Surely None would be a better default?</span>
+        <span class="k">if</span> <span class="n">v_ext_0</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">v_ext_0</span> <span class="o">=</span> <span class="p">(</span><span class="n">v_ext_0</span><span class="p">,</span> <span class="n">v_ext_0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">v_ext_0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">cpt</span> <span class="o">*</span> <span class="n">pfrag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v_ext_0</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">cpt</span> <span class="o">*</span> <span class="n">pfrag</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

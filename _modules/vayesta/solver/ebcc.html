@@ -1,0 +1,617 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.ebcc &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.ebcc</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.solver.ebcc</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.ao2mo</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">WaveFunction</span><span class="p">,</span> <span class="n">CCSD_WaveFunction</span><span class="p">,</span> <span class="n">EBCC_WaveFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterSolver</span><span class="p">,</span> <span class="n">UClusterSolver</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ebcc</span>
+
+
+<div class="viewcode-block" id="RERIs">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.RERIs">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RERIs</span><span class="p">(</span><span class="n">ebcc</span><span class="o">.</span><span class="n">ham</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BaseERIs</span><span class="p">,</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">ham</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BaseRHamiltonian</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Restricted ERIs container class.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">array</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise the Hamiltonian.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mf: Mean-field object.</span>
+<span class="sd">            space: Space object for each index.</span>
+<span class="sd">            mo_coeff: Molecular orbital coefficients for each index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Parameters:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;space&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mo_coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mo_coeff</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mo_coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">mo_coeff</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;array&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Just-in-time getter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key: Key to get.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ERIs for the given spaces.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">][:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;_eri&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">block</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">incore</span><span class="o">.</span><span class="n">general</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">block</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coeffs</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">block</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ijkl</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">ijkl</span><span class="p">]</span>  <span class="c1"># type: ignore</span></div>
+
+
+
+<div class="viewcode-block" id="UERIs">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UERIs">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UERIs</span><span class="p">(</span><span class="n">ebcc</span><span class="o">.</span><span class="n">ham</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BaseERIs</span><span class="p">,</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">ham</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BaseUHamiltonian</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unrestricted ERIs container class.</span>
+
+<span class="sd">    Restores deprecated functionality allowing spin-dependent AO ERIs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">array</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise the Hamiltonian.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mf: Mean-field object.</span>
+<span class="sd">            space: Space object for each index.</span>
+<span class="sd">            mo_coeff: Molecular orbital coefficients for each index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Parameters:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;space&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">space</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mo_coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mo_coeff</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;mo_coeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">mo_coeff</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;array&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RERIs</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Just-in-time getter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key: Key to get.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ERIs for the given spins.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;aaaa&quot;</span><span class="p">,</span> <span class="s2">&quot;aabb&quot;</span><span class="p">,</span> <span class="s2">&quot;bbaa&quot;</span><span class="p">,</span> <span class="s2">&quot;bbbb&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid key: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="s2">&quot;ab&quot;</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="s2">&quot;ab&quot;</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">ij</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">j</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">ij</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;bbaa&quot;</span><span class="p">:</span>
+                    <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="c1"># Support spin-dependent integrals in the mean-field</span>
+                <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">)))</span>
+                <span class="p">]</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">incore</span><span class="o">.</span><span class="n">general</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">_eri</span><span class="p">[</span><span class="n">ij</span><span class="p">],</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;bbaa&quot;</span><span class="p">:</span>
+                    <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="n">array</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">RERIs</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">space</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="n">j</span><span class="p">]),</span>
+                <span class="n">mo_coeff</span><span class="o">=</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">j</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="n">j</span><span class="p">],</span>
+                <span class="p">),</span>
+                <span class="n">array</span><span class="o">=</span><span class="n">array</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span></div>
+
+        
+
+<div class="viewcode-block" id="REBCC_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">REBCC_Solver</span><span class="p">(</span><span class="n">ClusterSolver</span><span class="p">):</span>
+<div class="viewcode-block" id="REBCC_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">ClusterSolver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="n">ansatz</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CCSD&quot;</span>
+        <span class="n">solve_lambda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># If false, use Lambda=T approximation</span>
+        <span class="c1"># Convergence</span>
+        <span class="n">max_cycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span>  <span class="c1"># Max number of iterations</span>
+        <span class="n">conv_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Convergence energy tolerance</span>
+        <span class="n">conv_tol_normt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Convergence amplitude tolerance</span>
+        <span class="n">store_as_ccsd</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Store results as CCSD_WaveFunction</span>
+        <span class="n">c_cas_occ</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Hacky place to put active space orbitals.</span>
+        <span class="n">c_cas_vir</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="REBCC_Solver.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Use pyscf mean-field representation.</span>
+        <span class="n">mf_clus</span><span class="p">,</span> <span class="n">frozen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">to_pyscf_mf</span><span class="p">(</span><span class="n">allow_dummy_orbs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">mf_clus</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_space</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">,</span> <span class="n">mf_clus</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="n">frozen</span><span class="p">)</span>
+
+        <span class="n">mycc</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">EBCC</span><span class="p">(</span>
+            <span class="n">mf_clus</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">,</span> <span class="n">ansatz</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="n">space</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">get_nonnull_solver_opts</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">mycc</span><span class="o">.</span><span class="n">ERIs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_class</span><span class="p">()</span>
+        <span class="n">mycc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="n">mycc</span><span class="o">.</span><span class="n">converged</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">solve_lambda</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">solve_lambda</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="ow">and</span> <span class="n">mycc</span><span class="o">.</span><span class="n">converged_lambda</span>
+        <span class="c1"># Now just need to wrangle EBCC results into wavefunction format.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">construct_wavefunction</span><span class="p">(</span><span class="n">mycc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">get_mo</span><span class="p">(</span><span class="n">mf_clus</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="REBCC_Solver.get_space">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.get_space">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">orig_mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">c_active_occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_occ</span>
+        <span class="n">c_active_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_vir</span>
+        <span class="k">if</span> <span class="n">c_active_occ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">c_active_vir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">c_active_occ</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">c_active_occ</span><span class="p">)</span>
+            <span class="n">c_active_vir</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">c_active_vir</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c_active_occ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">c_active_vir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Both or neither of the occupied and virtual components of an active space must be specified.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">gen_space</span><span class="p">(</span>
+            <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">],</span> <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">mo_occ</span> <span class="o">==</span> <span class="mi">0</span><span class="p">],</span> <span class="n">c_active_occ</span><span class="p">,</span> <span class="n">c_active_vir</span><span class="p">,</span> <span class="n">frozen_orbs</span><span class="o">=</span><span class="n">frozen</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_Solver.get_nonnull_solver_opts">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.get_nonnull_solver_opts">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_nonnull_solver_opts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_nonull_opt</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">newkey</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">d</span><span class="p">[</span><span class="n">newkey</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">opts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">newkey</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">([</span><span class="s2">&quot;max_cycle&quot;</span><span class="p">,</span> <span class="s2">&quot;conv_tol&quot;</span><span class="p">,</span> <span class="s2">&quot;conv_tol_normt&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="s2">&quot;e_tol&quot;</span><span class="p">,</span> <span class="s2">&quot;t_tol&quot;</span><span class="p">]):</span>
+            <span class="n">add_nonull_opt</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">newkey</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">opts</span></div>
+
+
+<div class="viewcode-block" id="REBCC_Solver.get_eris_class">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.get_eris_class">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_eris_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">RERIs</span></div>
+
+
+<div class="viewcode-block" id="REBCC_Solver.construct_wavefunction">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.REBCC_Solver.construct_wavefunction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_wavefunction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mycc</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">store_as_ccsd</span><span class="p">:</span>
+            <span class="c1"># Can use existing functionality</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">mycc</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">mycc</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">EBCC_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="n">mbos</span><span class="p">)</span>
+
+        <span class="c1"># Need to rotate wavefunction back into original cluster active space.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">mycc</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_exact_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wf</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_fCCSD</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="c1"># Project onto cluster:</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">ro</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">)</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">)</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ro</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ro</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+            <span class="n">l2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">l2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_random_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">l1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">l2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="UEBCC_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UEBCC_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UEBCC_Solver</span><span class="p">(</span><span class="n">UClusterSolver</span><span class="p">,</span> <span class="n">REBCC_Solver</span><span class="p">):</span>
+<div class="viewcode-block" id="UEBCC_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UEBCC_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">REBCC_Solver</span><span class="o">.</span><span class="n">Options</span><span class="p">,</span> <span class="n">UClusterSolver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="n">c_cas_occ</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># Hacky place to put active space orbitals.</span>
+        <span class="n">c_cas_vir</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UEBCC_Solver.get_space">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UEBCC_Solver.get_space">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_space</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">orig_mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_get_space</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">co_cas</span><span class="p">,</span> <span class="n">cv_cas</span><span class="p">,</span> <span class="n">fr</span><span class="p">):</span>
+            <span class="c1"># Express active orbitals in terms of cluster orbitals.</span>
+            <span class="k">if</span> <span class="n">co_cas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cv_cas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">co_cas</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">co_cas</span><span class="p">)</span>
+                <span class="n">cv_cas</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">cv_cas</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">co_cas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cv_cas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both or neither of the occupied and virtual components of an active space.&quot;</span><span class="p">)</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">gen_space</span><span class="p">(</span><span class="n">c</span><span class="p">[:,</span> <span class="n">occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">occ</span> <span class="o">==</span> <span class="mi">0</span><span class="p">],</span> <span class="n">co_cas</span><span class="p">,</span> <span class="n">cv_cas</span><span class="p">,</span> <span class="n">frozen_orbs</span><span class="o">=</span><span class="n">fr</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">frozen</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frozen</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">ca</span><span class="p">,</span> <span class="n">spacea</span> <span class="o">=</span> <span class="n">_get_space</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mo_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">frozen</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">cb</span><span class="p">,</span> <span class="n">spaceb</span> <span class="o">=</span> <span class="n">_get_space</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">mo_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">c_cas_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">frozen</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ca</span><span class="p">,</span> <span class="n">cb</span><span class="p">),</span> <span class="p">(</span><span class="n">spacea</span><span class="p">,</span> <span class="n">spaceb</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UEBCC_Solver.get_eris_class">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UEBCC_Solver.get_eris_class">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_eris_class</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">UERIs</span></div>
+
+
+    <span class="c1"># This should automatically work other than ensuring spin components are in a tuple.</span>
+<div class="viewcode-block" id="UEBCC_Solver.construct_wavefunction">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.UEBCC_Solver.construct_wavefunction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_wavefunction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mycc</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">store_as_ccsd</span><span class="p">:</span>
+            <span class="c1"># Can use existing functionality</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">to_spin_tuple1</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">aa</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">bb</span>
+
+            <span class="c1"># NB EBCC doesn&#39;t antisymmetrise the T2s by default, and has an odd factor of two.</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">antisymmetrize_t2</span><span class="p">(</span><span class="n">t2</span><span class="p">):</span>
+                <span class="n">t2</span> <span class="o">=</span> <span class="n">t2</span> <span class="o">-</span> <span class="n">t2</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="n">t2</span> <span class="o">=</span> <span class="n">t2</span> <span class="o">-</span> <span class="n">t2</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">t2</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">to_spin_tuple2</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">antisymmetrize_t2</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">aaaa</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">abab</span><span class="p">,</span> <span class="n">antisymmetrize_t2</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">bbbb</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span>
+                    <span class="n">mo</span><span class="p">,</span>
+                    <span class="n">to_spin_tuple1</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">),</span>
+                    <span class="n">to_spin_tuple2</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">t2</span><span class="p">),</span>
+                    <span class="n">l1</span><span class="o">=</span><span class="nb">tuple</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">to_spin_tuple1</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">l1</span><span class="p">)]),</span>
+                    <span class="n">l2</span><span class="o">=</span><span class="nb">tuple</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">to_spin_tuple2</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">l2</span><span class="p">)]),</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">to_spin_tuple1</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">),</span> <span class="n">to_spin_tuple2</span><span class="p">(</span><span class="n">mycc</span><span class="o">.</span><span class="n">t2</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">EBCC_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="n">mbos</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mycc</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_exact_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wf</span><span class="p">):</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="c1"># Project onto cluster:</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">roa</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">rob</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">rva</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">rvb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">roa</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1a</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rob</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1b</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t2aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2aa</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+        <span class="n">t2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2ab</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t2bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2bb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">t1b</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="p">(</span><span class="n">t2aa</span><span class="p">,</span> <span class="n">t2ab</span><span class="p">,</span> <span class="n">t2bb</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">l1a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">roa</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1a</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+            <span class="n">l1b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rob</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1b</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l2aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2aa</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+            <span class="n">l2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2ab</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l2bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2bb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="p">(</span><span class="n">l1a</span><span class="p">,</span> <span class="n">l1b</span><span class="p">)</span>
+            <span class="n">l2</span> <span class="o">=</span> <span class="p">(</span><span class="n">l2aa</span><span class="p">,</span> <span class="n">l2ab</span><span class="p">,</span> <span class="n">l2bb</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">l2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_random_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+
+<div class="viewcode-block" id="EB_REBCC_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_REBCC_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EB_REBCC_Solver</span><span class="p">(</span><span class="n">REBCC_Solver</span><span class="p">):</span>
+<div class="viewcode-block" id="EB_REBCC_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_REBCC_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">REBCC_Solver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="n">ansatz</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CCSD-S-1-1&quot;</span>
+        <span class="n">store_as_ccsd</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Store results as fermionic CCSD_WaveFunction</span></div>
+
+
+<div class="viewcode-block" id="EB_REBCC_Solver.get_nonnull_solver_opts">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_REBCC_Solver.get_nonnull_solver_opts">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_nonnull_solver_opts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_nonnull_solver_opts</span><span class="p">()</span>
+        <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;omega&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">bos_freqs</span>
+        <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;g&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_couplings</span><span class="p">()</span>
+        <span class="n">opts</span><span class="p">[</span><span class="s2">&quot;G&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">boson_nonconserving</span>
+        <span class="k">return</span> <span class="n">opts</span></div>
+
+
+<div class="viewcode-block" id="EB_REBCC_Solver.get_couplings">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_REBCC_Solver.get_couplings">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_couplings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EB_REBCC_Solver.construct_wavefunction">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_REBCC_Solver.construct_wavefunction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_wavefunction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mycc</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">EBCC_WaveFunction</span><span class="p">(</span>
+            <span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="n">mbos</span><span class="p">,</span> <span class="n">xi</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">polaritonic_shift</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">mycc</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="EB_UEBCC_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_UEBCC_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EB_UEBCC_Solver</span><span class="p">(</span><span class="n">EB_REBCC_Solver</span><span class="p">,</span> <span class="n">UEBCC_Solver</span><span class="p">):</span>
+<div class="viewcode-block" id="EB_UEBCC_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_UEBCC_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">UEBCC_Solver</span><span class="o">.</span><span class="n">Options</span><span class="p">,</span> <span class="n">EB_REBCC_Solver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="EB_UEBCC_Solver.get_couplings">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_UEBCC_Solver.get_couplings">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_couplings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.</span>
+        <span class="c1">#return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])</span>
+        <span class="c1"># EBCC now wants an array, with spin as the first index</span>
+        <span class="k">assert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sh</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">,:,:,:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">g</span><span class="p">[</span><span class="mi">1</span><span class="p">,:,:,:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">couplings</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">g</span> </div>
+
+
+<div class="viewcode-block" id="EB_UEBCC_Solver.construct_wavefunction">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.EB_UEBCC_Solver.construct_wavefunction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_wavefunction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mycc</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">EBCC_WaveFunction</span><span class="p">(</span>
+            <span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="n">mbos</span><span class="p">,</span> <span class="n">xi</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">polaritonic_shift</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mycc</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="gen_space">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ebcc.gen_space">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_space</span><span class="p">(</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">,</span> <span class="n">co_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cv_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">frozen_orbs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given the occupied and virtual orbital coefficients in the local cluster basis, which orbitals are frozen, and</span>
+<span class="sd">    any active space orbitals in this space generate appropriate coefficients and ebcc.Space inputs for a calculation.</span>
+<span class="sd">    Inputs:</span>
+<span class="sd">        c_occ: occupied orbital coefficients in local cluster basis.</span>
+<span class="sd">        c_vir: virtual orbital coefficients in local cluster basis.</span>
+<span class="sd">        co_active: occupied active space orbitals in local cluster basis.</span>
+<span class="sd">        cv_active: virtual active space orbitals in local cluster basis.</span>
+<span class="sd">        frozen_orbs: indices of orbitals to freeze in local cluster basis.</span>
+<span class="sd">    Outputs:</span>
+<span class="sd">        c: coefficients for the active space orbitals in the local cluster basis.</span>
+<span class="sd">        space: ebcc.Space object defining the resulting active space behaviours.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">no</span><span class="p">,</span> <span class="n">nv</span> <span class="o">=</span> <span class="n">c_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">have_actspace</span> <span class="o">=</span> <span class="ow">not</span> <span class="p">(</span><span class="n">co_active</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cv_active</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">co_active</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cv_active</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">have_actspace</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Active space must specify both occupied and virtual orbitals.&quot;</span><span class="p">)</span>
+    <span class="c1"># Default to just using original cluster orbitals.</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">])</span>
+
+    <span class="n">occupied</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)])</span>
+    <span class="n">frozen</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">no</span> <span class="o">+</span> <span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">frozen_orbs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">frozen</span><span class="p">[</span><span class="n">frozen_orbs</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_actspace</span><span class="p">(</span><span class="n">c_full</span><span class="p">,</span> <span class="n">c_act</span><span class="p">,</span> <span class="n">c_frozen</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate orbital rotation to define our space, along with frozen and active identifiers.&quot;&quot;&quot;</span>
+        <span class="c1"># Check we don&#39;t have any overlap between frozen and active orbitals.</span>
+        <span class="k">if</span> <span class="n">c_frozen</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">af_ovlp</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c_frozen</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">af_ovlp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">tol</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Specified frozen and active orbitals overlap!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c_act</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># We could use the portion of the active space orbitals inside the cluster instead in future.</span>
+            <span class="n">full_active_ovlp</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_full</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c_act</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">full_active_ovlp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">tol</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Specified active orbitals are not spanned by the full cluster space!&quot;</span><span class="p">)</span>
+        <span class="c1"># Can now safely generate coefficients; get the space spanned by undetermined orbitals.</span>
+        <span class="n">d_rest</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_full</span><span class="p">,</span> <span class="n">c_full</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="p">,</span> <span class="n">c_act</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_frozen</span><span class="p">,</span> <span class="n">c_frozen</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">d_rest</span><span class="p">)</span>
+        <span class="n">c_rest</span> <span class="o">=</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">c_frozen</span><span class="p">,</span> <span class="n">c_rest</span><span class="p">,</span> <span class="n">c_act</span><span class="p">])</span>
+        <span class="c1"># Check that we have the right number of orbitals.</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">c_full</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># Generate information.</span>
+        <span class="n">frozen_orbs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">frozen_orbs</span><span class="p">[:</span> <span class="n">c_frozen</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">active</span><span class="p">[</span><span class="o">-</span><span class="n">c_act</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">c</span><span class="p">,</span> <span class="n">frozen_orbs</span><span class="p">,</span> <span class="n">active</span>
+
+    <span class="k">if</span> <span class="n">have_actspace</span><span class="p">:</span>
+        <span class="n">c_occ</span><span class="p">,</span> <span class="n">frozen_occ</span><span class="p">,</span> <span class="n">active_occ</span> <span class="o">=</span> <span class="n">gen_actspace</span><span class="p">(</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">co_active</span><span class="p">,</span> <span class="n">c_occ</span><span class="p">[:,</span> <span class="n">frozen</span><span class="p">[:</span><span class="n">no</span><span class="p">]])</span>
+        <span class="n">c_vir</span><span class="p">,</span> <span class="n">frozen_vir</span><span class="p">,</span> <span class="n">active_vir</span> <span class="o">=</span> <span class="n">gen_actspace</span><span class="p">(</span><span class="n">c_vir</span><span class="p">,</span> <span class="n">cv_active</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">[:,</span> <span class="n">frozen</span><span class="p">[</span><span class="n">no</span><span class="p">:]])</span>
+
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">frozen</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">frozen_occ</span><span class="p">,</span> <span class="n">frozen_vir</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">active_occ</span><span class="p">,</span> <span class="n">active_vir</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">frozen</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">c</span><span class="p">,</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">Space</span><span class="p">(</span><span class="n">occupied</span><span class="o">=</span><span class="n">occupied</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="n">frozen</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

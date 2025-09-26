@@ -1,0 +1,366 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.ccsd &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.ccsd</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.solver.ccsd</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">CCSD_WaveFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">log_method</span><span class="p">,</span> <span class="n">log_time</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver._uccsd_eris</span><span class="w"> </span><span class="kn">import</span> <span class="n">uao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver.cisd</span><span class="w"> </span><span class="kn">import</span> <span class="n">CISD_Solver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterSolver</span><span class="p">,</span> <span class="n">UClusterSolver</span>
+
+
+<div class="viewcode-block" id="RCCSD_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RCCSD_Solver</span><span class="p">(</span><span class="n">ClusterSolver</span><span class="p">):</span>
+<div class="viewcode-block" id="RCCSD_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">ClusterSolver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="c1"># Convergence</span>
+        <span class="n">max_cycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># Max number of iterations</span>
+        <span class="n">conv_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Convergence energy tolerance</span>
+        <span class="n">conv_tol_normt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Convergence amplitude tolerance</span>
+        <span class="n">diis_space</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># DIIS space size</span>
+        <span class="n">diis_start_cycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># The step to start DIIS, default is 0</span>
+        <span class="n">iterative_damping</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># self-consistent damping parameter</span>
+        <span class="n">level_shift</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Level shift for virtual orbitals to stabilize ccsd iterations</span>
+        <span class="n">init_guess</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MP2&quot;</span>  <span class="c1"># [&#39;MP2&#39;, &#39;CISD&#39;]</span>
+        <span class="n">solve_lambda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># If false, use Lambda=T approximation</span>
+        <span class="n">n_moments</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Self-consistent mode</span>
+        <span class="n">sc_mode</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coupled_fragments</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">t_diagnostic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">mf_clus</span><span class="p">,</span> <span class="n">frozen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">to_pyscf_mf</span><span class="p">(</span><span class="n">allow_dummy_orbs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">allow_df</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">solver_cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_solver_class</span><span class="p">(</span><span class="n">mf_clus</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;PySCF solver class= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">solver_cls</span><span class="p">)</span>
+        <span class="n">mycc</span> <span class="o">=</span> <span class="n">solver_cls</span><span class="p">(</span><span class="n">mf_clus</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="n">frozen</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">max_cycle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">max_cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">max_cycle</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">diis_space</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">diis_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">diis_space</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">diis_start_cycle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">diis_start_cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">diis_start_cycle</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">iterative_damping</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">iterative_damping</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">iterative_damping</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">level_shift</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">level_shift</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">level_shift</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">conv_tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol_normt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">conv_tol_normt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol_normt</span>
+        <span class="n">mycc</span><span class="o">.</span><span class="n">callback</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_callback</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">t1</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">t2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_init_guess</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Solving CCSD-equations </span><span class="si">%s</span><span class="s2"> initial guess...&quot;</span><span class="p">,</span> <span class="s2">&quot;with&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="n">t2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;without&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for T amplitudes: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+            <span class="n">mycc</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">t1</span><span class="o">=</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="o">=</span><span class="n">t2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="n">mycc</span><span class="o">.</span><span class="n">converged</span>
+
+        <span class="k">if</span> <span class="n">t_diagnostic</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">t_diagnostic</span><span class="p">(</span><span class="n">mycc</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_extra_info</span><span class="p">(</span><span class="n">mycc</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">solve_lambda</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for lambda amplitudes: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span> <span class="o">=</span> <span class="n">mycc</span><span class="o">.</span><span class="n">solve_lambda</span><span class="p">(</span><span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="ow">and</span> <span class="n">mycc</span><span class="o">.</span><span class="n">converged_lambda</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Using Lambda=T approximation for Lambda-amplitudes.&quot;</span><span class="p">)</span>
+            <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span> <span class="o">=</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t2</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">mycc</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+
+        <span class="c1"># In-cluster Moments</span>
+        <span class="n">nmom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">n_moments</span>
+        <span class="k">if</span> <span class="n">nmom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">dyson.expressions</span><span class="w"> </span><span class="kn">import</span> <span class="n">CCSD</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Dyson not found - required for moment calculations&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Skipping in-cluster moment calculations&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Calculating in-cluster CCSD moments </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">nmom</span><span class="p">))</span>
+            <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for hole moments: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">CCSD</span><span class="o">.</span><span class="n">hole</span><span class="o">.</span><span class="n">from_ccsd</span><span class="p">(</span><span class="n">mycc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hole_moments</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">build_gf_moments</span><span class="p">(</span><span class="n">nmom</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            
+                <span class="c1"># vecs_bra = expr.build_gf_vectors(nmom[0], left=True)</span>
+                <span class="c1"># amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]</span>
+                <span class="c1"># vecs_ket = expr.build_gf_vectors(nmom[0], left=False)</span>
+                <span class="c1"># amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]</span>
+                <span class="c1"># self.ip_moment_amplitudes = (amps_bra, amps_ket)</span>
+            
+            <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for particle moments: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">CCSD</span><span class="o">.</span><span class="n">particle</span><span class="o">.</span><span class="n">from_ccsd</span><span class="p">(</span><span class="n">mycc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">particle_moments</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">build_gf_moments</span><span class="p">(</span><span class="n">nmom</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+
+                
+                <span class="c1"># vecs_bra = expr.build_gf_vectors(nmom[0], left=True)</span>
+                <span class="c1"># amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]</span>
+                <span class="c1"># vecs_ket = expr.build_gf_vectors(nmom[0], left=False)</span>
+                <span class="c1"># amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]</span>
+                <span class="c1"># self.ea_moment_amplitudes = (amps_bra, amps_ket)</span>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.get_solver_class">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.get_solver_class">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_solver_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;with_df&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mf</span><span class="o">.</span><span class="n">with_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">dfccsd</span><span class="o">.</span><span class="n">RCCSD</span>
+        <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">ccsd</span><span class="o">.</span><span class="n">RCCSD</span></div>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.generate_init_guess">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.generate_init_guess">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_init_guess</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">init_guess</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="s2">&quot;MP2&quot;</span><span class="p">):</span>
+            <span class="c1"># CCSD will build MP2 amplitudes</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">init_guess</span> <span class="o">==</span> <span class="s2">&quot;CISD&quot;</span><span class="p">:</span>
+            <span class="n">cisd</span> <span class="o">=</span> <span class="n">CISD_Solver</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="p">)</span>
+            <span class="n">cisd</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+            <span class="n">wf</span> <span class="o">=</span> <span class="n">cisd</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;init_guess= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">init_guess</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.t_diagnostic">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.t_diagnostic">[docs]</a>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;T-Diagnostic&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;------------&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dg_t1</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_t1_diagnostic</span><span class="p">()</span>
+            <span class="n">dg_d1</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_d1_diagnostic</span><span class="p">()</span>
+            <span class="n">dg_d2</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_d2_diagnostic</span><span class="p">()</span>
+            <span class="n">dg_t1_msg</span> <span class="o">=</span> <span class="s2">&quot;good&quot;</span> <span class="k">if</span> <span class="n">dg_t1</span> <span class="o">&lt;=</span> <span class="mf">0.02</span> <span class="k">else</span> <span class="s2">&quot;inadequate!&quot;</span>
+            <span class="n">dg_d1_msg</span> <span class="o">=</span> <span class="s2">&quot;good&quot;</span> <span class="k">if</span> <span class="n">dg_d1</span> <span class="o">&lt;=</span> <span class="mf">0.02</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;fair&quot;</span> <span class="k">if</span> <span class="n">dg_d1</span> <span class="o">&lt;=</span> <span class="mf">0.05</span> <span class="k">else</span> <span class="s2">&quot;inadequate!&quot;</span><span class="p">)</span>
+            <span class="n">dg_d2_msg</span> <span class="o">=</span> <span class="s2">&quot;good&quot;</span> <span class="k">if</span> <span class="n">dg_d2</span> <span class="o">&lt;=</span> <span class="mf">0.15</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;fair&quot;</span> <span class="k">if</span> <span class="n">dg_d2</span> <span class="o">&lt;=</span> <span class="mf">0.18</span> <span class="k">else</span> <span class="s2">&quot;inadequate!&quot;</span><span class="p">)</span>
+            <span class="n">fmt</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="s2">&quot;  </span><span class="si">%2s</span><span class="s2">= </span><span class="si">%.3f</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span> <span class="s2">&quot;T1&quot;</span><span class="p">,</span> <span class="n">dg_t1</span><span class="p">,</span> <span class="n">dg_t1_msg</span><span class="p">,</span> <span class="s2">&quot;D1&quot;</span><span class="p">,</span> <span class="n">dg_d1</span><span class="p">,</span> <span class="n">dg_d1_msg</span><span class="p">,</span> <span class="s2">&quot;D2&quot;</span><span class="p">,</span> <span class="n">dg_d2</span><span class="p">,</span> <span class="n">dg_d2_msg</span><span class="p">)</span>
+            <span class="c1"># good: MP2~CCSD~CCSD(T) / fair: use MP2/CCSD with caution</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  (T1&lt;0.02: good / D1&lt;0.02: good, D1&lt;0.05: fair / D2&lt;0.15: good, D2&lt;0.18: fair)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dg_t1</span> <span class="o">&gt;</span> <span class="mf">0.02</span> <span class="ow">or</span> <span class="n">dg_d1</span> <span class="o">&gt;</span> <span class="mf">0.05</span> <span class="ow">or</span> <span class="n">dg_d2</span> <span class="o">&gt;</span> <span class="mf">0.18</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  at least one diagnostic indicates that CCSD is not adequate!&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Exception in T-diagnostic: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.get_callback">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.get_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RCCSD_Solver.print_extra_info">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.RCCSD_Solver.print_extra_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">print_extra_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mycc</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_exact_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wf</span><span class="p">):</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="c1"># Project onto cluster:</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">ro</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">)</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">)</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ro</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ro</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+            <span class="n">l2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">l2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_random_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">l1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="n">l2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="UCCSD_Solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.UCCSD_Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UCCSD_Solver</span><span class="p">(</span><span class="n">UClusterSolver</span><span class="p">,</span> <span class="n">RCCSD_Solver</span><span class="p">):</span>
+<div class="viewcode-block" id="UCCSD_Solver.Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.UCCSD_Solver.Options">[docs]</a>
+    <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">RCCSD_Solver</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="UCCSD_Solver.get_solver_class">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.UCCSD_Solver.get_solver_class">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_solver_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">UCCSD</span></div>
+
+
+<div class="viewcode-block" id="UCCSD_Solver.t_diagnostic">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.UCCSD_Solver.t_diagnostic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;T diagnostic not implemented for UCCSD in PySCF.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;T diagnostic not implemented for UCCSD in PySCF.&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_exact_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wf</span><span class="p">):</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">mo</span>
+        <span class="c1"># Project onto cluster:</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">roa</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">rob</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">rva</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">rvb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">mo</span><span class="o">.</span><span class="n">coeff_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">roa</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1a</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rob</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1b</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t2aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2aa</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+        <span class="n">t2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2ab</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t2bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2bb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">t1b</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="p">(</span><span class="n">t2aa</span><span class="p">,</span> <span class="n">t2ab</span><span class="p">,</span> <span class="n">t2bb</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">l1a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">roa</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1a</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+            <span class="n">l1b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rob</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l1b</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l2aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2aa</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rva</span><span class="p">)</span>
+            <span class="n">l2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">roa</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2ab</span><span class="p">,</span> <span class="n">rva</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l2bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,IJAB,Aa,Bb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">rob</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">l2bb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">,</span> <span class="n">rvb</span><span class="p">)</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="p">(</span><span class="n">l1a</span><span class="p">,</span> <span class="n">l1b</span><span class="p">)</span>
+            <span class="n">l2</span> <span class="o">=</span> <span class="p">(</span><span class="n">l2aa</span><span class="p">,</span> <span class="n">l2ab</span><span class="p">,</span> <span class="n">l2bb</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l1</span> <span class="o">=</span> <span class="n">l2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wf</span> <span class="o">=</span> <span class="n">CCSD_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">l1</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="o">=</span><span class="n">l2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_random_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+
+<span class="c1"># Subclass pyscf UCCSD to enable support of spin-dependent ERIs.</span>
+<div class="viewcode-block" id="UCCSD">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.ccsd.UCCSD">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UCCSD</span><span class="p">(</span><span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">uccsd</span><span class="o">.</span><span class="n">UCCSD</span><span class="p">):</span>
+    <span class="n">ao2mo</span> <span class="o">=</span> <span class="n">uao2mo</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

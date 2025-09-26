@@ -1,0 +1,45 @@
+vayesta.core.ao2mo
+==================
+
+Submodules
+----------
+
+vayesta.core.ao2mo.helper
+-------------------------
+
+.. automodule:: vayesta.core.ao2mo.helper
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.ao2mo.kao2gmo
+--------------------------
+
+.. automodule:: vayesta.core.ao2mo.kao2gmo
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.ao2mo.postscf\_ao2mo
+---------------------------------
+
+.. automodule:: vayesta.core.ao2mo.postscf_ao2mo
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vayesta.core.ao2mo.pyscf\_eris
+------------------------------
+
+.. automodule:: vayesta.core.ao2mo.pyscf_eris
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.ao2mo
+   :members:
+   :undoc-members:
+   :show-inheritance:

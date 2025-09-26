@@ -1,0 +1,368 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.bosonic_bath.projected_interactions &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.bosonic_bath.projected_interactions</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.bosonic_bath.projected_interactions</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">dot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.vlog</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoLogger</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lib</span>
+
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BosonicHamiltonianProjector</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cluster</span><span class="p">,</span> <span class="n">mo_cderi_getter</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">fock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span> <span class="o">=</span> <span class="n">cluster</span>
+        <span class="k">if</span> <span class="n">cluster</span><span class="o">.</span><span class="n">bosons</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cluster has no defined bosons to generate interactions for!&quot;</span><span class="p">)</span>
+        <span class="c1"># Functions to get</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mo_cderi_getter</span> <span class="o">=</span> <span class="n">mo_cderi_getter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="n">fock</span> <span class="ow">or</span> <span class="n">mf</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">inc_bosons</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_clus</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_bos</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">NoLogger</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bcluster</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">bosons</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">qba_basis</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">forbitals</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cderi_clus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_clus</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">c_active</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+            <span class="k">if</span> <span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">cderi</span><span class="p">,</span> <span class="n">cderi_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_cderi_getter</span><span class="p">(</span><span class="n">c_active</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_clus</span> <span class="o">=</span> <span class="p">((</span><span class="n">cderi</span><span class="p">,</span> <span class="n">cderi</span><span class="p">),</span> <span class="p">(</span><span class="n">cderi_neg</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cderia</span><span class="p">,</span> <span class="n">cderi_nega</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_cderi_getter</span><span class="p">(</span><span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">cderib</span><span class="p">,</span> <span class="n">cderi_negb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_cderi_getter</span><span class="p">(</span><span class="n">c_active</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_clus</span> <span class="o">=</span> <span class="p">((</span><span class="n">cderia</span><span class="p">,</span> <span class="n">cderib</span><span class="p">),</span> <span class="p">(</span><span class="n">cderi_nega</span><span class="p">,</span> <span class="n">cderi_negb</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_clus</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cderi_bos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_bos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rbos</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">coeff_3d_ao</span><span class="p">)</span>
+            <span class="n">cderi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">naux</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">nbos</span><span class="p">))</span>
+            <span class="n">cderi_neg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">blk</span><span class="p">,</span> <span class="n">lab</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop_df</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">blk</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">cderi</span><span class="p">[</span><span class="n">blk</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lab,nab-&gt;Ln&quot;</span><span class="p">,</span> <span class="n">lab</span><span class="p">,</span> <span class="n">rbos</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cderi_neg</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lab,nab-&gt;Ln&quot;</span><span class="p">,</span> <span class="n">lab</span><span class="p">,</span> <span class="n">rbos</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_bos</span> <span class="o">=</span> <span class="p">(</span><span class="n">cderi</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cderi_bos</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">naux</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">auxcell</span><span class="o">.</span><span class="n">nao</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;auxcell&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">auxmol</span><span class="o">.</span><span class="n">nao</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">get_naoaux</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fock_a</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fock_b</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">overlap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector.kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coupling_exchange</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">freq_exchange</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating bosonic interactions&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-------------------------------&quot;</span><span class="p">)</span>
+
+        <span class="n">freqs</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_freqs</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="n">freq_exchange</span><span class="p">)</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_couplings</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="n">coupling_exchange</span><span class="p">)</span>
+        <span class="n">nonconserving</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_nonconserving</span><span class="p">(</span><span class="n">couplings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">freqs</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nm,npq-&gt;mpq&quot;</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">couplings</span><span class="p">]),</span> <span class="n">c</span><span class="p">,</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,nm-&gt;m&quot;</span><span class="p">,</span> <span class="n">nonconserving</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector.project_freqs">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector.project_freqs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">project_freqs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">exchange</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+        <span class="n">ca</span><span class="p">,</span> <span class="n">cb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">coeff_3d_ao</span>
+
+        <span class="n">hbb_fock</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nia,mjb,ab,ij-&gt;nm&quot;</span><span class="p">,</span> <span class="n">ca</span><span class="p">,</span> <span class="n">ca</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nia,mjb,ab,ij-&gt;nm&quot;</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nia,mjb,ij,ab-&gt;nm&quot;</span><span class="p">,</span> <span class="n">ca</span><span class="p">,</span> <span class="n">ca</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nia,mjb,ij,ab-&gt;nm&quot;</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">cderi_bos</span><span class="p">,</span> <span class="n">cderi_bos_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cderi_bos</span>
+        <span class="n">hbb_coulomb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ln,Lm-&gt;nm&quot;</span><span class="p">,</span> <span class="n">cderi_bos</span><span class="p">,</span> <span class="n">cderi_bos</span><span class="p">)</span>
+        <span class="c1"># Want to take eigenvectors of this coupling matrix as our bosonic auxiliaries.</span>
+        <span class="n">hbb</span> <span class="o">=</span> <span class="n">hbb_fock</span> <span class="o">+</span> <span class="n">hbb_coulomb</span>
+        <span class="n">freqs</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">hbb</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">c</span></div>
+
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector.project_couplings">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector.project_couplings">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">project_couplings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate effective bosonic couplings. The two-body component of these is proportional to</span>
+<span class="sd">            V_npq \propto C_npq &lt;pk||qc&gt;, where C is the bosonic coefficient in the global particle-hole excitation</span>
+<span class="sd">        basis.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># For coulombic contributions we just need these cderis.</span>
+        <span class="n">cderi_clus</span><span class="p">,</span> <span class="n">cderi_clus_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cderi_clus</span>
+        <span class="n">cderi_bos</span><span class="p">,</span> <span class="n">cderi_bos_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cderi_bos</span>
+        <span class="n">couplings_coulomb</span> <span class="o">=</span> <span class="p">[</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ln,Lpq-&gt;npq&quot;</span><span class="p">,</span> <span class="n">cderi_bos</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cderi_clus</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">cderi_clus_neg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cderi_bos_neg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only have negative cderi contribution via one channel; something&#39;s gone wrong.&quot;</span><span class="p">)</span>
+            <span class="c1"># couplings = tuple([orig - einsum(&quot;Ln,Lpq-&gt;npq&quot;, cderi_bos, x) for orig, x in zip(couplings, cderi_clus_neg)])</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;CDERI_neg contributions to bosons not yet supported&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Now compute fock contributions.</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_gen_fock_spinchannel_contrib</span><span class="p">(</span><span class="n">rbos</span><span class="p">,</span> <span class="n">pocc</span><span class="p">,</span> <span class="n">pvir</span><span class="p">,</span> <span class="n">c_active</span><span class="p">,</span> <span class="n">fock</span><span class="p">):</span>
+            <span class="c1"># oo (and ai) contrib</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;njc,ck,jl-&gt;nlk&quot;</span><span class="p">,</span> <span class="n">rbos</span><span class="p">,</span> <span class="n">dot</span><span class="p">(</span><span class="n">fock</span><span class="p">,</span> <span class="n">c_active</span><span class="p">),</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">,</span> <span class="n">c_active</span><span class="p">))</span>
+            <span class="c1"># just oo contrib</span>
+            <span class="n">contrib</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nkc,kc,pq-&gt;npq&quot;</span><span class="p">,</span> <span class="n">rbos</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">pocc</span><span class="p">)</span>
+            <span class="c1"># just vv contrib</span>
+            <span class="n">contrib</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nkc,kc,pq-&gt;npq&quot;</span><span class="p">,</span> <span class="n">rbos</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">pvir</span><span class="p">)</span>
+            <span class="c1"># vv (and ai) contrib.</span>
+            <span class="n">contrib</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nka,kb,ac-&gt;ncb&quot;</span><span class="p">,</span> <span class="n">rbos</span><span class="p">,</span> <span class="n">dot</span><span class="p">(</span><span class="n">fock</span><span class="p">,</span> <span class="n">c_active</span><span class="p">),</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">,</span> <span class="n">c_active</span><span class="p">))</span>
+            <span class="c1"># NB no ia fock contrib.</span>
+            <span class="k">return</span> <span class="n">contrib</span>
+
+        <span class="n">pocc</span><span class="p">,</span> <span class="n">pvir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cluster_projectors</span><span class="p">()</span>
+
+        <span class="n">couplings_fock</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_gen_fock_spinchannel_contrib</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">po</span><span class="p">,</span> <span class="n">pv</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">po</span><span class="p">,</span> <span class="n">pv</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">coeff_3d_ao</span><span class="p">,</span> <span class="n">pocc</span><span class="p">,</span> <span class="n">pvir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_cluster</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fock_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_b</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Finally, optionally compute exchange contributions.</span>
+        <span class="n">couplings_exchange</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">couplings_coulomb</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">exchange</span><span class="p">:</span>
+            <span class="n">rbos_a</span><span class="p">,</span> <span class="n">rbos_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcluster</span><span class="o">.</span><span class="n">coeff_3d_ao</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+            <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">ca</span> <span class="o">=</span> <span class="n">cb</span> <span class="o">=</span> <span class="n">c</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ca</span><span class="p">,</span> <span class="n">cb</span> <span class="o">=</span> <span class="n">c</span>
+
+            <span class="c1"># Want -C_{nkc}&lt;pk|cq&gt; = - C_{nkc} V_{Lpc} V_{Lkq}</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">_gen_exchange_spinchannel_contrib</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">rbos</span><span class="p">):</span>
+                <span class="n">la_loc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># &quot;Lab,bp-&gt;Lap&quot;</span>
+                <span class="n">temp</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Lkp,Lcq-&gt;kcpq&quot;</span><span class="p">,</span> <span class="n">la_loc</span><span class="p">,</span> <span class="n">la_loc</span><span class="p">)</span>
+                <span class="n">contrib</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kcpq,nkc-&gt;npq&quot;</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="n">rbos</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">contrib</span>
+
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">blk</span><span class="p">,</span> <span class="n">lab</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop_df</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">blk</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">couplings_exchange</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">couplings_exchange</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">_gen_exchange_spinchannel_contrib</span><span class="p">(</span><span class="n">lab</span><span class="p">,</span> <span class="n">ca</span><span class="p">,</span> <span class="n">rbos_a</span><span class="p">)</span>
+                    <span class="n">couplings_exchange</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">couplings_exchange</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">_gen_exchange_spinchannel_contrib</span><span class="p">(</span><span class="n">lab</span><span class="p">,</span> <span class="n">cb</span><span class="p">,</span> <span class="n">rbos_b</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;CDERI_neg contributions to bosons not yet supported&quot;</span><span class="p">)</span>
+
+        <span class="n">couplings</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">couplings_coulomb</span><span class="p">,</span> <span class="n">couplings_exchange</span><span class="p">,</span> <span class="n">couplings_fock</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">couplings</span></div>
+
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector.gen_nonconserving">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector.gen_nonconserving">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_nonconserving</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">couplings</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the particle number non-conserving part of the bosonic Hamiltonian.&quot;&quot;&quot;</span>
+        <span class="n">rbos_a</span><span class="p">,</span> <span class="n">rbos_b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">bosons</span><span class="o">.</span><span class="n">coeff_3d_ao</span>
+        <span class="n">pocc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cluster_projectors</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># This is the normal-ordered contribution, arising from non-canonical HF references.</span>
+        <span class="n">contrib</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,pq-&gt;n&quot;</span><span class="p">,</span> <span class="n">rbos_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_a</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,pq-&gt;n&quot;</span><span class="p">,</span> <span class="n">rbos_b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_b</span><span class="p">)</span>
+        <span class="c1"># This arises from the transformation of the occupied term out of normal ordering</span>
+        <span class="n">contrib</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,pq-&gt;n&quot;</span><span class="p">,</span> <span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pocc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npp,pp-&gt;n&quot;</span><span class="p">,</span> <span class="n">couplings</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pocc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">contrib</span></div>
+
+
+<div class="viewcode-block" id="BosonicHamiltonianProjector.get_cluster_projectors">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.projected_interactions.BosonicHamiltonianProjector.get_cluster_projectors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cluster_projectors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the projectors in the cluster basis into the occupied and virtual subspaces.&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_get_cluster_spinchannel</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">co</span><span class="p">,</span> <span class="n">cv</span><span class="p">):</span>
+            <span class="n">so</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">,</span> <span class="n">co</span><span class="p">)</span>
+            <span class="n">po</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">so</span><span class="p">,</span> <span class="n">so</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">sv</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span><span class="p">,</span> <span class="n">cv</span><span class="p">)</span>
+            <span class="n">pv</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">sv</span><span class="p">,</span> <span class="n">sv</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">po</span><span class="p">,</span> <span class="n">pv</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">poa</span><span class="p">,</span> <span class="n">pva</span> <span class="o">=</span> <span class="n">_get_cluster_spinchannel</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span>
+            <span class="p">)</span>
+            <span class="n">pob</span><span class="p">,</span> <span class="n">pvb</span> <span class="o">=</span> <span class="n">poa</span><span class="p">,</span> <span class="n">pva</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">poa</span><span class="p">,</span> <span class="n">pva</span> <span class="o">=</span> <span class="n">_get_cluster_spinchannel</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">pob</span><span class="p">,</span> <span class="n">pvb</span> <span class="o">=</span> <span class="n">_get_cluster_spinchannel</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">poa</span><span class="p">,</span> <span class="n">pob</span><span class="p">),</span> <span class="p">(</span><span class="n">pva</span><span class="p">,</span> <span class="n">pvb</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_loop_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">nao</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nao</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span>
+        <span class="n">naux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">naux</span>
+        <span class="k">if</span> <span class="n">blksize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blksize</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e9</span> <span class="o">/</span> <span class="n">naux</span> <span class="o">*</span> <span class="n">nao</span> <span class="o">*</span> <span class="n">nao</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)</span>
+        <span class="c1"># PBC:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;sr_loop&quot;</span><span class="p">):</span>
+            <span class="n">blk0</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">labr</span><span class="p">,</span> <span class="n">labi</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">sr_loop</span><span class="p">(</span><span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="n">blksize</span><span class="p">):</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">labi</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">labi</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">labr</span> <span class="o">=</span> <span class="n">labr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nao</span><span class="p">,</span> <span class="n">nao</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sign</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">blk1</span> <span class="o">=</span> <span class="n">blk0</span> <span class="o">+</span> <span class="n">labr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">blk0</span><span class="p">:</span><span class="n">blk1</span><span class="p">]</span>
+                    <span class="n">blk0</span> <span class="o">=</span> <span class="n">blk1</span>
+                    <span class="k">yield</span> <span class="n">blk</span><span class="p">,</span> <span class="n">labr</span>
+                <span class="k">elif</span> <span class="n">sign</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labr</span>
+        <span class="c1"># No PBC:</span>
+        <span class="n">blk0</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">loop</span><span class="p">(</span><span class="n">blksize</span><span class="o">=</span><span class="n">blksize</span><span class="p">):</span>
+            <span class="n">blk1</span> <span class="o">=</span> <span class="n">blk0</span> <span class="o">+</span> <span class="n">lab</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">blk0</span><span class="p">:</span><span class="n">blk1</span><span class="p">]</span>
+            <span class="n">blk0</span> <span class="o">=</span> <span class="n">blk1</span>
+            <span class="n">lab</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">lab</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">blk</span><span class="p">,</span> <span class="n">lab</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

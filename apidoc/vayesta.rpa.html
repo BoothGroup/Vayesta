@@ -1,0 +1,1006 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.rpa.rirpa" href="vayesta.rpa.rirpa.html" />
+    <link rel="prev" title="vayesta.mpi" href="vayesta.mpi.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.rpa.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-rpa">
+<h1>vayesta.rpa<a class="headerlink" href="#vayesta-rpa" title="Link to this heading"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="vayesta.rpa.rirpa.html">vayesta.rpa.rirpa</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.NI_eval">vayesta.rpa.rirpa.NI_eval</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NIException"><code class="docutils literal notranslate"><span class="pre">NIException</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NIException.args"><code class="docutils literal notranslate"><span class="pre">NIException.args</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NIException.with_traceback"><code class="docutils literal notranslate"><span class="pre">NIException.with_traceback()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.npoints"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_quad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.test_diag_derivs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.fix_params"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_offset"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.kernel"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.l2_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.max_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorBase.get_quad_vals()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.npoints"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.calculate_error"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.fix_params"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.get_offset"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.get_quad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.kernel"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.l2_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.max_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCur.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.get_quad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.calculate_error"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.fix_params"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.get_offset"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.kernel"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.l2_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.max_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.npoints"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurInfinite.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.get_quad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.calculate_error"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.fix_params"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.get_offset"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.kernel"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.l2_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.max_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.npoints"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorClenCurSemiInfinite.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.npoints"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.get_quad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.fix_params"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.get_offset"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.kernel"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.l2_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.max_scan"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NumericalIntegratorGaussianSemiInfinite.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.gen_ClenCur_quad_inf"><code class="docutils literal notranslate"><span class="pre">gen_ClenCur_quad_inf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.gen_ClenCur_quad_semiinf"><code class="docutils literal notranslate"><span class="pre">gen_ClenCur_quad_semiinf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf"><code class="docutils literal notranslate"><span class="pre">NICheckInf</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.calculate_error"><code class="docutils literal notranslate"><span class="pre">NICheckInf.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.fix_params"><code class="docutils literal notranslate"><span class="pre">NICheckInf.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.get_offset"><code class="docutils literal notranslate"><span class="pre">NICheckInf.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.get_quad"><code class="docutils literal notranslate"><span class="pre">NICheckInf.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NICheckInf.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.kernel"><code class="docutils literal notranslate"><span class="pre">NICheckInf.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NICheckInf.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.l2_scan"><code class="docutils literal notranslate"><span class="pre">NICheckInf.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.max_scan"><code class="docutils literal notranslate"><span class="pre">NICheckInf.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.npoints"><code class="docutils literal notranslate"><span class="pre">NICheckInf.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NICheckInf.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NICheckInf.test_diag_derivs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NICheckInf.eval_contrib()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.RIRPA">vayesta.rpa.rirpa.RIRPA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.memory_string"><code class="docutils literal notranslate"><span class="pre">memory_string()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mol"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.df"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.df</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kdf"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.kdf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.nocc"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.nocc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.nvir"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.nvir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.naux_eri"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.naux_eri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.ov"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.ov</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.ov_tot"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.ov_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_coeff"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_coeff</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_coeff_occ"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_coeff_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_coeff_vir"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_coeff_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_energy"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_energy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_energy_occ"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_energy_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mo_energy_vir"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mo_energy_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.e_corr"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.e_corr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.e_tot"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.e_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.eps"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.eps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.D"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.D</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_moms"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.kernel_moms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mult_apbinv"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.mult_apbinv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.test_eta0_error"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.test_eta0_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_trMPrt"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.kernel_trMPrt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_energy"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.kernel_energy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.direct_AC_integration"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.direct_AC_integration()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_gap"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.get_gap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_compressed_MP"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.get_compressed_MP()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.check_errors"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.check_errors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.construct_RI_AB"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.construct_RI_AB()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.compress_low_rank"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.compress_low_rank()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_apb_eri_ri"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.get_apb_eri_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_ab_xc_ri"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.get_ab_xc_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_cderi"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.get_cderi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.test_spectral_rep"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.test_spectral_rep()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.record_memory"><code class="docutils literal notranslate"><span class="pre">ssRIRRPA.record_memory()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.construct_product_RI"><code class="docutils literal notranslate"><span class="pre">construct_product_RI()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.construct_inverse_RI"><code class="docutils literal notranslate"><span class="pre">construct_inverse_RI()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.compress_low_rank"><code class="docutils literal notranslate"><span class="pre">compress_low_rank()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.RIURPA">vayesta.rpa.rirpa.RIURPA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA"><code class="docutils literal notranslate"><span class="pre">ssRIURPA</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_occ"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.nmo"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.nmo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.nocc"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.nocc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.nvir"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.nvir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.naux_eri"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.naux_eri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_coeff"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_coeff</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_coeff_occ"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_coeff_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_coeff_vir"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_coeff_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_energy"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_energy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_energy_occ"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_energy_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mo_energy_vir"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mo_energy_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.ov"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.ov</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.ov_tot"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.ov_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.D"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.D</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.get_apb_eri_ri"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.get_apb_eri_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.check_errors"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.check_errors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.compress_low_rank"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.compress_low_rank()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.construct_RI_AB"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.construct_RI_AB()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.df"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.df</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.direct_AC_integration"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.direct_AC_integration()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.e_corr"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.e_corr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.e_tot"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.e_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.eps"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.eps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.get_ab_xc_ri"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.get_ab_xc_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.get_compressed_MP"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.get_compressed_MP()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.get_gap"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.get_gap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.kdf"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.kdf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.kernel_energy"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.kernel_energy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.kernel_moms"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.kernel_moms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.kernel_trMPrt"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.kernel_trMPrt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mol"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.mult_apbinv"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.mult_apbinv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.record_memory"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.record_memory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.test_eta0_error"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.test_eta0_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.test_spectral_rep"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.test_spectral_rep()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIURPA.ssRIURPA.get_cderi"><code class="docutils literal notranslate"><span class="pre">ssRIURPA.get_cderi()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.RIdRRPA">vayesta.rpa.rirpa.RIdRRPA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_moms"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.kernel_moms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_trMPrt"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.kernel_trMPrt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_energy"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.kernel_energy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_compressed_MP"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.get_compressed_MP()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.check_target_rot"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.check_target_rot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.compress_target_rot"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.compress_target_rot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.D"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.D</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.check_errors"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.check_errors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.compress_low_rank"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.compress_low_rank()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.construct_RI_AB"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.construct_RI_AB()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.df"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.df</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.direct_AC_integration"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.direct_AC_integration()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.e_corr"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.e_corr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.e_tot"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.e_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.eps"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.eps</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_ab_xc_ri"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.get_ab_xc_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_apb_eri_ri"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.get_apb_eri_ri()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_cderi"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.get_cderi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_gap"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.get_gap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kdf"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.kdf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_coeff"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_coeff</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_coeff_occ"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_coeff_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_coeff_vir"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_coeff_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_energy"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_energy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_energy_occ"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_energy_occ</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mo_energy_vir"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mo_energy_vir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mol"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.mult_apbinv"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.mult_apbinv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.naux_eri"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.naux_eri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.nocc"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.nocc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.nvir"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.nvir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.ov"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.ov</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.ov_tot"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.ov_tot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.record_memory"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.record_memory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.test_eta0_error"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.test_eta0_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.test_spectral_rep"><code class="docutils literal notranslate"><span class="pre">ssRIdRRPA.test_spectral_rep()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.energy_NI">vayesta.rpa.rirpa.energy_NI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NIError"><code class="docutils literal notranslate"><span class="pre">NIError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NIError.args"><code class="docutils literal notranslate"><span class="pre">NIError.args</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NIError.with_traceback"><code class="docutils literal notranslate"><span class="pre">NIError.with_traceback()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP"><code class="docutils literal notranslate"><span class="pre">NITrRootMP</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.n_aux"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.get_F"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.get_Q"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.diagmat1"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.diagmat2"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.calculate_error"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.fix_params"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.get_offset"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.get_quad"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.kernel"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.l2_scan"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.max_scan"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.npoints"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NITrRootMP.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.calculate_error"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.diagmat1"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.diagmat2"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.fix_params"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.get_F"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.get_offset"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.get_quad"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.kernel"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.l2_scan"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.max_scan"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.n_aux"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.npoints"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.test_diag_derivs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.get_Q"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.energy_NI.NITrRootMP_dRHF.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NITrRootMP_dRHF.eval_contrib()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa.momzero_NI">vayesta.rpa.rirpa.momzero_NI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero"><code class="docutils literal notranslate"><span class="pre">NIMomZero</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.n_aux"><code class="docutils literal notranslate"><span class="pre">NIMomZero.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_F"><code class="docutils literal notranslate"><span class="pre">NIMomZero.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_Q"><code class="docutils literal notranslate"><span class="pre">NIMomZero.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.diagmat1"><code class="docutils literal notranslate"><span class="pre">NIMomZero.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.diagmat2"><code class="docutils literal notranslate"><span class="pre">NIMomZero.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.calculate_error"><code class="docutils literal notranslate"><span class="pre">NIMomZero.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_contrib"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">NIMomZero.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.fix_params"><code class="docutils literal notranslate"><span class="pre">NIMomZero.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_offset"><code class="docutils literal notranslate"><span class="pre">NIMomZero.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_quad"><code class="docutils literal notranslate"><span class="pre">NIMomZero.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">NIMomZero.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.kernel"><code class="docutils literal notranslate"><span class="pre">NIMomZero.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">NIMomZero.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.l2_scan"><code class="docutils literal notranslate"><span class="pre">NIMomZero.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.max_scan"><code class="docutils literal notranslate"><span class="pre">NIMomZero.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.npoints"><code class="docutils literal notranslate"><span class="pre">NIMomZero.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">NIMomZero.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">NIMomZero.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.diagmat1"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.calculate_error"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.diagmat2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.get_F"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.get_Q"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.n_aux"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductNone.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.diagmat2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.calculate_error"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.diagmat1"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.get_F"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.get_Q"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.n_aux"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductD.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.calculate_error"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.diagmat1"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.diagmat2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.get_F"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.get_Q"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.get_Q()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.n_aux"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.get_offset"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_contrib"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.fix_params"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.get_quad"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.kernel"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.l2_scan"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.max_scan"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.npoints"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">BaseMomzeroOffset.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcGaussLag.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.calculate_error"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroOffsetCalcCC.test_diag_derivs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_contrib"><code class="docutils literal notranslate"><span class="pre">diag_sqrt_contrib()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_grad"><code class="docutils literal notranslate"><span class="pre">diag_sqrt_grad()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_deriv2"><code class="docutils literal notranslate"><span class="pre">diag_sqrt_deriv2()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.calculate_error"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.calculate_error()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.diagmat1"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.diagmat1</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.diagmat2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.diagmat2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx_deriv2"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx_deriv2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx_grad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_NI_approx_grad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_deriv2_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_deriv2_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_deriv_contrib"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_deriv_contrib()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.eval_diag_exact"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.eval_diag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.fix_params"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.fix_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_F"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.get_F()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_offset"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.get_offset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_quad"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.get_quad()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_quad_vals"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.get_quad_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.kernel"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.kernel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.kernel_adaptive"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.kernel_adaptive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.l2_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.l2_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.max_scan"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.max_scan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.n_aux"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.n_aux</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.npoints"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.npoints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.opt_quadrature_diag"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.opt_quadrature_diag()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.test_diag_derivs"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.test_diag_derivs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_Q"><code class="docutils literal notranslate"><span class="pre">MomzeroDeductHigherOrder_dRHF.get_Q()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vayesta.rpa.rirpa.html#module-vayesta.rpa.rirpa">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.ssRIRPA"><code class="docutils literal notranslate"><span class="pre">ssRIRPA()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.rpa.rpa">
+<span id="vayesta-rpa-rpa"></span><h2>vayesta.rpa.rpa<a class="headerlink" href="#module-vayesta.rpa.rpa" title="Link to this heading"></a></h2>
+<p>Straightforward N^6 implementation for RPA in a finite basis set with arbitrary interaction kernel, based upon the
+standard Hermitian reformulation used in TDHF approaches.
+Note that we only use the spin-block formulation of all matrices, rather than full spin-adaptation, which means our
+final diagonalisation is 2^3=8 times more expensive than hypothetically possible. However, this code is only for
+comparison.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.rpa.rpa.</span></span><span class="sig-name descname"><span class="pre">RPA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/rpa.html#RPA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.rpa.RPA" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Approach based on equations expressed succinctly in the appendix of
+Furche, F. (2001). PRB, 64(19), 195120. <a class="reference external" href="https://doi.org/10.1103/PhysRevB.64.195120">https://doi.org/10.1103/PhysRevB.64.195120</a>
+WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.ov">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ov</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.ov" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.e_corr">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_corr</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.e_corr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rpax'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/rpa.html#RPA.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.rpa.RPA.kernel" title="Link to this definition"></a></dt>
+<dd><p>Solve for RPA response; solve same-spin (ss) and spin-flip (sf) separately.
+If doing dRPA spin-flip is trivial, so for large calculations use dRPA specific</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.get_interaction_kernel">
+<span class="sig-name descname"><span class="pre">get_interaction_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rpax'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/rpa.html#RPA.get_interaction_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.rpa.RPA.get_interaction_kernel" title="Link to this definition"></a></dt>
+<dd><p>Construct the required components of the interaction kernel, separated into same-spin and spin-flip
+components, as well as spin contributions for A+B and A-B.
+The results is a length-4 tuple, giving the spin components of respectively</p>
+<blockquote>
+<div><p>(ss K_(A+B), ss K_(A-B), sf K_(A+B), sf K_(A-B)).</p>
+</div></blockquote>
+<p>In RHF both contributions both only have two distinct spin components, so there are a total of
+8 distinct spatial kernels for a general interaction.
+For spin contributions we use the orderings</p>
+<blockquote>
+<div><p>-(aaaa, aabb) for ss contributions.
+-(abab, abba) for st contributions (ie, whether the particle states have the</p>
+<blockquote>
+<div><p>same spin in both pairs or not). Sorry for clunky description…</p>
+</div></blockquote>
+</div></blockquote>
+<p>If TDA is specified all appropriate couplings will be zeroed.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.mo_coeff">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.mo_coeff" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.rpa.rpa.RPA.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.rpa.RPA.ao2mo">
+<span class="sig-name descname"><span class="pre">ao2mo</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/rpa.html#RPA.ao2mo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.rpa.RPA.ao2mo" title="Link to this definition"></a></dt>
+<dd><p>Get the ERIs in MO basis</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.rpa.ssrpa">
+<span id="vayesta-rpa-ssrpa"></span><h2>vayesta.rpa.ssrpa<a class="headerlink" href="#module-vayesta.rpa.ssrpa" title="Link to this heading"></a></h2>
+<p>Straightforward N^6 implementation for dRPA in a basis set, based upon the standard Hermitian reformulation
+used in TDHF approaches.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.rpa.ssrpa.</span></span><span class="sig-name descname"><span class="pre">ssRPA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ov_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Approach based on equations expressed succinctly in the appendix of
+Furche, F. (2001). PRB, 64(19), 195120. <a class="reference external" href="https://doi.org/10.1103/PhysRevB.64.195120">https://doi.org/10.1103/PhysRevB.64.195120</a>
+WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.ov">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ov</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.ov" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.ova">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ova</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.ova" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.ovb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ovb</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.ovb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.mo_coeff">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>MO coefficients.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.mo_coeff_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff_occ</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.mo_coeff_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied MO coefficients.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.mo_coeff_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff_vir</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.mo_coeff_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual MO coefficients.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.e_corr">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_corr</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.e_corr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.kernel" title="Link to this definition"></a></dt>
+<dd><p>Solve same-spin component of dRPA response.
+At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
+spin-flip contributions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.calc_energy_correction">
+<span class="sig-name descname"><span class="pre">calc_energy_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.calc_energy_correction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.calc_energy_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.get_k">
+<span class="sig-name descname"><span class="pre">get_k</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.get_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.get_k" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.get_xc_contribs">
+<span class="sig-name descname"><span class="pre">get_xc_contribs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_o</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.get_xc_contribs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.get_xc_contribs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.gen_moms">
+<span class="sig-name descname"><span class="pre">gen_moms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.gen_moms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.gen_moms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRPA.ao2mo">
+<span class="sig-name descname"><span class="pre">ao2mo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compact</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssrpa.html#ssRPA.ao2mo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRPA.ao2mo" title="Link to this definition"></a></dt>
+<dd><p>Get the ERIs in MO basis</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.rpa.ssrpa.ssRRPA">
+<span class="sig-prename descclassname"><span class="pre">vayesta.rpa.ssrpa.</span></span><span class="sig-name descname"><span class="pre">ssRRPA</span></span><a class="headerlink" href="#vayesta.rpa.ssrpa.ssRRPA" title="Link to this definition"></a></dt>
+<dd><p>alias of <a class="reference internal" href="#vayesta.rpa.ssrpa.ssRPA" title="vayesta.rpa.ssrpa.ssRPA"><code class="xref py py-class docutils literal notranslate"><span class="pre">ssRPA</span></code></a></p>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.rpa.ssurpa">
+<span id="vayesta-rpa-ssurpa"></span><h2>vayesta.rpa.ssurpa<a class="headerlink" href="#module-vayesta.rpa.ssurpa" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.rpa.ssurpa.</span></span><span class="sig-name descname"><span class="pre">ssURPA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ov_rot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssurpa.html#ssURPA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.rpa.ssrpa.ssRPA" title="vayesta.rpa.ssrpa.ssRPA"><code class="xref py py-class docutils literal notranslate"><span class="pre">ssRPA</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.norb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">norb</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.norb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.nocc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nocc</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.nocc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.nvir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nvir</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.nvir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.ova">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ova</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.ova" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.ovb">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ovb</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.ovb" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.mo_coeff_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff_occ</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.mo_coeff_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied MO coefficients.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.mo_coeff_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff_vir</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.mo_coeff_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual MO coefficients.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.get_k">
+<span class="sig-name descname"><span class="pre">get_k</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssurpa.html#ssURPA.get_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.get_k" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.ao2mo">
+<span class="sig-name descname"><span class="pre">ao2mo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa/ssurpa.html#ssURPA.ao2mo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.ao2mo" title="Link to this definition"></a></dt>
+<dd><p>Get the ERIs in MO basis</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.calc_energy_correction">
+<span class="sig-name descname"><span class="pre">calc_energy_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.calc_energy_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.e_corr">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_corr</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.e_corr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.gen_moms">
+<span class="sig-name descname"><span class="pre">gen_moms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_mom</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.gen_moms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.get_xc_contribs">
+<span class="sig-name descname"><span class="pre">get_xc_contribs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_o</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.get_xc_contribs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xc_kernel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.kernel" title="Link to this definition"></a></dt>
+<dd><p>Solve same-spin component of dRPA response.
+At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
+spin-flip contributions.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.mo_coeff">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mo_coeff</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>MO coefficients.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.rpa.ssurpa.ssURPA.ov">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ov</span></span><a class="headerlink" href="#vayesta.rpa.ssurpa.ssURPA.ov" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.rpa">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.rpa" title="Link to this heading"></a></h2>
+<p>Random Phase Approximation (RPA)
+Author: Charles Scott
+email:  <a class="reference external" href="mailto:cjcargillscott&#37;&#52;&#48;gmail&#46;com">cjcargillscott<span>&#64;</span>gmail<span>&#46;</span>com</a></p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.rpa.ssRPA">
+<span class="sig-prename descclassname"><span class="pre">vayesta.rpa.</span></span><span class="sig-name descname"><span class="pre">ssRPA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mf</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/rpa.html#ssRPA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.rpa.ssRPA" title="Link to this definition"></a></dt>
+<dd><p>Determine restricted or unrestricted by inspection of mean-field object</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.mpi.html" class="btn btn-neutral float-left" title="vayesta.mpi" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.rpa.rirpa.html" class="btn btn-neutral float-right" title="vayesta.rpa.rirpa" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

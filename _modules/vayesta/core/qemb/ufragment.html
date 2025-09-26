@@ -1,0 +1,393 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.qemb.ufragment &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.qemb.ufragment</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.qemb.ufragment</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">,</span> <span class="n">log_time</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span><span class="p">,</span> <span class="n">with_doc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.qemb.fragment</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragment</span>
+
+
+<div class="viewcode-block" id="UFragment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UFragment</span><span class="p">(</span><span class="n">Fragment</span><span class="p">):</span>
+<div class="viewcode-block" id="UFragment.log_info">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.log_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Some output</span>
+        <span class="n">fmt</span> <span class="o">=</span> <span class="s2">&quot;  &gt; </span><span class="si">%-24s</span><span class="s2">     &quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> , </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Fragment orbitals:&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_frag</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Symmetry factor:&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sym_factor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%.10f</span><span class="s2"> , </span><span class="si">%.10f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Number of electrons:&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">nelectron</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">atoms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Associated atoms:&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">fmt</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;Associated AOs:&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">aos</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_frag</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of fragment orbitals.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nelectron</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of mean-field electrons.&quot;&quot;&quot;</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">ne</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">sc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
+            <span class="n">ne</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bi-&gt;&quot;</span><span class="p">,</span> <span class="n">sc</span><span class="p">,</span> <span class="n">dm</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">sc</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ne</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UFragment.get_mo_occupation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_mo_occupation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_mo_occupation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mo_coeff : ndarray, shape(N, M)</span>
+<span class="sd">            Orbital coefficients.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        occ : ndarray, shape(M)</span>
+<span class="sd">            Occupation numbers of orbitals.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="o">*</span><span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">spin</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;beta&quot;</span><span class="p">)):</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_mo_occupation</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">dm1</span><span class="o">=</span><span class="n">dm1</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">results</span></div>
+
+
+<div class="viewcode-block" id="UFragment.canonicalize_mo">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.canonicalize_mo">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">canonicalize_mo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">fock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Diagonalize Fock matrix within subspace.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *mo_coeff : ndarrays</span>
+<span class="sd">            Orbital coefficients.</span>
+<span class="sd">        eigenvalues : ndarray</span>
+<span class="sd">            Return MO energies of canonicalized orbitals.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mo_canon : ndarray</span>
+<span class="sd">            Canonicalized orbital coefficients.</span>
+<span class="sd">        rot : ndarray</span>
+<span class="sd">            Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">fock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="o">*</span><span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">spin</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;beta&quot;</span><span class="p">)):</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">canonicalize_mo</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">fock</span><span class="o">=</span><span class="n">fock</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="UFragment.diagonalize_cluster_dm">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.diagonalize_cluster_dm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diagonalize_cluster_dm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *mo_coeff : ndarrays</span>
+<span class="sd">            Orbital coefficients.</span>
+<span class="sd">        tol : float, optional</span>
+<span class="sd">            If set, check that all eigenvalues of the cluster DM are close</span>
+<span class="sd">            to 0 or 1, with the tolerance given by tol. Default= 1e-4.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        c_cluster_occ : ndarray</span>
+<span class="sd">            Occupied cluster orbitals.</span>
+<span class="sd">        c_cluster_vir : ndarray</span>
+<span class="sd">            Virtual cluster orbitals.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="o">*</span><span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">spin</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s2">&quot;alpha&quot;</span><span class="p">,</span> <span class="s2">&quot;beta&quot;</span><span class="p">)):</span>
+            <span class="n">res_s</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">diagonalize_cluster_dm</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">dm1</span><span class="o">=</span><span class="n">dm1</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res_s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">))</span></div>
+
+
+    <span class="c1"># Amplitude projection</span>
+    <span class="c1"># --------------------</span>
+
+<div class="viewcode-block" id="UFragment.get_fragment_projector">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_fragment_projector">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fragment_projector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">c_proj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">c_proj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">c_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_proj</span>
+        <span class="n">projectors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">projectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_fragment_projector</span><span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="n">c_proj</span><span class="o">=</span><span class="n">c_proj</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">projectors</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UFragment.get_fragment_mf_energy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_fragment_mf_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fragment_mf_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the part of the mean-field energy associated with the fragment.</span>
+
+<span class="sd">        Does not include nuclear-nuclear repulsion!</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pa</span><span class="p">,</span> <span class="n">pb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragment_projector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="n">hveff</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">dot</span><span class="p">(</span>
+                <span class="n">pa</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_veff</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">),</span>
+            <span class="n">dot</span><span class="p">(</span>
+                <span class="n">pb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_veff</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">e_mf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">hveff</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="n">occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">hveff</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="n">occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="k">return</span> <span class="n">e_mf</span></div>
+
+
+<div class="viewcode-block" id="UFragment.get_fragment_mo_energy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_fragment_mo_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fragment_mo_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c_active</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fock</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns approximate MO energies, using the the diagonal of the Fock matrix.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        c_active: array, optional</span>
+<span class="sd">        fock: array, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">c_active</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">c_active</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+        <span class="k">if</span> <span class="n">fock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="n">mo_energy_a</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bi-&gt;i&quot;</span><span class="p">,</span> <span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_active</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">mo_energy_b</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bi-&gt;i&quot;</span><span class="p">,</span> <span class="n">c_active</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_active</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">mo_energy_a</span><span class="p">,</span> <span class="n">mo_energy_b</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UFragment.get_fragment_dmet_energy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_fragment_dmet_energy">[docs]</a>
+    <span class="nd">@with_doc</span><span class="p">(</span><span class="n">Fragment</span><span class="o">.</span><span class="n">get_fragment_dmet_energy</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fragment_dmet_energy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dm2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hamil</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">part_cumulant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">dm1</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DM1 not found for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="n">c_act</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">hamil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">hamil</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hamil</span>
+        <span class="n">gaa</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">gbb</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">dm2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">make_rdm2</span><span class="p">(</span><span class="n">with_dm1</span><span class="o">=</span><span class="ow">not</span> <span class="n">part_cumulant</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="n">approx_cumulant</span><span class="p">)</span>
+        <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="n">dm1</span>
+        <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">dm2</span>
+
+        <span class="c1"># Get effective core potential</span>
+        <span class="k">if</span> <span class="n">h1e_eff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">part_cumulant</span><span class="p">:</span>
+                <span class="n">h1e_eff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_hcore_for_energy</span><span class="p">()</span>
+                <span class="n">h1e_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">,</span> <span class="n">c_act</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">,</span> <span class="n">c_act</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Use the original Hcore (without chemical potential modifications), but updated mf-potential!</span>
+                <span class="n">h1e_eff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_hcore_for_energy</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_veff_for_energy</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">h1e_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_act</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_act</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_act</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="n">oa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+                <span class="n">ob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                <span class="n">va</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iipq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqii-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">])</span>
+                    <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ipqi-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">oa</span><span class="p">])</span>
+                <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">vb</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iipq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">[</span><span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iipq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+                    <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ipqi-&gt;pq&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">[</span><span class="n">ob</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">ob</span><span class="p">])</span>
+                <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">h1e_eff</span> <span class="o">=</span> <span class="p">(</span><span class="n">h1e_eff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">va</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">vb</span><span class="p">)</span>
+
+        <span class="n">p_frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragment_projector</span><span class="p">(</span><span class="n">c_act</span><span class="p">)</span>
+        <span class="c1"># Check number of electrons</span>
+        <span class="n">nea</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ix,ij,jx-&gt;&quot;</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1a</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">neb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ix,ij,jx-&gt;&quot;</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1b</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Number of local electrons for DMET energy: </span><span class="si">%.8f</span><span class="s2"> </span><span class="si">%.8f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">nea</span><span class="p">,</span> <span class="n">neb</span><span class="p">)</span>
+
+        <span class="c1"># Evaluate energy</span>
+        <span class="n">e1b</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xj,xi,ij-&gt;&quot;</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1a</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xj,xi,ij-&gt;&quot;</span><span class="p">,</span> <span class="n">h1e_eff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1b</span><span class="p">)</span>
+        <span class="n">e2b</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xjkl,xi,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm2aa</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xjkl,xi,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm2bb</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xjkl,xi,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm2ab</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijxl,xk,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">p_frag</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm2ab</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(DMET): E(1)= </span><span class="si">%s</span><span class="s2"> E(2)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e1b</span><span class="p">),</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e2b</span><span class="p">))</span>
+        <span class="n">e_dmet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">sym_factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">e1b</span> <span class="o">+</span> <span class="n">e2b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Fragment E(DMET)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span><span class="p">,</span> <span class="n">e_dmet</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for DMET energy: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">e_dmet</span></div>
+
+
+    <span class="c1"># --- Symmetry</span>
+    <span class="c1"># ============</span>
+
+<div class="viewcode-block" id="UFragment.get_symmetry_error">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.ufragment.UFragment.get_symmetry_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_symmetry_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frag</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get translational symmetry error between two fragments.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+        <span class="n">dma</span><span class="p">,</span> <span class="n">dmb</span> <span class="o">=</span> <span class="n">dm1</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="c1"># This fragment (x)</span>
+        <span class="n">cxa</span><span class="p">,</span> <span class="n">cxb</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c_env</span><span class="p">)</span>
+        <span class="n">dmxa</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cxa</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">dma</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">cxa</span><span class="p">)</span>
+        <span class="n">dmxb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cxb</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">dmb</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">cxb</span><span class="p">)</span>
+        <span class="c1"># Other fragment (y)</span>
+        <span class="k">if</span> <span class="n">frag</span><span class="o">.</span><span class="n">c_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cy_env</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">sym_op</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c_env</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cy_env</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">c_env</span>
+        <span class="n">cya</span><span class="p">,</span> <span class="n">cyb</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="n">frag</span><span class="o">.</span><span class="n">c_frag</span><span class="p">,</span> <span class="n">cy_env</span><span class="p">)</span>
+        <span class="n">dmya</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cya</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">dma</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">cya</span><span class="p">)</span>
+        <span class="n">dmyb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cyb</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">dmb</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">cyb</span><span class="p">)</span>
+        <span class="n">charge_err</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dmxa</span> <span class="o">+</span> <span class="n">dmxb</span> <span class="o">-</span> <span class="n">dmya</span> <span class="o">-</span> <span class="n">dmyb</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">spin_err</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dmxa</span> <span class="o">-</span> <span class="n">dmxb</span> <span class="o">-</span> <span class="n">dmya</span> <span class="o">+</span> <span class="n">dmyb</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">charge_err</span><span class="p">,</span> <span class="n">spin_err</span></div>
+
+
+    <span class="c1"># --- Overlap matrices</span>
+    <span class="c1"># --------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_csc_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">ovlp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transpose_left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transpose_right</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">transpose_left</span><span class="p">:</span>
+            <span class="n">c1</span> <span class="o">=</span> <span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">transpose_right</span><span class="p">:</span>
+            <span class="n">c2</span> <span class="o">=</span> <span class="p">(</span><span class="n">c2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ovlp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">outa</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">outb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">outa</span><span class="p">,</span> <span class="n">outb</span><span class="p">)</span>
+        <span class="n">outa</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">outb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">outa</span><span class="p">,</span> <span class="n">outb</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

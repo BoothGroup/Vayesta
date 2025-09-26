@@ -1,0 +1,351 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Density-Matrix Embbeding Theory (DMET) &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Wave Function Based Embedding (EWF)" href="ewf.html" />
+    <link rel="prev" title="Quickstart" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quickstart</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Density-Matrix Embbeding Theory (DMET)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#simple-molecule">Simple Molecule</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#density-matrices">Density-Matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hubbard-model-in-1d">Hubbard Model in 1D</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ewf.html">Wave Function Based Embedding (EWF)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fragmentation.html">Defining Fragments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpi.html">Parallel Computing with MPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Quickstart</a></li>
+      <li class="breadcrumb-item active">Density-Matrix Embbeding Theory (DMET)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/dmet.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="density-matrix-embbeding-theory-dmet">
+<span id="dmet"></span><h1>Density-Matrix Embbeding Theory (DMET)<a class="headerlink" href="#density-matrix-embbeding-theory-dmet" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> can be used for DMET calculations of molecules, solids, and lattice models.
+In this section, we give two simple examples: the calculations of a <span class="math notranslate nohighlight">\(\textrm{H}_6\)</span> <a class="reference internal" href="#simple-molecule">molecule</a>
+and a <a class="reference internal" href="#hubbard-model-in-1d">1D Hubbard model</a>.</p>
+<section id="simple-molecule">
+<h2>Simple Molecule<a class="headerlink" href="#simple-molecule" title="Link to this heading"></a></h2>
+<p>A simple DMET calculation of a <span class="math notranslate nohighlight">\(\textrm{H}_6\)</span> ring can be performed as follows (the example can also be found in <code class="docutils literal notranslate"><span class="pre">examples/dmet/01-simple-dmet.py</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.fci</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 5</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.dmet</span>
+<span class="linenos"> 6</span><span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.misc.molecules</span><span class="w"> </span><span class="kn">import</span> <span class="n">ring</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span>
+<span class="linenos"> 9</span><span class="c1"># H6 ring</span>
+<span class="linenos">10</span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="linenos">11</span><span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atom</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">natom</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">bond_length</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="linenos">12</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;sto-6g&quot;</span>
+<span class="linenos">13</span><span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf.out&quot;</span>
+<span class="linenos">14</span><span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">15</span>
+<span class="linenos">16</span><span class="c1"># Hartree-Fock</span>
+<span class="linenos">17</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">18</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">19</span>
+<span class="linenos">20</span><span class="c1"># Reference FCI</span>
+<span class="linenos">21</span><span class="n">fci</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">fci</span><span class="o">.</span><span class="n">FCI</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">22</span><span class="n">fci</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">23</span>
+<span class="linenos">24</span><span class="c1"># One-shot DMET</span>
+<span class="linenos">25</span><span class="n">dmet</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="linenos">26</span><span class="k">with</span> <span class="n">dmet</span><span class="o">.</span><span class="n">sao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">27</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="linenos">28</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="linenos">29</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<span class="linenos">30</span><span class="n">dmet</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">31</span>
+<span class="linenos">32</span><span class="c1"># Self-consistent DMET</span>
+<span class="linenos">33</span><span class="n">dmet_sc</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">)</span>
+<span class="linenos">34</span><span class="k">with</span> <span class="n">dmet_sc</span><span class="o">.</span><span class="n">sao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">35</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="linenos">36</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="linenos">37</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<span class="linenos">38</span><span class="n">dmet_sc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">39</span>
+<span class="linenos">40</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Energies&quot;</span><span class="p">)</span>
+<span class="linenos">41</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;========&quot;</span><span class="p">)</span>
+<span class="linenos">42</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  HF:                    </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">43</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  FCI:                   </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">fci</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">44</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  DMET(1 iteration):     </span><span class="si">%+16.8f</span><span class="s2"> Ha  (error= </span><span class="si">%.1f</span><span class="s2"> mHa)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dmet</span><span class="o">.</span><span class="n">e_tot</span><span class="p">,</span> <span class="mi">1000</span> <span class="o">*</span> <span class="p">(</span><span class="n">dmet</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">-</span> <span class="n">fci</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)))</span>
+<span class="linenos">45</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  DMET(self-consistent): </span><span class="si">%+16.8f</span><span class="s2"> Ha  (error= </span><span class="si">%.1f</span><span class="s2"> mHa)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dmet_sc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">,</span> <span class="mi">1000</span> <span class="o">*</span> <span class="p">(</span><span class="n">dmet_sc</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">-</span> <span class="n">fci</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p>In <strong>lines 9–17</strong> the <span class="math notranslate nohighlight">\(\textrm{H}_6\)</span> molecule is set up
+and a restricted Hartree–Fock (RHF) calculation is performed using <a class="reference external" href="https://pyscf.org/">PySCF</a>.
+We also perform an full system full configuration interaction (FCI) calculation (<strong>lines 20–21</strong>),
+to obtain a reference value for the DMET results.</p>
+<p>In <strong>line 24</strong>, a one-shot DMET calculation is instantiated with the Hartree–Fock object as first argument.
+Additionally, the keyword argument <code class="docutils literal notranslate"><span class="pre">solver='FCI'</span></code> is used to select FCI
+as the default solver and <code class="docutils literal notranslate"><span class="pre">maxiter=1</span></code> is used to skip the DMET self-consistency cycle.</p>
+<p>In <strong>lines 25–28</strong> the fragments for the calculation are defined.
+This is done with help of the context manager <code class="docutils literal notranslate"><span class="pre">dmet.sao_fragmentation()</span></code>, which specifies that the
+fragments added in the body of the context manager will refer to symmetrically orthogonalized atomic orbitals (SAOs).
+The method <code class="docutils literal notranslate"><span class="pre">f.add_atomic_fragment(atoms)</span></code> adds a fragment comprised of
+all orbitals corresponding to the atom <code class="docutils literal notranslate"><span class="pre">atoms</span></code> to the calculation.
+In this case, we split the system into three fragments, containing two neighboring hydrogen atoms each.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For more information on the fragmentation and the <code class="docutils literal notranslate"><span class="pre">add_atomic_fragment</span></code> method,
+see section <a class="reference internal" href="fragmentation.html#fragments"><span class="std std-ref">Defining Fragments</span></a>.</p>
+</div>
+<p>Finally, the two embedding problems are solved by calling <code class="docutils literal notranslate"><span class="pre">dmet.kernel()</span></code>
+and the resulting total energy is stored in <code class="docutils literal notranslate"><span class="pre">dmet.e_tot</span></code>.</p>
+<p>In <strong>lines 32–37</strong> these steps are repeated for a self-consistent DMET calculation, in which case only
+the keyword argument <code class="docutils literal notranslate"><span class="pre">maxiter=1</span></code> has to be dropped.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The fragments in the calculation above are symmetry-related by a rotation of 120° or 240° around the <cite>z</cite>-axis.
+This symmetry can be added to the embedding class, such that only a single fragment needs to be solved:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># One-shot DMET</span>
+<span class="n">dmet</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">dmet</span><span class="o">.</span><span class="n">sao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">f</span><span class="o">.</span><span class="n">rotational_symmetry</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]):</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">dmet</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>see also <code class="docutils literal notranslate"><span class="pre">example/dmet/02-rotations-symmetry.py</span></code></p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The self-consistent optimization of a correlation potential in DMET can be ill-defined and will sometimes fail.
+In this case, changing the tolerance or starting point can sometimes help.
+The underlying origin of these difficulties are described in Ref. <a class="footnote-reference brackets" href="#id3" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
+<p>Our implementation of self-consistent DMET follows that of Ref. <a class="footnote-reference brackets" href="#id4" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> and requires the Python package <code class="docutils literal notranslate"><span class="pre">cxvpy</span></code>
+for use.</p>
+</div>
+</section>
+<section id="density-matrices">
+<h2>Density-Matrices<a class="headerlink" href="#density-matrices" title="Link to this heading"></a></h2>
+<p>In DMET expectation values are defined in terms of democratically partitioned one- and two-body density-matices.
+These can be obtained by calling <code class="docutils literal notranslate"><span class="pre">dmet.make_rdm1()</span></code> and <code class="docutils literal notranslate"><span class="pre">dmet.make_rdm2()</span></code> as shown in example
+<code class="docutils literal notranslate"><span class="pre">examples/dmet/03-density-matrices.py</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 5</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.dmet</span>
+<span class="linenos"> 6</span><span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.misc.molecules</span><span class="w"> </span><span class="kn">import</span> <span class="n">ring</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="c1"># H6 ring</span>
+<span class="linenos"> 9</span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="linenos">10</span><span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atom</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">natom</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">bond_length</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="linenos">11</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;sto-6g&quot;</span>
+<span class="linenos">12</span><span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf.out&quot;</span>
+<span class="linenos">13</span><span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">14</span>
+<span class="linenos">15</span><span class="c1"># Hartree-Fock</span>
+<span class="linenos">16</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">17</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">18</span>
+<span class="linenos">19</span><span class="c1"># One-shot DMET</span>
+<span class="linenos">20</span><span class="n">dmet</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="linenos">21</span><span class="k">with</span> <span class="n">dmet</span><span class="o">.</span><span class="n">sao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">22</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="linenos">23</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="linenos">24</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<span class="linenos">25</span><span class="n">dmet</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">26</span>
+<span class="linenos">27</span><span class="c1"># Calculate energy from democratically-partitioned density matrices:</span>
+<span class="linenos">28</span><span class="n">dm1</span> <span class="o">=</span> <span class="n">dmet</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">(</span><span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">29</span><span class="n">dm2</span> <span class="o">=</span> <span class="n">dmet</span><span class="o">.</span><span class="n">make_rdm2</span><span class="p">(</span><span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">30</span><span class="c1"># One and two-electron integrals in AO basis:</span>
+<span class="linenos">31</span><span class="n">h1e</span> <span class="o">=</span> <span class="n">dmet</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span>
+<span class="linenos">32</span><span class="n">eris</span> <span class="o">=</span> <span class="n">dmet</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">mol</span><span class="o">.</span><span class="n">nao</span><span class="p">))</span>
+<span class="linenos">33</span><span class="n">e_dmet</span> <span class="o">=</span> <span class="n">dmet</span><span class="o">.</span><span class="n">e_nuc</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,ij-&gt;&quot;</span><span class="p">,</span> <span class="n">h1e</span><span class="p">,</span> <span class="n">dm1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ijkl-&gt;&quot;</span><span class="p">,</span> <span class="n">eris</span><span class="p">,</span> <span class="n">dm2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="linenos">34</span>
+<span class="linenos">35</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Energies&quot;</span><span class="p">)</span>
+<span class="linenos">36</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;========&quot;</span><span class="p">)</span>
+<span class="linenos">37</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  HF:                </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">38</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  DMET:              </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">dmet</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">39</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  DMET (from DMs):   </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">e_dmet</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="hubbard-model-in-1d">
+<span id="dmet-hub1d"></span><h2>Hubbard Model in 1D<a class="headerlink" href="#hubbard-model-in-1d" title="Link to this heading"></a></h2>
+<p>In order to simulate lattice model systems, such as the Hubbard model, Vayesta provides the classes
+<code class="docutils literal notranslate"><span class="pre">Hubbard1D</span></code>, <code class="docutils literal notranslate"><span class="pre">Hubbard2D</span></code> and <code class="docutils literal notranslate"><span class="pre">LatticeMF</span></code> in the <code class="docutils literal notranslate"><span class="pre">lattmod</span></code> package.
+In the following example the half-filled, ten-site Hubbard chain is calculated with <span class="math notranslate nohighlight">\(U = 6t\)</span> (where <span class="math notranslate nohighlight">\(t\)</span> is the hopping parameter, which is 1 by default):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.dmet</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.lattmod</span>
+<span class="linenos"> 5</span>
+<span class="linenos"> 6</span>
+<span class="linenos"> 7</span><span class="n">nsite</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="linenos"> 8</span><span class="n">nimp</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="linenos"> 9</span><span class="n">hubbard_u</span> <span class="o">=</span> <span class="mf">6.0</span>
+<span class="linenos">10</span><span class="n">boundary</span> <span class="o">=</span> <span class="s2">&quot;PBC&quot;</span>
+<span class="linenos">11</span><span class="n">nelectron</span> <span class="o">=</span> <span class="n">nsite</span>
+<span class="linenos">12</span><span class="n">mol</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">lattmod</span><span class="o">.</span><span class="n">Hubbard1D</span><span class="p">(</span><span class="n">nsite</span><span class="p">,</span> <span class="n">nelectron</span><span class="o">=</span><span class="n">nelectron</span><span class="p">,</span> <span class="n">hubbard_u</span><span class="o">=</span><span class="n">hubbard_u</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="n">boundary</span><span class="p">)</span>
+<span class="linenos">13</span><span class="n">mf</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">lattmod</span><span class="o">.</span><span class="n">LatticeMF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">14</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">15</span>
+<span class="linenos">16</span><span class="c1"># Calculate each 2-sites fragment:</span>
+<span class="linenos">17</span><span class="n">dmet</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">)</span>
+<span class="linenos">18</span><span class="k">with</span> <span class="n">dmet</span><span class="o">.</span><span class="n">site_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">19</span>    <span class="k">for</span> <span class="n">site</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nimp</span><span class="p">):</span>
+<span class="linenos">20</span>        <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">site</span> <span class="o">+</span> <span class="n">nimp</span><span class="p">)))</span>
+<span class="linenos">21</span><span class="n">dmet</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">22</span>
+<span class="linenos">23</span><span class="nb">print</span><span class="p">(</span><span class="n">dmet</span><span class="o">.</span><span class="n">fragments</span><span class="p">)</span>
+<span class="linenos">24</span><span class="c1"># Calculate a single fragment and use translational symmetry:</span>
+<span class="linenos">25</span><span class="n">dmet_sym</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">dmet</span><span class="o">.</span><span class="n">DMET</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;FCI&quot;</span><span class="p">)</span>
+<span class="linenos">26</span><span class="c1"># Specify the number of translational copies in direction of the three lattice vectors by passing a list with three</span>
+<span class="linenos">27</span><span class="c1"># integers, [n0, n1, n2]. 1D or 2D systems have their periodic dimension along the first one or two axes.</span>
+<span class="linenos">28</span><span class="n">nimages</span> <span class="o">=</span> <span class="p">[</span><span class="n">nsite</span> <span class="o">//</span> <span class="n">nimp</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="linenos">29</span><span class="n">dmet_sym</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">set_translations</span><span class="p">(</span><span class="n">nimages</span><span class="p">)</span>
+<span class="linenos">30</span><span class="c1"># Add only a single 2-sites fragment:</span>
+<span class="linenos">31</span><span class="k">with</span> <span class="n">dmet_sym</span><span class="o">.</span><span class="n">site_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<span class="linenos">32</span>    <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">nimp</span><span class="p">)))</span>
+<span class="linenos">33</span><span class="n">dmet_sym</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">34</span>
+<span class="linenos">35</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Difference in converged solutions:&quot;</span><span class="p">)</span>
+<span class="linenos">36</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |d(E_tot)|=  </span><span class="si">%.5e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dmet</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">-</span> <span class="n">dmet_sym</span><span class="o">.</span><span class="n">e_tot</span><span class="p">))</span>
+<span class="linenos">37</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  |d(V_corr)|= </span><span class="si">%.5e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dmet</span><span class="o">.</span><span class="n">vcorr</span> <span class="o">-</span> <span class="n">dmet_sym</span><span class="o">.</span><span class="n">vcorr</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>For lattice model systems, fragments for quantum embedding calculations are usually defined in terms of lattice sites.
+For this purpose, the embedding class has the fragmentation context manager <code class="docutils literal notranslate"><span class="pre">dmet.site_fragmentation()</span></code>.
+Within the body of this context manager, fragments can be added as before with the method
+<code class="docutils literal notranslate"><span class="pre">add_atomic_fragment</span></code>—for the purpose fo defining fragments, the sites are considered as atoms.
+In <strong>lines 19–20</strong> of this example, the lattice is divided into two-site fragments, as depicted in <a class="reference internal" href="#fig-hub1d"><span class="std std-numref">Fig. 2</span></a>.</p>
+<figure class="align-center" id="id5">
+<span id="fig-hub1d"></span><img alt="1D Hubbard model" src="../_images/1dhubbfig.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2 </span><span class="caption-text">Schematic depiction of the 1-D Hubbard model with two-sites fragments.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Just as for the <span class="math notranslate nohighlight">\(\mathrm{H}_6\)</span> ring molecule in the example <a class="reference internal" href="#simple-molecule">above</a>,
+this lattice model system has an inherent (in this case translational) symmetry between the fragments, which can
+be exploited.
+This is done in the second DMET calculation in <strong>lines 24–32</strong>, where the translational symmetry is specified
+in the following lines:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># integers, [n0, n1, n2]. 1D or 2D systems have their periodic dimension along the first one or two axes.</span>
+<span class="n">nimages</span> <span class="o">=</span> <span class="p">[</span><span class="n">nsite</span> <span class="o">//</span> <span class="n">nimp</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The three integers in <code class="docutils literal notranslate"><span class="pre">nimages</span></code> specify the number of symmetry related copies (including the original)
+along each lattice vector.
+For a 1D system, the first lattice vector corresponds to the periodic dimension and is thus the only dimension
+along which there are more than one copies.</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>Faulstich et al., J. Chem. Theor. Comput. 18, 851-864 (2022).</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>Wu et al., Phys. Rev. B 102, 085123 (2020).</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Quickstart" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ewf.html" class="btn btn-neutral float-right" title="Wave Function Based Embedding (EWF)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

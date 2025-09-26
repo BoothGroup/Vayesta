@@ -1,0 +1,804 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.ao2mo.helper &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.ao2mo.helper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.ao2mo.helper</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">Object</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">,</span> <span class="n">getif</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_kconserv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_kconserv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_kconserv</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">nk</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Get the momentum conservation array for a set of k-points.</span>
+
+<span class="sd">    Given k-point indices (k, l, m) the array kconserv[k,l,m] returns</span>
+<span class="sd">    the index n that satifies momentum conservation,</span>
+
+<span class="sd">    nk=1:</span>
+<span class="sd">        (k(k) - k(n)) \dot a = 2n\pi</span>
+<span class="sd">    nk=2:</span>
+<span class="sd">        (k(k) - k(l) - k(n)) \dot a = 2n\pi</span>
+<span class="sd">    nk=3:</span>
+<span class="sd">        (k(k) - k(l) + k(m) - k(n)) \dot a = 2n\pi</span>
+
+<span class="sd">    This is used for symmetry e.g. integrals of the form</span>
+<span class="sd">        [\phi*[k](1) \phi[l](1) | \phi*[m](2) \phi[n](2)]</span>
+<span class="sd">    are zero unless n satisfies the above.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nkpts</span> <span class="o">=</span> <span class="n">kpts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">nk</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kpts</span><span class="p">)))</span>
+    <span class="n">kconserv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nk</span> <span class="o">*</span> <span class="p">[</span><span class="n">nkpts</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nk</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">k_klm</span> <span class="o">=</span> <span class="n">kpts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">kpts</span>  <span class="c1"># k(k) - k(l)</span>
+    <span class="k">elif</span> <span class="n">nk</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">k_klm</span> <span class="o">=</span> <span class="n">kpts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">kpts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">kpts</span>  <span class="c1"># k(k) - k(l) + k(m)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">kn</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">kpts</span><span class="p">):</span>
+        <span class="n">k_klmn</span> <span class="o">=</span> <span class="n">k_klm</span> <span class="o">-</span> <span class="n">kn</span>
+        <span class="n">k_klmn</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;wx,...x-&gt;w...&quot;</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">k_klmn</span><span class="p">)</span>
+        <span class="c1"># check whether (1/(2pi) k_klmn dot a) is an integer</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;w...-&gt;...&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">k_klmn</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">k_klmn</span><span class="p">)))</span> <span class="o">&lt;</span> <span class="mf">1e-9</span>
+        <span class="n">kconserv</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
+
+    <span class="k">return</span> <span class="n">kconserv</span></div>
+
+
+
+<div class="viewcode-block" id="get_full_array">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_full_array">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_full_array</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get dense ERI array from CCSD _ChemistEris object.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="s2">&quot;OOOO&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_full_array_uhf</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">get_full_array_rhf</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_full_array_rhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_full_array_rhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_full_array_rhf</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get dense ERI array from CCSD _ChemistEris object.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">eris</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">nocc</span> <span class="o">+</span> <span class="n">nvir</span>
+    <span class="n">o</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocc</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocc</span><span class="p">:]</span>
+    <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">nmo</span><span class="p">])</span>
+
+    <span class="n">swap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># Swap electrons</span>
+    <span class="n">conj</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># Real orbital symmetry</span>
+    <span class="c1"># 4-occ</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span>
+    <span class="c1"># 3-occ</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="p">[:]</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="c1"># 2-occ</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">oovv</span><span class="p">[:]</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">[:]</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">[:]</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">[:])</span>
+    <span class="c1"># 1-occ</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="c1"># 0-occ</span>
+    <span class="n">out</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<div class="viewcode-block" id="get_full_array_uhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_full_array_uhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_full_array_uhf</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get dense ERI array from CCSD _ChemistEris object.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">nocca</span><span class="p">,</span> <span class="n">noccb</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span>
+    <span class="n">nmoa</span><span class="p">,</span> <span class="n">nmob</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nvira</span><span class="p">,</span> <span class="n">nvirb</span> <span class="o">=</span> <span class="n">nmoa</span> <span class="o">-</span> <span class="n">nocca</span><span class="p">,</span> <span class="n">nmob</span> <span class="o">-</span> <span class="n">noccb</span>
+
+    <span class="c1"># Alpha-alpha</span>
+    <span class="n">blocks_aa</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;oooo&quot;</span><span class="p">,</span> <span class="s2">&quot;ovoo&quot;</span><span class="p">,</span> <span class="s2">&quot;oovv&quot;</span><span class="p">,</span> <span class="s2">&quot;ovov&quot;</span><span class="p">,</span> <span class="s2">&quot;ovvo&quot;</span><span class="p">,</span> <span class="s2">&quot;ovvv&quot;</span><span class="p">,</span> <span class="s2">&quot;vvvv&quot;</span><span class="p">]</span>
+    <span class="n">eris_aa</span> <span class="o">=</span> <span class="n">Object</span><span class="p">()</span>
+    <span class="n">eris_aa</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">eris_aa</span><span class="o">.</span><span class="n">nocc</span> <span class="o">=</span> <span class="n">nocca</span>
+    <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blocks_aa</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">eris_aa</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">))</span>
+    <span class="n">eri_aa</span> <span class="o">=</span> <span class="n">get_full_array_rhf</span><span class="p">(</span><span class="n">eris_aa</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">getif</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">out</span><span class="o">=</span><span class="n">getif</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="c1"># Beta-beta</span>
+    <span class="n">eris_bb</span> <span class="o">=</span> <span class="n">Object</span><span class="p">()</span>
+    <span class="n">eris_bb</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">eris_bb</span><span class="o">.</span><span class="n">nocc</span> <span class="o">=</span> <span class="n">noccb</span>
+    <span class="n">blocks_bb</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks_aa</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">blocks_bb</span><span class="p">):</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">eris_bb</span><span class="p">,</span> <span class="n">blocks_aa</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">))</span>
+    <span class="n">eri_bb</span> <span class="o">=</span> <span class="n">get_full_array_rhf</span><span class="p">(</span><span class="n">eris_bb</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">getif</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">out</span><span class="o">=</span><span class="n">getif</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="c1"># Alpha-beta</span>
+    <span class="n">eri_ab</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nmoa</span><span class="p">,</span> <span class="n">nmoa</span><span class="p">,</span> <span class="n">nmob</span><span class="p">,</span> <span class="n">nmob</span><span class="p">))</span> <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocca</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">noccb</span><span class="p">]</span>
+    <span class="n">va</span><span class="p">,</span> <span class="n">vb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocca</span><span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">noccb</span><span class="p">:]</span>
+    <span class="n">swap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># Swap electrons</span>
+    <span class="n">conj</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># Real orbital symmetry</span>
+    <span class="c1"># 4-occ</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooOO</span><span class="p">[:]</span>
+    <span class="c1"># 3-occ</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOO</span><span class="p">[:]</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">])</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">OVoo</span><span class="p">[:])</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+    <span class="c1"># 2-occ</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooVV</span><span class="p">[:]</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">OOvv</span><span class="p">[:])</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovVO</span><span class="p">[:]</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">])</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOV</span><span class="p">[:]</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+    <span class="c1"># 1-occ</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovVV&quot;</span><span class="p">)</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">swap</span><span class="p">(</span><span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVvv&quot;</span><span class="p">))</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">]</span> <span class="o">=</span> <span class="n">conj</span><span class="p">(</span><span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+    <span class="c1"># 0-occ</span>
+    <span class="n">eri_ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_vvVV</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eri_aa</span><span class="p">,</span> <span class="n">eri_ab</span><span class="p">,</span> <span class="n">eri_bb</span></div>
+
+
+
+<div class="viewcode-block" id="get_ovvv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_ovvv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovvv&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="s2">&quot;OOOO&quot;</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;ovvv&quot;</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nocc</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nocc</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span>
+    <span class="n">nvir</span> <span class="o">=</span> <span class="n">nmo</span> <span class="o">-</span> <span class="n">nocc</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)[:]</span>
+    <span class="k">if</span> <span class="n">govvv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">govvv</span>
+    <span class="n">nvir_pair</span> <span class="o">=</span> <span class="n">nvir</span> <span class="o">*</span> <span class="p">(</span><span class="n">nvir</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">govvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nocc</span> <span class="o">*</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir_pair</span><span class="p">))</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="n">govvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">govvv</span></div>
+
+
+
+<div class="viewcode-block" id="get_ovVV">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_ovVV">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovVV&quot;</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ovVV&quot;</span><span class="p">,</span> <span class="s2">&quot;OVvv&quot;</span><span class="p">)</span>
+    <span class="n">sl</span><span class="p">,</span> <span class="n">sr</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;ovVV&quot;</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">nmoL</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nmoR</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">sr</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">noccL</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span>
+    <span class="n">noccR</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">sr</span><span class="p">]</span>
+    <span class="n">nvirL</span> <span class="o">=</span> <span class="n">nmoL</span> <span class="o">-</span> <span class="n">noccL</span>
+    <span class="n">nvirR</span> <span class="o">=</span> <span class="n">nmoR</span> <span class="o">-</span> <span class="n">noccR</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)[:]</span>
+    <span class="k">if</span> <span class="n">govvv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">govvv</span>
+    <span class="n">nvir_pair</span> <span class="o">=</span> <span class="n">nvirR</span> <span class="o">*</span> <span class="p">(</span><span class="n">nvirR</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">govvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">noccL</span> <span class="o">*</span> <span class="n">nvirL</span><span class="p">,</span> <span class="n">nvir_pair</span><span class="p">))</span>
+    <span class="n">govvv</span> <span class="o">=</span> <span class="n">govvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">noccL</span><span class="p">,</span> <span class="n">nvirL</span><span class="p">,</span> <span class="n">nvirR</span><span class="p">,</span> <span class="n">nvirR</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">govvv</span></div>
+
+
+
+<div class="viewcode-block" id="get_vvvv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_vvvv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;vvvv&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="s2">&quot;VVVV&quot;</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;vvvv&quot;</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nocc</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nocc</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span>
+    <span class="n">nvir</span> <span class="o">=</span> <span class="n">nmo</span> <span class="o">-</span> <span class="n">nocc</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">gvvvv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)[:]</span>
+        <span class="k">if</span> <span class="n">gvvvv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">gvvvv</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">gvvvv</span><span class="p">[:]),</span> <span class="n">nvir</span><span class="p">)</span>
+    <span class="c1"># Note that this will not work for 2D systems:</span>
+    <span class="k">if</span> <span class="n">eris</span><span class="o">.</span><span class="n">vvL</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">naux</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">vvL</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">vvl</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">vvL</span><span class="p">[:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">naux</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">vvl</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">vvL</span><span class="p">[:]</span>
+    <span class="n">gvvvv</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijQ,klQ-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">vvl</span><span class="p">,</span> <span class="n">vvl</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">gvvvv</span></div>
+
+
+
+<div class="viewcode-block" id="get_vvVV">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_vvVV">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_vvVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;vvVV&quot;</span><span class="p">):</span>
+    <span class="n">sl</span><span class="p">,</span> <span class="n">sr</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;vvVV&quot;</span> <span class="k">else</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">nmoL</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nmoR</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">[</span><span class="n">sr</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">noccL</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span>
+    <span class="n">noccR</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="n">sr</span><span class="p">]</span>
+    <span class="n">nvirL</span> <span class="o">=</span> <span class="n">nmoL</span> <span class="o">-</span> <span class="n">noccL</span>
+    <span class="n">nvirR</span> <span class="o">=</span> <span class="n">nmoR</span> <span class="o">-</span> <span class="n">noccR</span>
+    <span class="n">gvvvv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)[:]</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">gvvvv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)[:]</span>
+        <span class="k">if</span> <span class="n">gvvvv</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">gvvvv</span><span class="p">[:]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nvv</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">gvvvv</span><span class="o">.</span><span class="n">size</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">xVV</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">gvvvv</span><span class="p">[:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nvirL</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">nvv</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">unpack_tril</span><span class="p">(</span><span class="n">xVV</span><span class="p">[:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nvirL</span><span class="p">,</span> <span class="n">nvirL</span><span class="p">,</span> <span class="n">nvirR</span><span class="p">,</span> <span class="n">nvirR</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+
+<div class="viewcode-block" id="get_block">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.get_block">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_block</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ovvv&quot;</span><span class="p">,</span> <span class="s2">&quot;OVVV&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ovVV&quot;</span><span class="p">,</span> <span class="s2">&quot;OVvv&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;vvvv&quot;</span><span class="p">,</span> <span class="s2">&quot;VVVV&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;vvVV&quot;</span><span class="p">,</span> <span class="s2">&quot;VVvv&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">get_vvVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="pack_ovvv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.pack_ovvv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pack_ovvv</span><span class="p">(</span><span class="n">ovvv</span><span class="p">):</span>
+    <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">ovvv</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">ovvv</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">pack_tril</span><span class="p">(</span><span class="n">ovvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nocc</span> <span class="o">*</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ovvv</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="pack_vvvv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.pack_vvvv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pack_vvvv</span><span class="p">(</span><span class="n">vvvv</span><span class="p">):</span>
+    <span class="n">nvir</span> <span class="o">=</span> <span class="n">vvvv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">vvvv</span><span class="p">,</span> <span class="n">nvir</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="contract_dm2_eris">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.contract_dm2_eris">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_dm2_eris</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contracts _ChemistsERIs with the two-body density matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dm2 : ndarry or (ndarray, ndarray, ndarray)</span>
+<span class="sd">        Two-body density matrix or tuple of alpha-alpha, alpha-beta, beta-beta spin blocks for UHF.</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    e2 : float</span>
+<span class="sd">        Two-body energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">contract_dm2_eris_rhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">contract_dm2_eris_uhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;N(dim) of DM2: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ndim</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_contract_4d</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">transpose</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">[:]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">transpose</span><span class="p">)</span>
+    <span class="c1"># return einsum(&#39;pqrs,pqrs&#39;, a, b)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">a</span><span class="p">[:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">b</span><span class="p">[:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="contract_dm2_eris_rhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.contract_dm2_eris_rhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_dm2_eris_rhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contracts _ChemistsERIs with the two-body density matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dm2 : ndarry</span>
+<span class="sd">        Two-body density matrix.</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    e2 : float</span>
+<span class="sd">        Two-body energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nocc</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">o</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocc</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocc</span><span class="p">:]</span>
+    <span class="n">e_oooo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="p">)</span>
+    <span class="n">e_ovoo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_oovv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">oovv</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e_ovov</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e_ovvo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e_ovvv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_vvvv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(oooo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_oooo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovoo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovoo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(oovv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_oovv</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovov)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovov</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovvo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovvo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovvv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovvv</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(vvvv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_vvvv</span><span class="p">))</span>
+    <span class="n">e2</span> <span class="o">=</span> <span class="n">e_oooo</span> <span class="o">+</span> <span class="n">e_ovoo</span> <span class="o">+</span> <span class="n">e_oovv</span> <span class="o">+</span> <span class="n">e_ovov</span> <span class="o">+</span> <span class="n">e_ovvo</span> <span class="o">+</span> <span class="n">e_ovvv</span> <span class="o">+</span> <span class="n">e_vvvv</span>
+    <span class="k">return</span> <span class="n">e2</span></div>
+
+
+
+<div class="viewcode-block" id="contract_dm2_eris_uhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.contract_dm2_eris_uhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_dm2_eris_uhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contracts _ChemistsERIs with the two-body density matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dm2 : tuple(ndarray, ndarray, ndarray)</span>
+<span class="sd">        Two-body density matrix as a tuple of alpha-alpha, alpha-beta, beta-beta spin blocks.</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    e2 : float</span>
+<span class="sd">        Two-body energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nocca</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">noccb</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOOO</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">dm2</span>
+    <span class="n">e2</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># Alpha-alpha</span>
+    <span class="n">o</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocca</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocca</span><span class="p">:]</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="p">)</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">oovv</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span>
+    <span class="c1"># Beta-beta</span>
+    <span class="n">o</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">noccb</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">noccb</span><span class="p">:]</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOOO</span><span class="p">)</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVOO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOVV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVOV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">o</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVVO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVVV&quot;</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2bb</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">],</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;VVVV&quot;</span><span class="p">))</span>
+    <span class="c1"># Alpha-beta</span>
+    <span class="n">oa</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">nocca</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">nocca</span><span class="p">:]</span>
+    <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">noccb</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">noccb</span><span class="p">:]</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooOO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVoo</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooVV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOvv</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovVO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="c1"># e2 += einsum(&#39;pqrs,rspq&#39;, dm2ab[va,oa,ob,vb], eris.OVvo) * 4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovVV&quot;</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVvv&quot;</span><span class="p">),</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">dm2ab</span><span class="p">[</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">get_vvVV</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">e2</span></div>
+
+
+
+<span class="c1"># Order used in PySCF for 2-DM intermediates:</span>
+<span class="n">dm2intermeds</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;ovov&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;vvvv&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;oooo&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;oovv&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ovvo&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;vvov&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ovvv&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ooov&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dm2intermeds_to_dict_rhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">):</span>
+    <span class="n">dm2dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">block</span><span class="p">:</span> <span class="n">dm2</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dm2intermeds</span><span class="p">)}</span>
+    <span class="k">return</span> <span class="n">dm2dict</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dm2intermeds_to_dict_uhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">):</span>
+    <span class="n">dm2dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_spinblocks</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="n">b0</span><span class="p">,</span> <span class="n">b1</span> <span class="o">=</span> <span class="n">block</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">block</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="n">dm2i</span> <span class="o">=</span> <span class="n">dm2</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">dm2dict</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dm2i</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">dm2dict</span><span class="p">[</span><span class="n">b0</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">+</span> <span class="n">b1</span><span class="o">.</span><span class="n">upper</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dm2i</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">dm2dict</span><span class="p">[</span><span class="n">b0</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="n">b1</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dm2i</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">dm2dict</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">upper</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dm2i</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dm2intermeds</span><span class="p">):</span>
+        <span class="n">_add_spinblocks</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dm2dict</span>
+
+
+<div class="viewcode-block" id="contract_dm2intermeds_eris_rhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_dm2intermeds_eris_rhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">,</span> <span class="n">destroy_dm2</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contracts _ChemistsERIs with the two-body density matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dm2 : tuple</span>
+<span class="sd">        Intermediates of spin-restricted two-body density matrix.</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    e2 : float</span>
+<span class="sd">        Two-body energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dm2</span> <span class="o">=</span> <span class="n">_dm2intermeds_to_dict_rhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">destroy_dm2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">keep</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm2</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm2</span><span class="p">[</span><span class="n">block</span><span class="p">]</span>
+
+    <span class="n">e_oooo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;oooo&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_ovoo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ooov&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_oovv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;oovv&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">oovv</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_ovov</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovov&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_ovvo</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovvo&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_ovvv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovvv&quot;</span><span class="p">),</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e_vvvv</span> <span class="o">=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;vvvv&quot;</span><span class="p">),</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(oooo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_oooo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovoo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovoo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(oovv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_oovv</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovov)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovov</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovvo)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovvo</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(ovvv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_ovvv</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;E(vvvv)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_vvvv</span><span class="p">))</span>
+    <span class="n">e2</span> <span class="o">=</span> <span class="n">e_oooo</span> <span class="o">+</span> <span class="n">e_ovoo</span> <span class="o">+</span> <span class="n">e_oovv</span> <span class="o">+</span> <span class="n">e_ovov</span> <span class="o">+</span> <span class="n">e_ovvo</span> <span class="o">+</span> <span class="n">e_ovvv</span> <span class="o">+</span> <span class="n">e_vvvv</span>
+    <span class="k">return</span> <span class="n">e2</span></div>
+
+
+
+<div class="viewcode-block" id="contract_dm2intermeds_eris_uhf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_dm2intermeds_eris_uhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">,</span> <span class="n">eris</span><span class="p">,</span> <span class="n">destroy_dm2</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contracts _ChemistsERIs with the two-body density matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dm2 : tuple</span>
+<span class="sd">        Intermediates of spin-unrestricted two-body density matrix.</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    e2 : float</span>
+<span class="sd">        Two-body energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dm2</span> <span class="o">=</span> <span class="n">_dm2intermeds_to_dict_uhf</span><span class="p">(</span><span class="n">dm2</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">destroy_dm2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">keep</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm2</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm2</span><span class="p">[</span><span class="n">block</span><span class="p">]</span>
+
+    <span class="n">e2</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># Alpha-alpha</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;oooo&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">oooo</span><span class="p">)</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ooov&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovoo</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="c1"># e2 += _contract_4d(_get_block(&#39;ovvo&#39;, keep=True), eris.oovv, transpose=(0,3,2,1)) * -2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;oovv&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">oovv</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovov&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovvo&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovvv&quot;</span><span class="p">),</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;vvvv&quot;</span><span class="p">),</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span>
+    <span class="c1"># Beta-beta</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OOOO&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOOO</span><span class="p">)</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OOOV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVOO</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="c1"># e2 += _contract_4d(_get_block(&#39;OVVO&#39;, keep=True), eris.OOVV, transpose=(0,3,2,1)) * -2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OOVV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOVV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OVOV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVOV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OVVO&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVVO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OVVV&quot;</span><span class="p">),</span> <span class="n">get_ovvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVVV&quot;</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;VVVV&quot;</span><span class="p">),</span> <span class="n">get_vvvv</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;VVVV&quot;</span><span class="p">))</span>
+    <span class="c1"># Alpha-beta</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ooOO&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooOO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OOov&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOO</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ooOV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVoo</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ooVV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ooVV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OOvv&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">OOvv</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovVO&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovVO</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovOV&quot;</span><span class="p">),</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOV</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;ovVV&quot;</span><span class="p">),</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;ovVV&quot;</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;OVvv&quot;</span><span class="p">),</span> <span class="n">get_ovVV</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s2">&quot;OVvv&quot;</span><span class="p">))</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">e2</span> <span class="o">+=</span> <span class="n">_contract_4d</span><span class="p">(</span><span class="n">_get_block</span><span class="p">(</span><span class="s2">&quot;vvVV&quot;</span><span class="p">),</span> <span class="n">get_vvVV</span><span class="p">(</span><span class="n">eris</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">e2</span></div>
+
+
+
+<div class="viewcode-block" id="project_ccsd_eris">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.ao2mo.html#vayesta.core.ao2mo.helper.project_ccsd_eris">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_ccsd_eris</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">check_subspace</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project CCSD ERIs to a subset of orbital coefficients.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    eris : _ChemistERIs</span>
+<span class="sd">        PySCF ERIs object</span>
+<span class="sd">    mo_coeff : (n(AO), n(MO)) array</span>
+<span class="sd">        New subspace MO coefficients.</span>
+<span class="sd">    nocc: int</span>
+<span class="sd">        Number of occupied orbitals.</span>
+<span class="sd">    ovlp : (n(AO), n(AO)) array</span>
+<span class="sd">        AO overlap matrix.</span>
+<span class="sd">    check_subspace : bool, optional</span>
+<span class="sd">        Check if c_occ and c_vir span a subspace of eris.mo_coeff.</span>
+<span class="sd">        Return None if Not. Default: True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    eris : _ChemistERIs or None</span>
+<span class="sd">        ERIs with transformed integral values, as well as transformed attributes</span>
+<span class="sd">        `mo_coeff`, `fock`, and `mo_energy`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># New subspace MO coefficients:</span>
+    <span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hsplit</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="p">[</span><span class="n">nocc</span><span class="p">])</span>
+    <span class="c1"># Old MO coefficients:</span>
+    <span class="n">c_occ0</span><span class="p">,</span> <span class="n">c_vir0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hsplit</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="p">[</span><span class="n">eris</span><span class="o">.</span><span class="n">nocc</span><span class="p">])</span>
+    <span class="n">nocc0</span><span class="p">,</span> <span class="n">nvir0</span> <span class="o">=</span> <span class="n">c_occ0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_vir0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">c_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">c_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Projecting ERIs: N(occ)= </span><span class="si">%3d</span><span class="s2"> -&gt; </span><span class="si">%3d</span><span class="s2">  N(vir)= </span><span class="si">%3d</span><span class="s2"> -&gt; </span><span class="si">%3d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">nocc0</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir0</span><span class="p">,</span> <span class="n">nvir</span><span class="p">)</span>
+
+    <span class="n">transform_occ</span> <span class="o">=</span> <span class="n">nocc</span> <span class="o">!=</span> <span class="n">nocc0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">c_occ0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">transform_occ</span><span class="p">:</span>
+        <span class="n">r_occ</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_occ0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">r_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nocc</span><span class="p">)</span>
+    <span class="n">transform_vir</span> <span class="o">=</span> <span class="n">nvir</span> <span class="o">!=</span> <span class="n">nvir0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">c_vir</span><span class="p">,</span> <span class="n">c_vir0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">transform_vir</span><span class="p">:</span>
+        <span class="n">r_vir</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_vir0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">r_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nvir</span><span class="p">)</span>
+
+    <span class="c1"># Do nothing</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">transform_occ</span> <span class="ow">or</span> <span class="n">transform_vir</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">eris</span>
+
+    <span class="c1"># Check that c_occ and c_vir form a subspace of eris.mo_coeff</span>
+    <span class="c1"># If not return None</span>
+    <span class="k">if</span> <span class="n">check_subspace</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">nocc0</span> <span class="o">&lt;</span> <span class="n">nocc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;MO coefficients do not span subspace of eris.mo_coeff.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nvir0</span> <span class="o">&lt;</span> <span class="n">nvir</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;MO coefficients do not span subspace of eris.mo_coeff.&quot;</span><span class="p">)</span>
+        <span class="n">p_occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">r_occ</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">p_occ</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">nocc</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;e(occ)= </span><span class="si">%d</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;MO coefficients do not span subspace of eris.mo_coeff.&quot;</span><span class="p">)</span>
+        <span class="n">p_vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">r_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">r_vir</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">p_vir</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">nvir</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;e(vir)= </span><span class="si">%d</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;MO coefficients do not span subspace of eris.mo_coeff.&quot;</span><span class="p">)</span>
+
+    <span class="n">r_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">block</span><span class="p">([[</span><span class="n">r_occ</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nvir0</span><span class="p">))],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nvir</span><span class="p">,</span> <span class="n">nocc0</span><span class="p">)),</span> <span class="n">r_vir</span><span class="p">]])</span>
+
+    <span class="n">transform</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">g</span><span class="p">,</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">t3</span><span class="p">:</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;abcd,ia,jb,kc,ld -&gt; ijkl&quot;</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">t3</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="s2">&quot;vvL&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;oooo&quot;</span><span class="p">,</span> <span class="s2">&quot;ovoo&quot;</span><span class="p">,</span> <span class="s2">&quot;oovv&quot;</span><span class="p">,</span> <span class="s2">&quot;ovov&quot;</span><span class="p">,</span> <span class="s2">&quot;ovvo&quot;</span><span class="p">,</span> <span class="s2">&quot;ovvv&quot;</span><span class="p">,</span> <span class="s2">&quot;vvvv&quot;</span><span class="p">]:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span><span class="s2">&quot;Projecting integrals (</span><span class="si">%2s</span><span class="s2">|</span><span class="si">%2s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">block</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">block</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">get_block</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span>
+        <span class="n">shape0</span> <span class="o">=</span> <span class="p">[(</span><span class="n">nocc0</span> <span class="k">if</span> <span class="p">(</span><span class="n">pos</span> <span class="o">==</span> <span class="s2">&quot;o&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">nvir0</span><span class="p">)</span> <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">block</span><span class="p">]</span>
+        <span class="n">t0123</span> <span class="o">=</span> <span class="p">[(</span><span class="n">r_occ</span> <span class="k">if</span> <span class="p">(</span><span class="n">pos</span> <span class="o">==</span> <span class="s2">&quot;o&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">r_vir</span><span class="p">)</span> <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">block</span><span class="p">]</span>
+        <span class="n">pg</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">g</span><span class="p">[:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape0</span><span class="p">),</span> <span class="o">*</span><span class="n">t0123</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;ovvv&quot;</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">pg</span> <span class="o">=</span> <span class="n">pack_ovvv</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">block</span> <span class="o">==</span> <span class="s2">&quot;vvvv&quot;</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">pg</span> <span class="o">=</span> <span class="n">pack_vvvv</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">pg</span><span class="p">)</span>
+
+    <span class="n">eris</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">))</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">nocc</span> <span class="o">=</span> <span class="n">nocc</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">r_all</span><span class="p">,</span> <span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">,</span> <span class="n">r_all</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">mo_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">eris</span><span class="o">.</span><span class="n">fock</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eris</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test1</span><span class="p">():</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.misc.molecules</span><span class="w"> </span><span class="kn">import</span> <span class="n">water</span>
+
+        <span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+        <span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="n">water</span><span class="p">()</span>
+        <span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pVDZ&quot;</span>
+        <span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+        <span class="n">hf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+        <span class="c1"># hf.density_fit(auxbasis=&#39;cc-pVDZ-ri&#39;)</span>
+        <span class="n">hf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+        <span class="n">ccsd</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">hf</span><span class="p">)</span>
+        <span class="n">eris</span> <span class="o">=</span> <span class="n">ccsd</span><span class="o">.</span><span class="n">ao2mo</span><span class="p">()</span>
+        <span class="n">eris2</span> <span class="o">=</span> <span class="n">get_full_array</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+
+        <span class="n">norb</span> <span class="o">=</span> <span class="n">hf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">eris_test</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">hf</span><span class="o">.</span><span class="n">_eri</span><span class="p">,</span> <span class="n">hf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="n">norb</span><span class="p">])</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">eris2</span> <span class="o">-</span> <span class="n">eris_test</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">eris2</span><span class="p">,</span> <span class="n">eris_test</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test2</span><span class="p">():</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.gto</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">solids</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">timeit</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
+
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+        <span class="n">cell</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="n">solids</span><span class="o">.</span><span class="n">diamond</span><span class="p">()</span>
+        <span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+        <span class="c1"># kmesh = [3,2,1]</span>
+        <span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">kpts</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">get_kpts</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+
+        <span class="n">nk</span> <span class="o">=</span> <span class="mi">3</span>
+
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">kconserv</span> <span class="o">=</span> <span class="n">get_kconserv</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">nk</span><span class="o">=</span><span class="n">nk</span><span class="p">)</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">kconserv_pyscf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">kpts_helper</span><span class="o">.</span><span class="n">get_kconserv</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">nk</span><span class="p">)</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">kconserv</span> <span class="o">==</span> <span class="n">kconserv_pyscf</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t2</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span>
+
+    <span class="n">test2</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

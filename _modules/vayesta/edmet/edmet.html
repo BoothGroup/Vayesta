@@ -1,0 +1,537 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.edmet.edmet &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../edmet.html">vayesta.edmet</a></li>
+      <li class="breadcrumb-item active">vayesta.edmet.edmet</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.edmet.edmet</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">timeit</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">time_string</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.dmet</span><span class="w"> </span><span class="kn">import</span> <span class="n">RDMET</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.dmet.updates</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixUpdate</span><span class="p">,</span> <span class="n">DIISUpdate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRPA</span><span class="p">,</span> <span class="n">ssRIRPA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.edmet.fragment</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDMETFragment</span><span class="p">,</span> <span class="n">EDMETFragmentExit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_solver_config</span>
+
+
+<div class="viewcode-block" id="Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.Options">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">RDMET</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+    <span class="n">maxiter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">make_dd_moments</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">old_sc_condition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">max_bos</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">occ_proj_kernel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">boson_xc_kernel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">bosonic_interaction</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;xc&quot;</span>
+    <span class="n">solver</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;CCSD-S-1-1&quot;</span>
+    <span class="n">solver_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">RDMET</span><span class="o">.</span><span class="n">Options</span><span class="o">.</span><span class="n">change_dict_defaults</span><span class="p">(</span><span class="s2">&quot;solver_options&quot;</span><span class="p">,</span> <span class="n">polaritonic_shift</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="EDMETResults">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMETResults">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EDMETResults</span><span class="p">:</span>
+    <span class="n">cluster_sizes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">e_corr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="EDMET">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EDMET</span><span class="p">(</span><span class="n">RDMET</span><span class="p">):</span>
+    <span class="n">Fragment</span> <span class="o">=</span> <span class="n">EDMETFragment</span>
+    <span class="n">Options</span> <span class="o">=</span> <span class="n">Options</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;EBFCI&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># If we aren&#39;t running in oneshot mode we need to calculate the dd moments.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;oneshot&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;make_dd_moments&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="n">solver</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interaction_kernel</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">with_df</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;with_df&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_nonlocal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e_nonlocal</span> <span class="ow">or</span> <span class="mf">0.0</span>
+
+    <span class="nd">@e_nonlocal</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_nonlocal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_e_nonlocal</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="EDMET.check_solver">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.check_solver">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
+        <span class="n">is_uhf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="n">is_eb</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">check_solver_config</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">is_uhf</span><span class="p">,</span> <span class="n">is_eb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EDMET.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nfrag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No fragments defined for calculation.&quot;</span><span class="p">)</span>
+
+        <span class="n">maxiter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">maxiter</span>
+        <span class="c1"># rdm = self.mf.make_rdm1()</span>
+        <span class="c1"># if bno_thr &lt; np.inf and maxiter &gt; 1:</span>
+        <span class="c1">#    raise NotImplementedError(&quot;MP2 bath calculation is currently ignoring the correlation potential, so does&quot;</span>
+        <span class="c1">#                              &quot; not work properly for self-consistent calculations.&quot;)</span>
+        <span class="c1"># Initialise parameters for self-consistency iteration</span>
+        <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">vcorr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vcorr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting from previous correlation potential.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_df</span><span class="p">:</span>
+            <span class="c1"># Store alpha and beta components separately.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span> <span class="o">=</span> <span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">))]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Store alpha-alpha, alpha-beta and beta-beta components separately.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">3</span>
+
+        <span class="n">cpt</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span>
+
+        <span class="n">sym_parents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_symmetry_parent_fragments</span><span class="p">()</span>
+        <span class="n">sym_children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_symmetry_child_fragments</span><span class="p">()</span>
+        <span class="n">nsym</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">sym_children</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mixing_variable</span> <span class="o">==</span> <span class="s2">&quot;hl rdm&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only DIIS extrapolation of the high-level rdms is current implemented.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">diis</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updater</span> <span class="o">=</span> <span class="n">DIISUpdate</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updater</span> <span class="o">=</span> <span class="n">MixUpdate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mixing_param</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">maxiter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">=</span> <span class="n">iteration</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Now running iteration= </span><span class="si">%2d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iteration</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;****************************************************&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">iteration</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+                <span class="c1"># For first iteration want to run on provided mean-field state.</span>
+                <span class="n">mo_energy</span><span class="p">,</span> <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">fock</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">vcorr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update_mf</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_energy</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">charge_consistent</span><span class="p">:</span>
+                    <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_up_fragments</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">,</span> <span class="n">nsym</span><span class="p">)</span>
+
+            <span class="c1"># Need to optimise a global chemical potential to ensure electron number is converged.</span>
+            <span class="n">nelec_mf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_fragment_nelectron</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">nelec_mf</span><span class="p">)</span> <span class="o">==</span> <span class="nb">tuple</span><span class="p">:</span>
+                <span class="n">nelec_mf</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nelec_mf</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">electron_err</span><span class="p">(</span><span class="n">cpt</span><span class="p">):</span>
+                <span class="n">err</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_electron_number_defect</span><span class="p">(</span><span class="n">cpt</span><span class="p">,</span> <span class="n">nelec_mf</span><span class="p">,</span> <span class="n">sym_parents</span><span class="p">,</span> <span class="n">nsym</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">err</span>
+
+            <span class="n">err</span> <span class="o">=</span> <span class="n">electron_err</span><span class="p">(</span><span class="n">cpt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">max_elec_err</span> <span class="o">*</span> <span class="n">nelec_mf</span><span class="p">:</span>
+                <span class="c1"># Need to find chemical potential bracket.</span>
+                <span class="c1"># Error is positive if excess electrons at high-level, and negative if too few electrons at high-level.</span>
+                <span class="c1"># Changing chemical potential should introduces similar change in high-level electron number, so we want</span>
+                <span class="c1"># our new chemical potential to be shifted in the opposite direction as electron error.</span>
+                <span class="n">new_cpt</span> <span class="o">=</span> <span class="n">cpt</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+                <span class="c1"># Set this in case of errors later on.</span>
+                <span class="n">new_err</span> <span class="o">=</span> <span class="n">err</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">new_err</span> <span class="o">=</span> <span class="n">electron_err</span><span class="p">(</span><span class="n">new_cpt</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;EBCCSD&quot;</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Caught DIIS error in CCSD; trying smaller chemical potential deviation.&quot;</span><span class="p">)</span>
+                        <span class="c1"># Want to end up with 3/4 of current value after multiplied by two.</span>
+                        <span class="n">new_cpt</span> <span class="o">=</span> <span class="n">cpt</span> <span class="o">-</span> <span class="p">(</span><span class="n">new_cpt</span> <span class="o">-</span> <span class="n">cpt</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">/</span> <span class="mi">8</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">e</span>
+                <span class="k">if</span> <span class="n">err</span> <span class="o">*</span> <span class="n">new_err</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># Check if errors have same sign.</span>
+                    <span class="k">for</span> <span class="n">ntry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+                        <span class="n">new_cpt</span> <span class="o">=</span> <span class="n">cpt</span> <span class="o">+</span> <span class="p">(</span><span class="n">new_cpt</span> <span class="o">-</span> <span class="n">cpt</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">new_err</span> <span class="o">=</span> <span class="n">electron_err</span><span class="p">(</span><span class="n">new_cpt</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;CCSD&quot;</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Caught DIIS error in CCSD; trying smaller chemical potential deviation.&quot;</span><span class="p">)</span>
+                                <span class="c1"># Want to end up with 3/4 of current value after multiplied by two.</span>
+                                <span class="n">new_cpt</span> <span class="o">=</span> <span class="n">cpt</span> <span class="o">-</span> <span class="p">(</span><span class="n">new_cpt</span> <span class="o">-</span> <span class="n">cpt</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">/</span> <span class="mi">8</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="k">raise</span> <span class="n">e</span>
+                        <span class="k">if</span> <span class="n">err</span> <span class="o">*</span> <span class="n">new_err</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="k">break</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;Could not find chemical potential bracket.&quot;</span><span class="p">)</span>
+                <span class="c1"># If we&#39;ve got to here we&#39;ve found a bracket.</span>
+                <span class="p">[</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">cpt</span><span class="p">,</span> <span class="n">new_cpt</span><span class="p">])</span>
+                <span class="n">cpt</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">brentq</span><span class="p">(</span>
+                    <span class="n">electron_err</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="n">lo</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">hi</span><span class="p">,</span> <span class="n">full_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">max_elec_err</span> <span class="o">*</span> <span class="n">nelec_mf</span>
+                <span class="p">)</span>
+                <span class="c1"># self.opts.max_elec_err * nelec_mf)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Converged chemical potential: </span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">cpt</span><span class="p">)</span>
+                <span class="c1"># Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra</span>
+                <span class="c1"># calculation at the end...</span>
+                <span class="n">electron_err</span><span class="p">(</span><span class="n">cpt</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Previous chemical potential still suitable&quot;</span><span class="p">)</span>
+
+            <span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">efb</span><span class="p">,</span> <span class="n">emf</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">frag</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">):</span>
+                <span class="n">e1_contrib</span><span class="p">,</span> <span class="n">e2_contrib</span><span class="p">,</span> <span class="n">efb_contrib</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e1</span><span class="p">,</span> <span class="n">frag</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e2</span><span class="p">,</span> <span class="n">frag</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e_fb</span>
+                <span class="n">e1</span> <span class="o">+=</span> <span class="n">e1_contrib</span> <span class="o">*</span> <span class="n">nsym</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+                <span class="n">e2</span> <span class="o">+=</span> <span class="n">e2_contrib</span> <span class="o">*</span> <span class="n">nsym</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+                <span class="n">efb</span> <span class="o">+=</span> <span class="n">efb_contrib</span> <span class="o">*</span> <span class="n">nsym</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+                <span class="n">emf</span> <span class="o">+=</span> <span class="n">frag</span><span class="o">.</span><span class="n">get_fragment_mf_energy</span><span class="p">()</span> <span class="o">*</span> <span class="n">nsym</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span> <span class="o">=</span> <span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span> <span class="o">+</span> <span class="n">efb</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_nonlocal</span> <span class="o">-</span> <span class="n">emf</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Total EDMET energy </span><span class="si">{:12.8f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Energy Contributions: 1-body=</span><span class="si">{:12.8f}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;                      2-body=</span><span class="si">{:12.8f}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;               coupled-boson=</span><span class="si">{:12.8f}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot; nonlocal correlation energy=</span><span class="si">{:12.8f}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;           mean-field energy=</span><span class="si">{:12.8f}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;          correlation energy=</span><span class="si">{:12.8f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">efb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_nonlocal</span><span class="p">,</span> <span class="n">emf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">oneshot</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="c1"># Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.</span>
+            <span class="p">[</span><span class="n">curr_rdms</span><span class="p">,</span> <span class="n">curr_dd0</span><span class="p">,</span> <span class="n">curr_dd1</span><span class="p">],</span> <span class="n">delta_prop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">updater</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">hl_rdms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hl_dd0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hl_dd1</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Change in high-level properties: </span><span class="si">{:6.4e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">delta_prop</span><span class="p">))</span>
+            <span class="c1"># Now for the DMET self-consistency!</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Now running DMET correlation potential fitting&quot;</span><span class="p">)</span>
+            <span class="n">vcorr_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_vcorr</span><span class="p">(</span><span class="n">fock</span><span class="p">,</span> <span class="n">curr_rdms</span><span class="p">)</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">vcorr_new</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">vcorr</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Delta Vcorr </span><span class="si">{:6.4e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">delta</span><span class="p">))</span>
+
+            <span class="n">xc_kernel_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_updated_correlation_kernel</span><span class="p">(</span><span class="n">curr_dd0</span><span class="p">,</span> <span class="n">curr_dd1</span><span class="p">,</span> <span class="n">sym_parents</span><span class="p">,</span> <span class="n">sym_children</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">delta</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol</span> <span class="ow">and</span> <span class="n">delta_prop</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">conv_tol</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;EDMET converged after </span><span class="si">%d</span><span class="s2"> iterations&quot;</span> <span class="o">%</span> <span class="n">iteration</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vcorr</span> <span class="o">=</span> <span class="n">vcorr_new</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span> <span class="o">=</span> <span class="n">xc_kernel_new</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Self-consistency not reached in </span><span class="si">{}</span><span class="s2"> iterations.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">maxiter</span><span class="p">))</span>
+        <span class="c1"># Now have final results.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_results</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timing</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Total wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">timing</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;All done.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EDMET.set_up_fragments">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.set_up_fragments">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_up_fragments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sym_parents</span><span class="p">,</span> <span class="n">nsym</span><span class="p">):</span>
+        <span class="c1"># First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can</span>
+        <span class="c1"># solve a subset of the RPA equations.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_df</span><span class="p">:</span>
+            <span class="c1"># Set up for RIRPPA zeroth moment calculation.</span>
+            <span class="n">rpa</span> <span class="o">=</span> <span class="n">ssRIRPA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_rpa</span><span class="p">,</span> <span class="n">energy_error</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">kernel_energy</span><span class="p">(</span><span class="n">correction</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA total energy=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_rpa</span><span class="p">)</span>
+            <span class="c1"># Get fermionic bath set up, and calculate the cluster excitation space.</span>
+            <span class="n">rot_ovs</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">set_up_fermionic_bath</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">sym_parents</span><span class="p">]</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">rot_ovs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">moms_interact</span><span class="p">,</span> <span class="n">est_errors</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">moms_interact</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">target_rot</span><span class="p">)</span>
+            <span class="c1"># Get appropriate slices to obtain required active spaces.</span>
+            <span class="n">ovs_active</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">ov_active_tot</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">sym_parents</span><span class="p">]</span>
+            <span class="n">ovs_active_slices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">ovs_active</span><span class="p">[:</span><span class="n">i</span><span class="p">]),</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ovs_active</span><span class="p">[:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">))]</span>
+            <span class="c1"># Use interaction component of moment to generate bosonic degrees of freedom.</span>
+            <span class="n">rot_bos</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">define_bosons</span><span class="p">(</span><span class="n">moms_interact</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="p">:])</span> <span class="k">for</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sl</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">,</span> <span class="n">ovs_active_slices</span><span class="p">)]</span>
+            <span class="n">nbos</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">rot_bos</span><span class="p">]</span>
+            <span class="n">bos_slices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">nbos</span><span class="p">[:</span><span class="n">i</span><span class="p">]),</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nbos</span><span class="p">[:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">))]</span>
+            <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nbos</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Calculate zeroth moment of bosonic degrees of freedom.</span>
+                <span class="n">mom0_bos</span><span class="p">,</span> <span class="n">est_errors</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">rot_bos</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mom0_bos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">sum</span><span class="p">(</span><span class="n">nbos</span><span class="p">),</span> <span class="n">moms_interact</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+            <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+            <span class="c1"># Can then invert relation to generate coupled electron-boson Hamiltonian.</span>
+            <span class="n">e_nonlocal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_rpa</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">nc</span><span class="p">,</span> <span class="n">sl</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">,</span> <span class="n">nsym</span><span class="p">,</span> <span class="n">bos_slices</span><span class="p">):</span>
+                <span class="n">e_nonlocal</span> <span class="o">-=</span> <span class="n">f</span><span class="o">.</span><span class="n">construct_boson_hamil</span><span class="p">(</span><span class="n">mom0_bos</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="p">:],</span> <span class="n">eps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">)</span> <span class="o">*</span> <span class="n">nc</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rpa</span> <span class="o">=</span> <span class="n">ssRPA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="c1"># We need to explicitly solve RPA equations before anything.</span>
+            <span class="n">rpa</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">xc_kernel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA particle-hole gap </span><span class="si">%4.2e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rpa</span><span class="o">.</span><span class="n">freqs_ss</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="c1"># Then generate full RPA moments.</span>
+            <span class="n">mom0</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">gen_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_rpa</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">calc_energy_correction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+            <span class="n">e_nonlocal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_rpa</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RPA total energy=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e_nonlocal</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">nc</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sym_parents</span><span class="p">,</span> <span class="n">nsym</span><span class="p">):</span>
+                <span class="n">rot_ov</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">set_up_fermionic_bath</span><span class="p">()</span>
+                <span class="n">mom0_interact</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot_ov</span><span class="p">,</span> <span class="n">mom0</span><span class="p">)</span>
+                <span class="n">rot_bos</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">define_bosons</span><span class="p">(</span><span class="n">mom0_interact</span><span class="p">)</span>
+                <span class="n">mom0_bos</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot_bos</span><span class="p">,</span> <span class="n">mom0</span><span class="p">)</span>
+                <span class="n">e_nonlocal</span> <span class="o">-=</span> <span class="n">f</span><span class="o">.</span><span class="n">construct_boson_hamil</span><span class="p">(</span><span class="n">mom0_bos</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span><span class="p">)</span> <span class="o">*</span> <span class="n">nc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">e_nonlocal</span> <span class="o">=</span> <span class="n">e_nonlocal</span></div>
+
+
+<div class="viewcode-block" id="EDMET.calc_electron_number_defect">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.calc_electron_number_defect">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_electron_number_defect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chempot</span><span class="p">,</span> <span class="n">nelec_target</span><span class="p">,</span> <span class="n">parent_fragments</span><span class="p">,</span> <span class="n">nsym</span><span class="p">,</span> <span class="n">construct_bath</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running chemical potential=</span><span class="si">{:8.6e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chempot</span><span class="p">))</span>
+        <span class="c1"># Save original one-body hamiltonian calculation.</span>
+        <span class="n">saved_hcore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_hcore</span>
+
+        <span class="n">hl_rdms</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_fragments</span><span class="p">)</span>
+        <span class="n">hl_dd0</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_fragments</span><span class="p">)</span>
+        <span class="n">hl_dd1</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">parent_fragments</span><span class="p">)</span>
+        <span class="n">nelec_hl</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">exit</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">frag</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parent_fragments</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Now running </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">frag</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;*&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">construct_bath</span><span class="o">=</span><span class="n">construct_bath</span><span class="p">,</span> <span class="n">chempot</span><span class="o">=</span><span class="n">chempot</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">EDMETFragmentExit</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">exit</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Exiting </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">frag</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">cluster_results</span><span class="p">[</span><span class="n">frag</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">changeIndentLevel</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">exit</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="c1"># dd moments are already in fragment basis</span>
+            <span class="n">hl_dd0</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">dd_mom0</span>
+            <span class="n">hl_dd1</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">dd_mom1</span>
+            <span class="n">nelec_hl</span> <span class="o">+=</span> <span class="n">frag</span><span class="o">.</span><span class="n">get_nelectron_hl</span><span class="p">()</span> <span class="o">*</span> <span class="n">nsym</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hl_rdms</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">get_frag_hl_dm</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">parent_fragments</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hl_dd0</span> <span class="o">=</span> <span class="n">hl_dd0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hl_dd1</span> <span class="o">=</span> <span class="n">hl_dd1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Chemical Potential </span><span class="si">{:8.6e}</span><span class="s2"> gives Total electron deviation </span><span class="si">{:6.4e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chempot</span><span class="p">,</span> <span class="n">nelec_hl</span> <span class="o">-</span> <span class="n">nelec_target</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">nelec_hl</span> <span class="o">-</span> <span class="n">nelec_target</span></div>
+
+
+<div class="viewcode-block" id="EDMET.get_updated_correlation_kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.get_updated_correlation_kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_updated_correlation_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">curr_dd0</span><span class="p">,</span> <span class="n">curr_dd1</span><span class="p">,</span> <span class="n">sym_parents</span><span class="p">,</span> <span class="n">sym_children</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate the update to our RPA exchange-correlation kernel this iteration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+        <span class="c1"># Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_df</span><span class="p">:</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">))]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">))]</span> <span class="o">*</span> <span class="mi">2</span><span class="p">]</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="n">new</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)]</span> <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="n">new</span><span class="p">)]</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="n">new</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">old</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">+</span> <span class="n">new</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+
+        <span class="k">for</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">children</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">curr_dd0</span><span class="p">,</span> <span class="n">curr_dd1</span><span class="p">,</span> <span class="n">sym_parents</span><span class="p">,</span> <span class="n">sym_children</span><span class="p">):</span>
+            <span class="n">local_contrib</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">construct_correlation_kernel_contrib</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">get_correlation_kernel_contrib</span><span class="p">(</span><span class="n">local_contrib</span><span class="p">)</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">combine</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">contrib</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+                <span class="n">contrib</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_correlation_kernel_contrib</span><span class="p">(</span><span class="n">local_contrib</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="n">combine</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">contrib</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">k</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EDMET.improve_nl_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.improve_nl_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">improve_nl_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_plasmon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform exact adiabatic-connection integration to obtain improved estimate for the nonlocal correlation</span>
+<span class="sd">        energy at the level of RPA. This is initially only calculated using a linear approximation.&quot;&quot;&quot;</span>
+        <span class="n">orig_correction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_nonlocal</span>
+
+        <span class="n">etot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_exact_full_ac</span><span class="p">(</span><span class="n">deg</span><span class="o">=</span><span class="n">deg</span><span class="p">,</span> <span class="n">calc_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+        <span class="n">elocs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">calc_exact_ac</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">use_plasmon</span><span class="p">,</span> <span class="n">deg</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">]</span>
+
+        <span class="n">new_correction</span> <span class="o">=</span> <span class="n">etot</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">elocs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Numerical integration of the adiabatic connection modified nonlocal energy estimate by </span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">new_correction</span> <span class="o">-</span> <span class="n">orig_correction</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">+</span> <span class="n">new_correction</span> <span class="o">-</span> <span class="n">orig_correction</span></div>
+
+
+<div class="viewcode-block" id="EDMET.run_exact_full_ac">
+<a class="viewcode-back" href="../../../apidoc/vayesta.edmet.html#vayesta.edmet.edmet.EDMET.run_exact_full_ac">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_exact_full_ac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc_kernel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">calc_local</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cluster_constrain</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;During calculation we only calculate the linearised nonlocal correlation energy, since this is relatively</span>
+<span class="sd">        cheap (only a single RPA numerical integration). This instead performs the exact energy via numerical</span>
+<span class="sd">        integration of the adiabatic connection.&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">xc_kernel</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;drpa&quot;</span><span class="p">:</span>
+                <span class="n">xc</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown xc kernel </span><span class="si">%s</span><span class="s2"> provided&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">xc_kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xc_kernel</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xc_kernel</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">xc</span> <span class="o">=</span> <span class="n">xc_kernel</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown xc kernel provided&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_df</span><span class="p">:</span>
+            <span class="c1"># Set up for RIRPA zeroth moment calculation.</span>
+            <span class="n">rpa</span> <span class="o">=</span> <span class="n">ssRIRPA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">local_rot</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">get_rot_to_mf_ov</span><span class="p">(),</span> <span class="n">x</span><span class="o">.</span><span class="n">r_bos</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">calc_local</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="n">frag_proj</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">get_fragment_projector_ov</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">]</span> <span class="k">if</span> <span class="n">calc_local</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">rpa</span><span class="o">.</span><span class="n">direct_AC_integration</span><span class="p">(</span>
+                <span class="n">local_rot</span><span class="p">,</span> <span class="n">frag_proj</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="n">deg</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">,</span> <span class="n">cluster_constrain</span><span class="o">=</span><span class="n">cluster_constrain</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_e_nonlocal</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<span class="n">REDMET</span> <span class="o">=</span> <span class="n">EDMET</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

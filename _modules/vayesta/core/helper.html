@@ -1,0 +1,256 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.helper &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.helper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.helper</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<div class="viewcode-block" id="orbital_sign_convention">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.orbital_sign_convention">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">orbital_sign_convention</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">absmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">swap</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="p">[</span><span class="n">absmax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nmo</span><span class="p">)]</span> <span class="o">&lt;</span> <span class="mi">0</span>
+    <span class="n">mo_coeff</span><span class="p">[:,</span> <span class="n">swap</span><span class="p">]</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">nmo</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">signs</span><span class="p">[</span><span class="n">swap</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">return</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">signs</span></div>
+
+
+
+<span class="c1"># --- Packing/unpacking arrays</span>
+
+
+<div class="viewcode-block" id="get_dtype_int">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.get_dtype_int">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_dtype_int</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">char</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;a8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">int</span><span class="p">)[()]</span>
+    <span class="k">return</span> <span class="n">dtint</span></div>
+
+
+
+<div class="viewcode-block" id="get_dtype">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.get_dtype">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_dtype</span><span class="p">(</span><span class="n">dtint</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">dtint</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dtint</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="s2">&quot;a8&quot;</span><span class="p">)[()]</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dtype</span></div>
+
+
+
+<div class="viewcode-block" id="pack_metadata">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.pack_metadata">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pack_metadata</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">maxdim</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">get_dtype_int</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dtint</span><span class="p">:</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="n">array</span><span class="o">.</span><span class="n">ndim</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">maxdim</span> <span class="o">-</span> <span class="n">array</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">maxdim</span> <span class="o">*</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">[</span><span class="n">dtint</span><span class="p">,</span> <span class="n">ndim</span><span class="p">]</span> <span class="o">+</span> <span class="n">shape</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="unpack_metadata">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.unpack_metadata">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unpack_metadata</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">array</span><span class="p">[:</span> <span class="n">maxdim</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">get_dtype</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">metadata</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+    <span class="k">return</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span></div>
+
+
+
+<div class="viewcode-block" id="pack_arrays">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.pack_arrays">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pack_arrays</span><span class="p">(</span><span class="o">*</span><span class="n">arrays</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pack multiple arrays into a single array of data type `dtype`.</span>
+
+<span class="sd">    Useful for MPI communication.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">pack_metadata</span><span class="p">(</span><span class="n">array</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">array</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metadata</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="n">array</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">metadata</span><span class="p">,</span> <span class="n">array</span><span class="p">))</span>
+
+    <span class="n">packed</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">array</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">:</span>
+        <span class="n">packed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pack</span><span class="p">(</span><span class="n">array</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">packed</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="unpack_arrays">
+<a class="viewcode-back" href="../../../apidoc/vayesta.core.html#vayesta.core.helper.unpack_arrays">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unpack_arrays</span><span class="p">(</span><span class="n">packed</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unpack a single array of data type `dtype` into multiple arrays.</span>
+
+<span class="sd">    Useful for MPI communication.&quot;&quot;&quot;</span>
+
+    <span class="n">unpacked</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">packed</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">metadata</span><span class="p">,</span> <span class="n">packed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hsplit</span><span class="p">(</span><span class="n">packed</span><span class="p">,</span> <span class="p">[</span><span class="n">maxdim</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">dtype</span><span class="p">,</span> <span class="n">ndim</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="n">unpack_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">unpacked</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[:</span><span class="n">ndim</span><span class="p">]</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">array</span><span class="p">,</span> <span class="n">packed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hsplit</span><span class="p">(</span><span class="n">packed</span><span class="p">,</span> <span class="p">[</span><span class="n">size</span><span class="p">])</span>
+        <span class="n">unpacked</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">unpacked</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+    <span class="n">arrays_in</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">))),</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">70</span><span class="p">),</span>
+        <span class="c1"># np.random.rand(70)*1j,</span>
+        <span class="c1"># np.asarray([True, False, False])</span>
+    <span class="p">]</span>
+    <span class="n">pack</span> <span class="o">=</span> <span class="n">pack_arrays</span><span class="p">(</span><span class="o">*</span><span class="n">arrays_in</span><span class="p">)</span>
+    <span class="n">arrays_out</span> <span class="o">=</span> <span class="n">unpack_arrays</span><span class="p">(</span><span class="n">pack</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays_in</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays_out</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arrays_in</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">arrays_out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="n">arrays_out</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+    <span class="mi">1</span> <span class="o">/</span> <span class="mi">0</span>
+
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">get_dtype_int</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">get_dtype</span><span class="p">(</span><span class="n">dtint</span><span class="p">)</span>
+
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">get_dtype_int</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">get_dtype</span><span class="p">(</span><span class="n">dtint</span><span class="p">)</span>
+
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">get_dtype_int</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">get_dtype</span><span class="p">(</span><span class="n">dtint</span><span class="p">)</span>
+
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="kc">True</span><span class="p">])</span>
+    <span class="n">dtint</span> <span class="o">=</span> <span class="n">get_dtype_int</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">get_dtype</span><span class="p">(</span><span class="n">dtint</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

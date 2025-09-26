@@ -1,0 +1,800 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.ewf.ewf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../ewf.html">vayesta.ewf</a></li>
+      <li class="breadcrumb-item active">vayesta.ewf.ewf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.ewf.ewf</h1><div class="highlight"><pre>
+<span></span><span class="c1"># --- Standard</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+
+<span class="c1"># --- External</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NotCalculatedError</span><span class="p">,</span>
+    <span class="n">break_into_lines</span><span class="p">,</span>
+    <span class="n">cache</span><span class="p">,</span>
+    <span class="n">deprecated</span><span class="p">,</span>
+    <span class="n">dot</span><span class="p">,</span>
+    <span class="n">einsum</span><span class="p">,</span>
+    <span class="n">energy_string</span><span class="p">,</span>
+    <span class="n">log_method</span><span class="p">,</span>
+    <span class="n">log_time</span><span class="p">,</span>
+    <span class="n">time_string</span><span class="p">,</span>
+    <span class="n">timer</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.qemb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Embedding</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SAO_Fragmentation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">IAOPAO_Fragmentation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.fragment</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.amplitudes</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_t1_rhf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.amplitudes</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_global_t2_rhf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.rdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm1_ccsd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.rdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm1_ccsd_global_wf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.rdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm2_ccsd_global_wf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.rdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm1_ccsd_proj_lambda</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.rdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_rdm2_ccsd_proj_lambda</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.icmp2</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_intercluster_mp2_energy_rhf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.ewf.ccsd_t</span><span class="w"> </span><span class="kn">import</span> <span class="n">calc_fragment_ccsd_t_energy</span>
+
+
+<div class="viewcode-block" id="Options">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.Options">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Options</span><span class="p">(</span><span class="n">Embedding</span><span class="o">.</span><span class="n">Options</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Options for EWF calculations.&quot;&quot;&quot;</span>
+
+    <span class="c1"># --- Fragment settings</span>
+    <span class="n">iao_minao</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>  <span class="c1"># Minimal basis for IAOs</span>
+    <span class="c1"># --- Bath settings</span>
+    <span class="n">bath_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Embedding</span><span class="o">.</span><span class="n">Options</span><span class="o">.</span><span class="n">change_dict_defaults</span><span class="p">(</span><span class="s2">&quot;bath_options&quot;</span><span class="p">,</span> <span class="n">bathtype</span><span class="o">=</span><span class="s2">&quot;mp2&quot;</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">)</span>
+    <span class="c1"># ewdmet_max_order: int = 1</span>
+    <span class="c1"># If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:</span>
+    <span class="n">project_eris</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!</span>
+    <span class="n">project_init_guess</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Project converted T1,T2 amplitudes from a previous larger cluster</span>
+    <span class="n">energy_functional</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;wf&quot;</span>
+    <span class="c1"># Calculation modes</span>
+    <span class="n">calc_e_wf_corr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">calc_e_dm_corr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">calc_e_ccsd_t_corr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># --- Solver settings</span>
+    <span class="n">t_as_lambda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># If True, use T-amplitudes inplace of Lambda-amplitudes</span>
+    <span class="n">store_wf_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># If set, fragment WFs will be converted to the respective type, before storing them</span>
+    <span class="c1"># Counterpoise correction of BSSE</span>
+    <span class="n">bsse_correction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">bsse_rmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>  <span class="c1"># In Angstrom</span>
+    <span class="n">nelectron_target</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># --- Couple embedding problems (currently only CCSD)</span>
+    <span class="n">sc_mode</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">coupled_iterations</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="c1"># --- Debugging</span>
+    <span class="n">_debug_wf</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="EWF">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EWF</span><span class="p">(</span><span class="n">Embedding</span><span class="p">):</span>
+    <span class="n">Fragment</span> <span class="o">=</span> <span class="n">Fragment</span>
+    <span class="n">Options</span> <span class="o">=</span> <span class="n">Options</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;CCSD&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="n">solver</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Logging</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">indent</span><span class="p">():</span>
+            <span class="c1"># Options</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Parameters of </span><span class="si">%s</span><span class="s2">:&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">break_into_lines</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="p">),</span> <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">    &quot;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Time for </span><span class="si">%s</span><span class="s2"> setup: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mf&quot;</span><span class="p">,</span> <span class="s2">&quot;solver&quot;</span><span class="p">]</span>
+        <span class="n">fmt</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(&quot;</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%r</span><span class="s2">, &quot;</span><span class="p">)[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">y</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_reset</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># TODO: Redo self-consistencies</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf_cached</span><span class="o">.</span><span class="n">cache_clear</span><span class="p">()</span>
+
+    <span class="c1"># Default fragmentation</span>
+<div class="viewcode-block" id="EWF.fragmentation">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.fragmentation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fragmentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.tailor_all_fragments">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.tailor_all_fragments">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tailor_all_fragments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="n">y</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">x</span><span class="o">.</span><span class="n">add_tailor_fragment</span><span class="p">(</span><span class="n">y</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.kernel">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run EWF.&quot;&quot;&quot;</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="c1"># Automatic fragmentation</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No fragments found. Adding all atomic IAO fragments.&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">frag</span><span class="p">:</span>
+                <span class="n">frag</span><span class="o">.</span><span class="n">add_all_atomic_fragments</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fragment_nelectron</span><span class="p">()</span>
+
+        <span class="c1"># Debug: calculate exact WF</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">_debug_wf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_debug_get_wf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">_debug_wf</span><span class="p">)</span>
+
+        <span class="c1"># --- Create bath and clusters</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+            <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MAKING BATH AND CLUSTERS&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;========================&quot;</span><span class="p">)</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
+        <span class="n">fragdict</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="o">.</span><span class="n">id</span><span class="p">:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">}</span>
+        <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Total time for bath and clusters: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Resetting </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="p">)</span>
+                    <span class="n">x</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Making bath and clusters for </span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot; on MPI process </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">indent</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">_dmet_bath</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># Make own bath:</span>
+                        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">bath_parent_fragment_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">x</span><span class="o">.</span><span class="n">make_bath</span><span class="p">()</span>
+                        <span class="c1"># Copy bath (DMET, occupied, virtual) from other fragment:</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">bath_parent</span> <span class="o">=</span> <span class="n">fragdict</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">bath_parent_fragment_id</span><span class="p">]</span>
+                            <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;_dmet_bath&quot;</span><span class="p">,</span> <span class="s2">&quot;_bath_factory_occ&quot;</span><span class="p">,</span> <span class="s2">&quot;_bath_factory_vir&quot;</span><span class="p">):</span>
+                                <span class="nb">setattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">bath_parent</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">_cluster</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">x</span><span class="o">.</span><span class="n">make_cluster</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+                <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for MPI communication of clusters: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">communicate_clusters</span><span class="p">()</span>
+
+        <span class="c1"># --- Screened Coulomb interaction; either static or dynamic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_screened_interactions</span><span class="p">()</span>
+
+        <span class="c1"># --- Loop over fragments with no symmetry parent and with own MPI rank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RUNNING SOLVERS&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;===============&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Total time for solvers: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+            <span class="c1"># Split fragments in auxiliary and regular, solve auxiliary fragments first</span>
+            <span class="n">fragments_aux</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragments</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">auxiliary</span><span class="p">]</span>
+            <span class="n">fragments_reg</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragments</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">x</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">auxiliary</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">frags</span> <span class="ow">in</span> <span class="p">[</span><span class="n">fragments_aux</span><span class="p">,</span> <span class="n">fragments_reg</span><span class="p">]:</span>
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">frags</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Solving </span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot; on MPI process </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span> <span class="k">if</span> <span class="n">mpi</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+                    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">indent</span><span class="p">():</span>
+                        <span class="n">x</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+                    <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;dump&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="s2">&quot;Clusters dumped to file &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">solver_options</span><span class="p">[</span><span class="s2">&quot;dumpfile&quot;</span><span class="p">])</span>
+            <span class="k">return</span>
+
+        <span class="c1"># --- Check convergence of fragments</span>
+        <span class="n">conv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_converged</span><span class="p">(</span><span class="n">fragments</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">conv</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Some fragments did not converge!&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="n">conv</span>
+
+        <span class="c1"># --- Evaluate correlation energy and log information</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_e_corr</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not calculate correlation energy&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="s2">&quot;E(MF)=   </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="s2">&quot;E(corr)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="s2">&quot;E(tot)=  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Total wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_all_converged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fragments</span><span class="p">):</span>
+        <span class="n">conv</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">fx</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">:</span>
+            <span class="n">conv</span> <span class="o">=</span> <span class="n">conv</span> <span class="ow">and</span> <span class="n">fx</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">converged</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+            <span class="n">conv</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">conv</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">MPI</span><span class="o">.</span><span class="n">LAND</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">conv</span>
+
+    <span class="c1"># --- CC Amplitudes</span>
+    <span class="c1"># -----------------</span>
+
+    <span class="c1"># T-amplitudes</span>
+    <span class="n">get_global_t1</span> <span class="o">=</span> <span class="n">get_global_t1_rhf</span>
+    <span class="n">get_global_t2</span> <span class="o">=</span> <span class="n">get_global_t2_rhf</span>
+
+    <span class="c1"># Lambda-amplitudes</span>
+<div class="viewcode-block" id="EWF.get_global_l1">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_global_l1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_global_l1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">get_lambda</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">t_as_lambda</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t1</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">get_lambda</span><span class="o">=</span><span class="n">get_lambda</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_global_l2">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_global_l2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_global_l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">get_lambda</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">t_as_lambda</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t2</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">get_lambda</span><span class="o">=</span><span class="n">get_lambda</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.t1_diagnostic">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.t1_diagnostic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1_diagnostic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">warntol</span><span class="o">=</span><span class="mf">0.02</span><span class="p">):</span>
+        <span class="c1"># Per cluster</span>
+        <span class="k">for</span> <span class="n">fx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+            <span class="n">wfx</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="n">wfx</span><span class="o">.</span><span class="n">t1</span>
+            <span class="n">nelec</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">t1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t1diag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t1diag</span> <span class="o">&gt;=</span> <span class="n">warntol</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;T1 diagnostic for </span><span class="si">%-20s</span><span class="s2"> </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">fx</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="n">t1diag</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;T1 diagnostic for </span><span class="si">%-20s</span><span class="s2"> </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">fx</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="n">t1diag</span><span class="p">)</span>
+        <span class="c1"># Global</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t1</span><span class="p">(</span><span class="n">mpi_target</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+            <span class="n">nelec</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">t1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t1diag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t1diag</span> <span class="o">&gt;=</span> <span class="n">warntol</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Global T1 diagnostic: </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t1diag</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Global T1 diagnostic: </span><span class="si">%.5f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">t1diag</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --- Density-matrices</span>
+    <span class="c1"># --------------------</span>
+
+    <span class="c1"># Defaults</span>
+
+<div class="viewcode-block" id="EWF.make_rdm1">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.make_rdm1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;cc&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;mp2&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_mp2_global_wf</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;callback&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_rdm1_demo</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>     
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;fci&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_rdm1_demo</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>        
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;make_rdm1 for solver &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.make_rdm2">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.make_rdm2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ccsd&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="c1"># return self._make_rdm2_ccsd(*args, **kwargs)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;mp2&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;make_rdm2 for solver &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="p">)</span></div>
+
+
+    <span class="c1"># DM1</span>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_mp2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">mp2</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">mp2</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf_cached</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">with_mf</span><span class="p">:</span>
+            <span class="n">dm1</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">)]</span> <span class="o">+=</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm1</span>
+
+    <span class="nd">@cache</span><span class="p">(</span><span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_global_wf_cached</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_mp2_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_t1</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm1_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm1_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># DM2</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">make_rdm2_ccsd_proj_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># --- Energy</span>
+    <span class="c1"># ----------</span>
+
+    <span class="c1"># Correlation</span>
+
+<div class="viewcode-block" id="EWF.get_e_corr">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_e_corr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_e_corr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">functional</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">functional</span> <span class="o">=</span> <span class="n">functional</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">energy_functional</span>
+
+        <span class="k">if</span> <span class="n">functional</span> <span class="o">==</span> <span class="s2">&quot;projected&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;functional=&#39;projected&#39; is deprecated; use functional=&#39;wf&#39; instead.&quot;</span><span class="p">)</span>
+            <span class="n">functional</span> <span class="o">=</span> <span class="s2">&quot;wf&quot;</span>
+        <span class="k">if</span> <span class="n">functional</span> <span class="o">==</span> <span class="s2">&quot;wf&quot;</span><span class="p">:</span>
+            <span class="c1"># CCSD projected energy expression </span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wf_corr_energy</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">functional</span> <span class="o">==</span> <span class="s2">&quot;dm-t2only&quot;</span><span class="p">:</span>
+            <span class="c1"># Builds density matrices from projected amplitudes</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">functional</span> <span class="o">==</span> <span class="s2">&quot;dm&quot;</span><span class="p">:</span>
+            <span class="c1"># Builds density matrices from projected amplitudes</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">functional</span> <span class="o">==</span> <span class="s1">&#39;dmet&#39;</span><span class="p">:</span>
+            <span class="c1"># Uses projected density matrices (democratic partitioning)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dmet_energy</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown energy functional: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">functional</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_wf_corr_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_wf_corr_energy">[docs]</a>
+    <span class="nd">@mpi</span><span class="o">.</span><span class="n">with_allreduce</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_wf_corr_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c1"># Only loop over fragments of own MPI rank</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">contributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e_corr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ex</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e_corr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">wf</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_cisd</span><span class="p">(</span><span class="n">c0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+                <span class="n">px</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;frag|cluster-occ&quot;</span><span class="p">)</span>
+                <span class="n">wf</span> <span class="o">=</span> <span class="n">wf</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">px</span><span class="p">)</span>
+                <span class="n">es</span><span class="p">,</span> <span class="n">ed</span><span class="p">,</span> <span class="n">ex</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">get_fragment_energy</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">c2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%20s</span><span class="s2">:  E(S)= </span><span class="si">%s</span><span class="s2">  E(D)= </span><span class="si">%s</span><span class="s2">  E(tot)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">es</span><span class="p">),</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">ed</span><span class="p">),</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">e_corr</span> <span class="o">+=</span> <span class="n">x</span><span class="o">.</span><span class="n">symmetry_factor</span> <span class="o">*</span> <span class="n">ex</span>
+        <span class="k">return</span> <span class="n">e_corr</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span></div>
+
+    
+<div class="viewcode-block" id="EWF.get_ccsd_t_corr_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_ccsd_t_corr_energy">[docs]</a>
+    <span class="nd">@mpi</span><span class="o">.</span><span class="n">with_allreduce</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ccsd_t_corr_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">project</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># TODO: Check MPI</span>
+        <span class="n">e_ccsd_t</span> <span class="o">=</span> <span class="mi">0</span>
+        
+        <span class="c1"># Only loop over fragments of own MPI rank</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">contributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+            <span class="c1"># if x.results.e_corr_ccsd_t is not None:</span>
+            <span class="c1">#     ex = x.results.e_corr_ccsd_t</span>
+            <span class="c1"># else:</span>
+            <span class="n">ex</span> <span class="o">=</span> <span class="n">calc_fragment_ccsd_t_energy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">project</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">e_ccsd_t</span> <span class="o">+=</span> <span class="n">x</span><span class="o">.</span><span class="n">symmetry_factor</span> <span class="o">*</span> <span class="n">ex</span>
+        <span class="k">return</span> <span class="n">e_ccsd_t</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_dm_corr_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_dm_corr_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dm_corr_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="s2">&quot;global-wf&quot;</span><span class="p">,</span> <span class="n">dm2</span><span class="o">=</span><span class="s2">&quot;projected-lambda&quot;</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">e1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy_e1</span><span class="p">(</span><span class="n">dm1</span><span class="o">=</span><span class="n">dm1</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy_e2</span><span class="p">(</span><span class="n">dm2</span><span class="o">=</span><span class="n">dm2</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">)</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Ecorr(1)= </span><span class="si">%s</span><span class="s2">  Ecorr(2)= </span><span class="si">%s</span><span class="s2">  Ecorr= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">energy_string</span><span class="p">,</span> <span class="p">(</span><span class="n">e1</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">e_corr</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">e_corr</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_dm_corr_energy_e1">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_dm_corr_energy_e1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dm_corr_energy_e1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dm1</span><span class="o">=</span><span class="s2">&quot;global-wf&quot;</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Correlation energy due to changes in 1-DM and non-cumulant 2-DM:</span>
+        <span class="k">if</span> <span class="n">dm1</span> <span class="o">==</span> <span class="s2">&quot;global-wf&quot;</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">dm1</span> <span class="o">==</span> <span class="s2">&quot;2p1l&quot;</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd</span><span class="p">(</span><span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">dm1</span> <span class="o">==</span> <span class="s2">&quot;1p1l&quot;</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_1p1l</span><span class="p">(</span><span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+
+        <span class="k">if</span> <span class="n">with_exxdiv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_exxdiv</span><span class="p">:</span>
+                <span class="n">with_exxdiv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;MP2&quot;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">])</span>
+                <span class="n">any_mp2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;MP2&quot;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">])</span>
+                <span class="n">any_not_mp2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">solver</span> <span class="o">!=</span> <span class="s2">&quot;MP2&quot;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragments</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">any_mp2</span> <span class="ow">and</span> <span class="n">any_not_mp2</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Both MP2 and not MP2 solvers detected - unclear usage of exxdiv!&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">with_exxdiv</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fock_for_energy</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="n">with_exxdiv</span><span class="p">)</span>
+        <span class="n">e1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fock</span> <span class="o">*</span> <span class="n">dm1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">e1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_dm_corr_energy_e2">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_dm_corr_energy_e2">[docs]</a>
+    <span class="nd">@mpi</span><span class="o">.</span><span class="n">with_allreduce</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dm_corr_energy_e2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dm2</span><span class="o">=</span><span class="s2">&quot;projected-lambda&quot;</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Correlation energy due to cumulant&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_as_lambda</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_as_lambda</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">t_as_lambda</span>
+        <span class="k">if</span> <span class="n">dm2</span> <span class="o">==</span> <span class="s2">&quot;global-wf&quot;</span><span class="p">:</span>
+            <span class="n">dm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># TODO: AO basis, late DF contraction</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+                <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">)</span>
+                <span class="n">e2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">dm2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">dm2</span>
+                <span class="n">gaa</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">gbb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array_uhf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">)</span>
+                <span class="n">e2</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">gaa</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">gbb</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                    <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">dm2</span> <span class="o">==</span> <span class="s2">&quot;projected-lambda&quot;</span><span class="p">:</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">contributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+                <span class="n">ex</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">e_corr_dm2cumulant</span>
+                <span class="k">if</span> <span class="n">ex</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">t_as_lambda</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">t_as_lambda</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">t_as_lambda</span><span class="p">)):</span>
+                    <span class="n">ex</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">make_fragment_dm2cumulant_energy</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">)</span>
+                <span class="n">e2</span> <span class="o">+=</span> <span class="n">x</span><span class="o">.</span><span class="n">symmetry_factor</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">sym_factor</span> <span class="o">*</span> <span class="n">ex</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown value for dm2: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">dm2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">e2</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_ccsd_corr_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_ccsd_corr_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ccsd_corr_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full_wf</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get projected correlation energy from partitioned CCSD WF.</span>
+
+<span class="sd">        This is the projected (T1, T2) energy expression, instead of the</span>
+<span class="sd">        projected (C1, C2) expression used in PRX (the differences are very small).</span>
+
+<span class="sd">        For testing only, UHF and MPI not implemented&quot;&quot;&quot;</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t1</span><span class="p">()</span>
+
+        <span class="c1"># E(singles)</span>
+        <span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fock_for_energy</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">fov</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span>
+        <span class="n">e_singles</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fov</span> <span class="o">*</span> <span class="n">t1</span><span class="p">)</span>
+
+        <span class="c1"># E(doubles)</span>
+        <span class="k">if</span> <span class="n">full_wf</span><span class="p">:</span>
+            <span class="n">c2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_global_t2</span><span class="p">()</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span>
+            <span class="n">mos</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">)</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="n">mos</span><span class="p">)</span>
+            <span class="n">e_doubles</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,iabj&quot;</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,ibaj&quot;</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e_doubles</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">contributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+                <span class="n">pwf</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">pwf</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span>
+                <span class="n">ro</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;mo-occ|cluster-occ&quot;</span><span class="p">)</span>
+                <span class="n">rv</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;mo-vir|cluster-vir&quot;</span><span class="p">)</span>
+
+                <span class="n">t1x</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ro</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>  <span class="c1"># N(frag) * N^2</span>
+                <span class="n">c2x</span> <span class="o">=</span> <span class="n">pwf</span><span class="o">.</span><span class="n">t2</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">pwf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">t1x</span><span class="p">)</span>
+
+                <span class="n">noccx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span>
+                <span class="n">nvirx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nvir_active</span>
+
+                <span class="n">eris</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span><span class="p">(</span><span class="s2">&quot;ovvo&quot;</span><span class="p">)</span>
+
+                <span class="n">px</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;frag|cluster-occ&quot;</span><span class="p">)</span>
+                <span class="n">eris</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,iabj-&gt;xabj&quot;</span><span class="p">,</span> <span class="n">px</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span>
+                <span class="n">wx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">symmetry_factor</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">sym_factor</span>
+                <span class="n">e_doubles</span> <span class="o">+=</span> <span class="n">wx</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,iabj&quot;</span><span class="p">,</span> <span class="n">c2x</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,ibaj&quot;</span><span class="p">,</span> <span class="n">c2x</span><span class="p">,</span> <span class="n">eris</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">mpi</span><span class="p">:</span>
+                <span class="n">e_doubles</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">e_doubles</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">(</span><span class="s2">&quot;Time for E(CCSD)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">))</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="n">e_singles</span> <span class="o">+</span> <span class="n">e_doubles</span>
+        <span class="k">return</span> <span class="n">e_corr</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span></div>
+
+
+    <span class="c1"># Total energy</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Total energy.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span>
+
+<div class="viewcode-block" id="EWF.get_wf_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_wf_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_wf_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wf_corr_energy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span> <span class="o">+</span> <span class="n">e_corr</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_dm_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_dm_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dm_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span> <span class="o">+</span> <span class="n">e_corr</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_ccsd_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_ccsd_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ccsd_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full_wf</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ccsd_corr_energy</span><span class="p">(</span><span class="n">full_wf</span><span class="o">=</span><span class="n">full_wf</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --- Energy corrections</span>
+
+<div class="viewcode-block" id="EWF.get_fbc_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_fbc_energy">[docs]</a>
+    <span class="nd">@mpi</span><span class="o">.</span><span class="n">with_allreduce</span><span class="p">()</span>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_fbc_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">occupied</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">virtual</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get finite-bath correction (FBC) energy.</span>
+
+<span class="sd">        This correction consists of two independent contributions, one due to the finite occupied,</span>
+<span class="sd">        and one due to the finite virtual space.</span>
+
+<span class="sd">        The virtual correction for a given fragment x is calculated as</span>
+<span class="sd">        &quot;E(MP2)[occ=D,vir=F] - E(MP2)[occ=D,vir=C]&quot;, where D is the DMET cluster space,</span>
+<span class="sd">        F is the full space, and C is the full cluster space. For the occupied correction,</span>
+<span class="sd">        occ and vir spaces are swapped. Fragments which do not have a BNO bath are skipped.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        occupied: bool, optional</span>
+<span class="sd">            If True, the FBC energy from the occupied space is included. Default: True.</span>
+<span class="sd">        virtual: bool, optional</span>
+<span class="sd">            If True, the FBC energy from the virtual space is included. Default: True.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        e_fbc: float</span>
+<span class="sd">            Finite bath correction (FBC) energy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">occupied</span> <span class="ow">or</span> <span class="n">virtual</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+
+        <span class="n">e_fbc</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c1"># Only loop over fragments of own MPI rank</span>
+        <span class="k">for</span> <span class="n">fx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">contributes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">is_envelop</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">):</span>
+            <span class="n">ex</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">occupied</span><span class="p">:</span>
+                <span class="n">get_fbc</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">_bath_factory_occ</span><span class="p">,</span> <span class="s2">&quot;get_finite_bath_correction&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">get_fbc</span><span class="p">:</span>
+                    <span class="n">ex</span> <span class="o">+=</span> <span class="n">get_fbc</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_frozen_occ</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> does not have occupied BNOs - skipping fragment for FBC energy.&quot;</span><span class="p">,</span> <span class="n">fx</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">virtual</span><span class="p">:</span>
+                <span class="n">get_fbc</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">_bath_factory_vir</span><span class="p">,</span> <span class="s2">&quot;get_finite_bath_correction&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">get_fbc</span><span class="p">:</span>
+                    <span class="n">ex</span> <span class="o">+=</span> <span class="n">get_fbc</span><span class="p">(</span><span class="n">fx</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">,</span> <span class="n">fx</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_frozen_vir</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> does not have virtual BNOs - skipping fragment for FBC energy.&quot;</span><span class="p">,</span> <span class="n">fx</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;FBC from </span><span class="si">%-30s</span><span class="s2">  dE= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fx</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">ex</span><span class="p">))</span>
+            <span class="n">e_fbc</span> <span class="o">+=</span> <span class="n">fx</span><span class="o">.</span><span class="n">symmetry_factor</span> <span class="o">*</span> <span class="n">ex</span>
+        <span class="n">e_fbc</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;E(FBC)= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">e_fbc</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">e_fbc</span></div>
+
+
+<div class="viewcode-block" id="EWF.get_intercluster_mp2_energy">
+<a class="viewcode-back" href="../../../apidoc/vayesta.ewf.html#vayesta.ewf.ewf.EWF.get_intercluster_mp2_energy">[docs]</a>
+    <span class="nd">@log_method</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_intercluster_mp2_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_intercluster_mp2_energy_rhf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_dm_energy_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">global_dm2</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate total energy from reduced density-matrices.</span>
+
+<span class="sd">        RHF ONLY!</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        global_dm1 : bool</span>
+<span class="sd">            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True</span>
+<span class="sd">        global_dm2 : bool</span>
+<span class="sd">            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        e_tot : float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_mf</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dm_corr_energy_old</span><span class="p">(</span><span class="n">global_dm1</span><span class="o">=</span><span class="n">global_dm1</span><span class="p">,</span> <span class="n">global_dm2</span><span class="o">=</span><span class="n">global_dm2</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_dm_corr_energy_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">global_dm2</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate correlation energy from reduced density-matrices.</span>
+
+<span class="sd">        RHF ONLY!</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        global_dm1 : bool</span>
+<span class="sd">            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True</span>
+<span class="sd">        global_dm2 : bool</span>
+<span class="sd">            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        e_corr : float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_as_lambda</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">t_as_lambda</span>
+
+        <span class="k">if</span> <span class="n">global_dm1</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd_global_wf</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm1_ccsd</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Core Hamiltonian + Non Cumulant 2DM contribution</span>
+        <span class="n">e1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_fock_for_energy</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">*</span> <span class="n">dm1</span><span class="p">)</span>
+
+        <span class="c1"># Cumulant 2DM contribution</span>
+        <span class="k">if</span> <span class="n">global_dm2</span><span class="p">:</span>
+            <span class="c1"># Calculate global 2RDM and contract with ERIs</span>
+            <span class="n">rdm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_rdm2_ccsd_global_wf</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_eris_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">)</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pqrs,pqrs&quot;</span><span class="p">,</span> <span class="n">eris</span><span class="p">,</span> <span class="n">rdm2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fragment Local 2DM cumulant contribution</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_dm_corr_energy_e2</span><span class="p">(</span><span class="n">t_as_lambda</span><span class="o">=</span><span class="n">t_as_lambda</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span>
+        <span class="n">e_corr</span> <span class="o">=</span> <span class="p">(</span><span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ncells</span>
+        <span class="k">return</span> <span class="n">e_corr</span>
+
+    <span class="c1"># --- Debugging</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_debug_get_wf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;random&quot;</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;exact&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">==</span> <span class="s2">&quot;CCSD&quot;</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">WaveFunction</span>
+
+                <span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">)</span>
+                <span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">solver_options</span><span class="p">[</span><span class="s2">&quot;solve_lambda&quot;</span><span class="p">]:</span>
+                    <span class="n">cc</span><span class="o">.</span><span class="n">solve_lambda</span><span class="p">()</span>
+                <span class="n">wf</span> <span class="o">=</span> <span class="n">WaveFunction</span><span class="o">.</span><span class="n">from_pyscf</span><span class="p">(</span><span class="n">cc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">wf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">_debug_wf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_debug_wf</span> <span class="o">=</span> <span class="n">wf</span></div>
+
+
+
+<span class="n">REWF</span> <span class="o">=</span> <span class="n">EWF</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

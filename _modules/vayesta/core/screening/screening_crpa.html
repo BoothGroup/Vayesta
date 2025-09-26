@@ -1,0 +1,362 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.screening.screening_crpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.screening.screening_crpa</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.screening.screening_crpa</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRPA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.screening_moment</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_target_rot</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">lib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.ao2mo</span><span class="w"> </span><span class="kn">import</span> <span class="n">_ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">__config__</span>
+
+
+<div class="viewcode-block" id="cRPAError">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.cRPAError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">cRPAError</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="get_frag_W">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.get_frag_W">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_frag_W</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">pcoupling</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">only_ov_screened</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates screened coulomb interaction due to screening at the level of cRPA.</span>
+<span class="sd">    Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mf : pyscf.scf object</span>
+<span class="sd">        Mean-field instance.</span>
+<span class="sd">    fragment : vayesta.qemb.Fragment subclass</span>
+<span class="sd">        Fragments for the calculation, used to define local interaction space.</span>
+<span class="sd">    log : logging.Logger, optional</span>
+<span class="sd">        Logger object. If None, the logger of the `emb` object is used. Default: None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    freqs : np.array</span>
+<span class="sd">        Effective bosonic frequencies for cRPA screening.</span>
+<span class="sd">    couplings : np.array</span>
+<span class="sd">        Effective bosonic couplings for cRPA screening.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating screened interaction via frequency dependent cRPA.&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">l_a</span><span class="p">,</span> <span class="n">l_b</span><span class="p">,</span> <span class="n">crpa</span> <span class="o">=</span> <span class="n">set_up_W_crpa</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">pcoupling</span><span class="p">,</span> <span class="n">only_ov_screened</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">cRPAError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">freqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,))</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">nmo</span><span class="p">,</span> <span class="n">nmo</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">nmo</span><span class="p">,</span> <span class="n">nmo</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">freqs</span> <span class="o">=</span> <span class="n">crpa</span><span class="o">.</span><span class="n">freqs_ss</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="p">(</span><span class="n">l_a</span><span class="p">,</span> <span class="n">l_b</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;cRPA resulted in </span><span class="si">%d</span><span class="s2"> poles&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">freqs</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">couplings</span></div>
+
+
+
+<div class="viewcode-block" id="get_frag_deltaW">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.get_frag_deltaW">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_frag_deltaW</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">pcoupling</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">only_ov_screened</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates change in coulomb interaction due to screening at the level of static limit of cRPA.</span>
+<span class="sd">    Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mf : pyscf.scf object</span>
+<span class="sd">        Mean-field instance.</span>
+<span class="sd">    fragment : vayesta.qemb.Fragment subclass</span>
+<span class="sd">        Fragments for the calculation, used to define local interaction space.</span>
+<span class="sd">    log : logging.Logger, optional</span>
+<span class="sd">        Logger object. If None, the logger of the `emb` object is used. Default: None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    deltaW : np.array</span>
+<span class="sd">        Change in cluster local coulomb interaction due to cRPA screening.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating screened interaction via static limit of cRPA.&quot;</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;This is poorly defined for non-CAS fragmentations.&quot;</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;This implementation is expensive, with O(N^6) computational cost per cluster.&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">l_a</span><span class="p">,</span> <span class="n">l_b</span><span class="p">,</span> <span class="n">crpa</span> <span class="o">=</span> <span class="n">set_up_W_crpa</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">pcoupling</span><span class="p">,</span> <span class="n">only_ov_screened</span><span class="o">=</span><span class="n">only_ov_screened</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">cRPAError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">nmo</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">delta_w</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">nmo</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="n">crpa</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Have a factor of -2 due to negative value of RPA dd response, and summation of</span>
+        <span class="c1"># the excitation and deexcitation branches of the dd response.</span>
+        <span class="n">static_fac</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">crpa</span><span class="o">.</span><span class="n">freqs_ss</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">delta_w</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,n,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_a</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_a</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nqp,n,nsr-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_a</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_a</span><span class="p">),</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,n,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_a</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_b</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nqp,n,nsr-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_a</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_b</span><span class="p">),</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,n,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_b</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_b</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nqp,n,nsr-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">l_b</span><span class="p">,</span> <span class="n">static_fac</span><span class="p">,</span> <span class="n">l_b</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">delta_w</span><span class="p">,</span> <span class="n">crpa</span></div>
+
+
+
+<div class="viewcode-block" id="set_up_W_crpa">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.set_up_W_crpa">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_up_W_crpa</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">pcoupling</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">only_ov_screened</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">is_rhf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;with_df&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Screened interactions require density-fitting.&quot;</span><span class="p">)</span>
+    <span class="n">crpa</span><span class="p">,</span> <span class="n">rot_loc</span><span class="p">,</span> <span class="n">rot_crpa</span> <span class="o">=</span> <span class="n">get_crpa</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+    <span class="c1"># Now need to calculate interactions.</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nocc</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="o">.</span><span class="n">T</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+    <span class="k">if</span> <span class="n">is_rhf</span><span class="p">:</span>
+        <span class="n">nocc</span> <span class="o">=</span> <span class="p">(</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nocc</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+
+    <span class="c1"># First calculate alpha contribution.</span>
+    <span class="n">lov_a</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ijslice</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nmo</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">ova</span><span class="p">))</span>
+    <span class="n">lov_a</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">lov_a</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">l_aux</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">lov_a</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">del</span> <span class="n">lov_a</span>
+    <span class="n">lov_b</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ijslice</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nmo</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">ovb</span><span class="p">))</span>
+    <span class="n">lov_b</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">lov_b</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+    <span class="c1"># This is a decomposition of the cRPA reducible dd response in the auxilliary basis</span>
+    <span class="n">l_aux</span> <span class="o">+=</span> <span class="n">dot</span><span class="p">(</span><span class="n">lov_b</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">del</span> <span class="n">lov_b</span>
+
+    <span class="c1"># This is expensive, and we&#39;d usually want to avoid doing it twice unnecessarily, but other things will be worse.</span>
+    <span class="c1"># Now calculate the coupling back to the fragment itself.</span>
+    <span class="n">c_act</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+    <span class="k">if</span> <span class="n">is_rhf</span><span class="p">:</span>
+        <span class="n">c_act</span> <span class="o">=</span> <span class="p">(</span><span class="n">c_act</span><span class="p">,</span> <span class="n">c_act</span><span class="p">)</span>
+
+    <span class="c1"># Calculating this quantity scales as O(N^3), rather than O(N^4) if we explicitly calculated the cRPA dd response</span>
+    <span class="c1"># in the auxiliary basis.</span>
+    <span class="n">lpqa_loc</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">c_act</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">l_a</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nm-&gt;mpq&quot;</span><span class="p">,</span> <span class="n">lpqa_loc</span><span class="p">,</span> <span class="n">l_aux</span><span class="p">)</span>
+    <span class="k">del</span> <span class="n">lpqa_loc</span>
+    <span class="n">lpqb_loc</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="n">c_act</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">l_b</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nm-&gt;mpq&quot;</span><span class="p">,</span> <span class="n">lpqb_loc</span><span class="p">,</span> <span class="n">l_aux</span><span class="p">)</span>
+    <span class="k">del</span> <span class="n">lpqb_loc</span>
+
+    <span class="k">if</span> <span class="n">pcoupling</span><span class="p">:</span>
+        <span class="c1"># Need to calculate additional contribution to the couplings resulting from rotation of the irreducible</span>
+        <span class="c1"># polarisability.</span>
+        <span class="c1"># Generate the full-system matrix of orbital energy differences.</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">ssRPA</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span><span class="o">.</span><span class="n">_gen_eps</span><span class="p">()</span>
+        <span class="c1"># First, generate epsilon couplings between cluster and crpa spaces.</span>
+        <span class="n">eps_fb</span> <span class="o">=</span> <span class="p">[</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,qp,rp-&gt;qr&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">nl</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">nl</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="n">rot_loc</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">ov_rot</span><span class="p">)]</span>
+        <span class="c1"># Then generate X and Y values for this correction.</span>
+        <span class="n">x_crpa</span> <span class="o">=</span> <span class="p">[(</span><span class="n">p</span> <span class="o">+</span> <span class="n">m</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">crpa</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">XmY_ss</span><span class="p">)]</span>
+        <span class="n">y_crpa</span> <span class="o">=</span> <span class="p">[(</span><span class="n">p</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">crpa</span><span class="o">.</span><span class="n">XpY_ss</span><span class="p">,</span> <span class="n">crpa</span><span class="o">.</span><span class="n">XmY_ss</span><span class="p">)]</span>
+        <span class="c1"># Contract with epsilon values</span>
+        <span class="n">a_fb</span> <span class="o">=</span> <span class="p">[</span><span class="n">dot</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_crpa</span><span class="p">,</span> <span class="n">eps_fb</span><span class="p">)]</span>
+        <span class="n">b_fb</span> <span class="o">=</span> <span class="p">[</span><span class="n">dot</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">y_crpa</span><span class="p">,</span> <span class="n">eps_fb</span><span class="p">)]</span>
+        <span class="n">no</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">no</span> <span class="o">=</span> <span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="n">no</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nvir_active</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
+        <span class="n">l_a</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">a_fb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">a_fb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">l_b</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">a_fb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">a_fb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="n">l_a</span><span class="p">[:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">b_fb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">b_fb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">l_b</span><span class="p">[:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">b_fb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">b_fb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">only_ov_screened</span><span class="p">:</span>
+        <span class="c1"># Zero out all contributions screening oo or vv contributions.</span>
+        <span class="n">no</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">no</span> <span class="o">=</span> <span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="n">no</span><span class="p">)</span>
+        <span class="n">l_a</span><span class="p">[:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">l_a</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">l_b</span><span class="p">[:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:,</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">l_b</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">return</span> <span class="n">l_a</span><span class="p">,</span> <span class="n">l_b</span><span class="p">,</span> <span class="n">crpa</span></div>
+
+
+
+<div class="viewcode-block" id="get_crpa">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.get_crpa">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_crpa</span><span class="p">(</span><span class="n">orig_mf</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_loc_rot</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructs the rotation of the overall mean-field space into which&quot;&quot;&quot;</span>
+        <span class="n">ro</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;cluster[occ]|mo[occ]&quot;</span><span class="p">)</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;cluster[vir]|mo[vir]&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">ro</span> <span class="o">=</span> <span class="p">(</span><span class="n">ro</span><span class="p">,</span> <span class="n">ro</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">rv</span> <span class="o">=</span> <span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+
+        <span class="n">rot_ova</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ij,Ab-&gt;IAjb&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rv</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">rot_ova</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rot_ova</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ro</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">rv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rot_ova</span> <span class="o">=</span> <span class="n">rot_ova</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">rot_ova</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">rot_ova</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">rot_ovb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ij,Ab-&gt;IAjb&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">rot_ovb</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rot_ovb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ro</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">rv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rot_ovb</span> <span class="o">=</span> <span class="n">rot_ovb</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">rot_ovb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">rot_ovb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">rot_ova</span><span class="p">,</span> <span class="n">rot_ovb</span>
+
+    <span class="n">rot_loc</span> <span class="o">=</span> <span class="n">construct_loc_rot</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rot_loc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">rot_ov_a</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">null_space</span><span class="p">(</span><span class="n">rot_loc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rot_ov_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">rot_loc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">rot_loc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">rot_ov_b</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">null_space</span><span class="p">(</span><span class="n">rot_loc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rot_ov_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">rot_loc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">rot_ov</span> <span class="o">=</span> <span class="p">(</span><span class="n">rot_ov_a</span><span class="p">,</span> <span class="n">rot_ov_b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rot_ov</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">rot_ov</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;cRPA space contains no excitations! Interactions will be unscreened.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">cRPAError</span><span class="p">(</span><span class="s2">&quot;cRPA space contains no excitations!&quot;</span><span class="p">)</span>
+    <span class="c1"># RPA calculation and new_mf will contain all required information for the response.</span>
+    <span class="n">crpa</span> <span class="o">=</span> <span class="n">ssRPA</span><span class="p">(</span><span class="n">orig_mf</span><span class="p">,</span> <span class="n">ov_rot</span><span class="o">=</span><span class="n">rot_ov</span><span class="p">)</span>
+    <span class="n">crpa</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">crpa</span><span class="p">,</span> <span class="n">rot_loc</span><span class="p">,</span> <span class="n">rot_ov</span></div>
+
+
+
+<div class="viewcode-block" id="ao2mo">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_crpa.ao2mo">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ao2mo</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ijslice</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get MO basis density-fitted integrals.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">mo_coeff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+    <span class="n">nmo</span> <span class="o">=</span> <span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">naux</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">with_df</span><span class="o">.</span><span class="n">get_naoaux</span><span class="p">()</span>
+    <span class="n">mem_incore</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">nmo</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">naux</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">/</span> <span class="mf">1e6</span>
+    <span class="n">mem_now</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">current_memory</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">mo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ijslice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ijslice</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nmo</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nmo</span><span class="p">)</span>
+
+    <span class="n">finshape</span> <span class="o">=</span> <span class="p">(</span><span class="n">naux</span><span class="p">,</span> <span class="n">ijslice</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ijslice</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ijslice</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">ijslice</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="n">Lpq</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">mem_incore</span> <span class="o">+</span> <span class="n">mem_now</span> <span class="o">&lt;</span> <span class="mf">0.99</span> <span class="o">*</span> <span class="n">mf</span><span class="o">.</span><span class="n">max_memory</span><span class="p">)</span> <span class="ow">or</span> <span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">incore_anyway</span><span class="p">:</span>
+        <span class="n">Lpq</span> <span class="o">=</span> <span class="n">_ao2mo</span><span class="o">.</span><span class="n">nr_e2</span><span class="p">(</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span><span class="o">.</span><span class="n">_cderi</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">ijslice</span><span class="p">,</span> <span class="n">aosym</span><span class="o">=</span><span class="s2">&quot;s2&quot;</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">Lpq</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Lpq</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">finshape</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;Memory may not be enough!&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

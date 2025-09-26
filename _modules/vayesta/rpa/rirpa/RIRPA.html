@@ -1,0 +1,972 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.rirpa.RIRPA &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../../rpa.html">vayesta.rpa</a></li>
+          <li class="breadcrumb-item"><a href="../rirpa.html">vayesta.rpa.rirpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.rirpa.RIRPA</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.rirpa.RIRPA</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">momzero_NI</span><span class="p">,</span> <span class="n">energy_NI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.eris</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_cderi</span>
+
+<span class="n">memory_string</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="s2">&quot;Memory usage: </span><span class="si">%.2f</span><span class="s2"> GB&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">current_memory</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ssRIRRPA">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ssRIRRPA</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Approach based on equations expressed succinctly in the appendix of</span>
+<span class="sd">    Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120</span>
+<span class="sd">    WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dfmf : pyscf.scf.SCF</span>
+<span class="sd">        PySCF density-fitted mean-field object.</span>
+<span class="sd">    rixc : tuple of tuples or arrays, optional</span>
+<span class="sd">        low-rank decomposition of exchange-correlation kernel. First tuple separates two different spin channels, and</span>
+<span class="sd">        the second the left- and right-sides of an asymmetric decomposition. Default value is None.</span>
+<span class="sd">    log : logging object, optional</span>
+<span class="sd">        Default value is None.</span>
+<span class="sd">    err_tol : float, optional</span>
+<span class="sd">        Threshold defining estimated error at which to print various accuracy warnings.</span>
+<span class="sd">        Default value is 1e-6.</span>
+<span class="sd">    svd_tol : float, optional</span>
+<span class="sd">        Threshold defining negligible singular values when compressing various decompositions.</span>
+<span class="sd">        Default value is 1e-12.</span>
+<span class="sd">    lov : np.ndarray or tuple of np.ndarray, optional</span>
+<span class="sd">        occupied-virtual CDERIs in mo basis of provided mean field. If None recalculated from AOs.</span>
+<span class="sd">        Default value is None.</span>
+<span class="sd">    compress : int, optional</span>
+<span class="sd">        How thoroughly to attempt compression of the low-rank representations of various matrices.</span>
+<span class="sd">        Thresholds are:</span>
+<span class="sd">        - above 0: Compress representation of (A+B)(A-B) once constructed, prior to main calculation.</span>
+<span class="sd">        - above 3: Compress representations of A+B and A-B separately prior to constructing (A+B)(A-B) or (A+B)^{-1}</span>
+<span class="sd">        - above 5: Compress representation of (A+B)^{-1} prior to contracting. This is basically never worthwhile.</span>
+<span class="sd">        Note that in all cases these compressions will have computational cost O(N_{aux}^2 ov), the same as our later</span>
+<span class="sd">        computations, and so a tradeoff must be made between reducing the N_{aux} in later calculations vs the cost</span>
+<span class="sd">        of compression. Default value is 0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dfmf</span><span class="p">,</span>
+        <span class="n">rixc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">err_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">svd_tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
+        <span class="n">lov</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">compress</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf</span> <span class="o">=</span> <span class="n">dfmf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span> <span class="o">=</span> <span class="n">rixc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">err_tol</span> <span class="o">=</span> <span class="n">err_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">svd_tol</span> <span class="o">=</span> <span class="n">svd_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lov</span> <span class="o">=</span> <span class="n">lov</span>
+        <span class="c1"># Determine how many times to attempt compression of low-rank expressions for various matrices.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">=</span> <span class="n">compress</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">df</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kdf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;kmf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">kmf</span><span class="o">.</span><span class="n">with_df</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;kpts&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">kpts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nocc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nvir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">naux_eri</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">with_df</span><span class="o">.</span><span class="n">get_naoaux</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ov_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Occupied MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Occupied MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_vir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Virtual MO coefficients.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_energy_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_energy_vir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span> <span class="p">:]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_corr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Can only access rpa.e_corr after running rpa.kernel.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy_vir</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy_occ</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">,))</span>
+        <span class="k">return</span> <span class="n">eps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">D</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">eps</span><span class="p">,</span> <span class="n">eps</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">D</span>
+
+<div class="viewcode-block" id="ssRIRRPA.kernel_moms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_moms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_moms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_moment</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculates all density-density moments up to and including `max_moment&#39; with one index projected into</span>
+<span class="sd">        `target_rot&#39;  space.</span>
+<span class="sd">        For details of numerical integration approach see https://arxiv.org/abs/2301.09107.</span>
+
+<span class="sd">        Runtime: O(n_{points} ((n_{target} + n_{aux}) n_{aux} ov + n_{aux}^3)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        max_moment: int</span>
+<span class="sd">            Maximum moment of the dd response to return.</span>
+<span class="sd">        target_rot: array_like, of size (n_{target}, o_a v_a + o_b v_b)</span>
+<span class="sd">            Projector for one index of the moment.</span>
+<span class="sd">        npoints: int, optional.</span>
+<span class="sd">            Integer number of points to use in numerical integrations; will be increased to next highest multiple of</span>
+<span class="sd">            4 for error estimation purposes. Default: 48 (excessive).</span>
+<span class="sd">        integral_deduct: str, optional.</span>
+<span class="sd">            What terms to deduct from numerical integration.</span>
+<span class="sd">            Options are &quot;HO&quot; (default), &quot;D&quot;, and None, corresponding to deducting both the mean-field contribution</span>
+<span class="sd">            and additional higher-order terms, just the mean-field contribution, or nothing.</span>
+<span class="sd">            For discussion of the specific approaches see Appendix A of https://arxiv.org/abs/2301.09107.</span>
+<span class="sd">        ainit: float, optional.</span>
+<span class="sd">            Value of grid scaling to initialise optimisation from. If `opt_quad&#39; is False, this value of a is used.</span>
+<span class="sd">            Default: 10.0</span>
+<span class="sd">        opt_quad: bool, optional.</span>
+<span class="sd">            Whether to optimise the grid spacing `a&#39;. Default: True</span>
+<span class="sd">        adaptive_quad: bool, optional.</span>
+<span class="sd">            Whether to use scipy adaptive quadrature for calculation. Requires prohibitively more evaluations but can</span>
+<span class="sd">            provide validation of usual approach. Default: False</span>
+<span class="sd">        alpha: float, optional.</span>
+<span class="sd">            Value or electron interaction scaling in adiabatic connection. Default: 1.0</span>
+<span class="sd">        ri_decomps: iterable of three tuples of array_like or None, optional.</span>
+<span class="sd">            Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution</span>
+<span class="sd">            to each is given by S_L S_R^T. If `None&#39; these will be contructed at O(N^4) cost. Default: None</span>
+<span class="sd">        analytic_lower_bound: bool, optional.</span>
+<span class="sd">            Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation</span>
+<span class="sd">            requires O(N^4) operation, and given limited utility of lower bound this is optional.</span>
+<span class="sd">            Default: False.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        moments: array_like, shape (max_moment + 1, n_{tar}, o_a v_a + o_b v_b)</span>
+<span class="sd">            Array storing the i^th dd moment in the space defined by `target_rot&#39; in moments[i].</span>
+<span class="sd">        err0: tuple.</span>
+<span class="sd">            Bounds on the error, in form (upper_bound, lower_bound). If `analytic_lower_bound&#39;=False lower bound</span>
+<span class="sd">            will be None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">target_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Warning; generating full moment rather than local component. Will scale as O(N^5).&quot;</span><span class="p">)</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">)</span>
+
+        <span class="n">ri_decomps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">()</span>
+        <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="n">ri_decomps</span>
+        <span class="c1"># First need to calculate zeroth moment.</span>
+        <span class="n">moments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">max_moment</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,)</span> <span class="o">+</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">err0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_mom0</span><span class="p">(</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">ri_decomps</span><span class="o">=</span><span class="n">ri_decomps</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">t_start_higher</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Grab mean.</span>
+            <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span>
+            <span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,q-&gt;pq&quot;</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">dot</span><span class="p">(</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_moment</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">moments</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,q-&gt;pq&quot;</span><span class="p">,</span> <span class="n">moments</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">2</span><span class="p">],</span> <span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">dot</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">2</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;RIRPA Higher Moments wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start_higher</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Overall RIRPA Moments wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">moments</span><span class="p">,</span> <span class="n">err0</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_kernel_mom0</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">target_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span>
+        <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">integral_deduct</span><span class="o">=</span><span class="s2">&quot;HO&quot;</span><span class="p">,</span>
+        <span class="n">opt_quad</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">adaptive_quad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">ri_decomps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">return_niworker</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">analytic_lower_bound</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Most inputs documented in `kernel_moms&#39;.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        return_niworker: bool, optional.</span>
+<span class="sd">            Whether to return the objects responsible for the work of numerical integration, rather than performing</span>
+<span class="sd">            computation and returning results. Used to allow plotting of integrands.</span>
+<span class="sd">            If this is True the function instead returns `ni_worker_integrand&#39;, `ni_worker_offset&#39;, that is the</span>
+<span class="sd">            lower-level objects responsible for each numerical integrations; `ni_worker_offset&#39; is None unless</span>
+<span class="sd">            `integral_deduct&#39;=&quot;HO&quot;.</span>
+<span class="sd">            Default: False.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mom0: array_like, shape (n_{tar}, o_a v_a + o_b v_b)</span>
+<span class="sd">            Zeroth moment estimate.</span>
+<span class="sd">        errs: tuple of floats.</span>
+<span class="sd">            Error estimate in zeroth moment computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">target_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Warning; generating full moment rather than local component. Will scale as O(N^5).&quot;</span><span class="p">)</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ri_decomps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="n">ri_decomps</span>
+
+        <span class="c1"># We our integral as</span>
+        <span class="c1">#   integral = (MP)^{1/2} - (moment_offset) P - integral_offset</span>
+        <span class="c1"># and so</span>
+        <span class="c1">#   eta0 = (integral + integral_offset) P^{-1} + moment_offset</span>
+        <span class="n">offset_niworker</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">integral_deduct</span> <span class="o">==</span> <span class="s2">&quot;D&quot;</span><span class="p">:</span>
+            <span class="c1"># Evaluate (MP)^{1/2} - D,</span>
+            <span class="n">niworker</span> <span class="o">=</span> <span class="n">momzero_NI</span><span class="o">.</span><span class="n">MomzeroDeductD</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">integral_offset</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;lp,p-&gt;lp&quot;</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">integral_deduct</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Explicitly evaluate (MP)^{1/2}, with no offsets.</span>
+            <span class="n">niworker</span> <span class="o">=</span> <span class="n">momzero_NI</span><span class="o">.</span><span class="n">MomzeroDeductNone</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">integral_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">target_rot</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">integral_deduct</span> <span class="o">==</span> <span class="s2">&quot;HO&quot;</span><span class="p">:</span>
+            <span class="n">niworker</span> <span class="o">=</span> <span class="n">momzero_NI</span><span class="o">.</span><span class="n">MomzeroDeductHigherOrder</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">offset_niworker</span> <span class="o">=</span> <span class="n">momzero_NI</span><span class="o">.</span><span class="n">MomzeroOffsetCalcGaussLag</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">estval</span><span class="p">,</span> <span class="n">offset_err</span> <span class="o">=</span> <span class="n">offset_niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+            <span class="c1"># This computes the required value analytically, but at N^5 cost. Just keeping around for debugging.</span>
+            <span class="c1"># mat = np.zeros(self.D.shape * 2)</span>
+            <span class="c1"># mat = mat + self.D</span>
+            <span class="c1"># mat = (mat.T + self.D).T</span>
+            <span class="c1"># estval2 = einsum(&quot;rp,pq,np,nq-&gt;rq&quot;, target_rot, mat ** (-1), ri_mp[0], ri_mp[1])</span>
+            <span class="c1"># self.log.info(&quot;Error in numerical Offset Approximation=%6.4e&quot;,abs(estval - estval2).max())</span>
+            <span class="n">integral_offset</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;lp,p-&gt;lp&quot;</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">estval</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown integral offset specification.`&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">return_niworker</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">niworker</span><span class="p">,</span> <span class="n">offset_niworker</span>
+
+        <span class="k">if</span> <span class="n">adaptive_quad</span><span class="p">:</span>
+            <span class="c1"># Can also make use of scipy adaptive quadrature routines; this is more expensive but a good sense-check.</span>
+            <span class="n">integral</span><span class="p">,</span> <span class="n">upper_bound</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">niworker</span><span class="o">.</span><span class="n">kernel_adaptive</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">integral</span><span class="p">,</span> <span class="n">upper_bound</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">ainit</span><span class="p">,</span> <span class="n">opt_quad</span><span class="o">=</span><span class="n">opt_quad</span><span class="p">)</span>
+
+        <span class="n">ri_apb_inv</span> <span class="o">=</span> <span class="n">construct_inverse_RI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">)</span>
+
+        <span class="n">mom0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mult_apbinv</span><span class="p">(</span><span class="n">integral</span> <span class="o">+</span> <span class="n">integral_offset</span><span class="p">,</span> <span class="n">ri_apb_inv</span><span class="p">)</span>
+
+        <span class="c1"># Also need to convert error estimate of the integral into one for the actual evaluated quantity.</span>
+        <span class="c1"># Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound</span>
+        <span class="c1"># on norm of low-rank portion of P^{-1}.</span>
+        <span class="k">if</span> <span class="n">upper_bound</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pinv_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ri_apb_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ri_apb_inv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">mom0_ub</span> <span class="o">=</span> <span class="n">upper_bound</span> <span class="o">*</span> <span class="n">pinv_norm</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">check_errors</span><span class="p">(</span><span class="n">mom0_ub</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mom0_ub</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">mom_lb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_eta0_error</span><span class="p">(</span><span class="n">mom0</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">)</span> <span class="k">if</span> <span class="n">analytic_lower_bound</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RIRPA Zeroth Moment wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">mom0</span><span class="p">,</span> <span class="p">(</span><span class="n">mom0_ub</span><span class="p">,</span> <span class="n">mom_lb</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ssRIRRPA.mult_apbinv">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.mult_apbinv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mult_apbinv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integral</span><span class="p">,</span> <span class="n">ri_apb_inv</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">ri_apb_inv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_apb_inv</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;(A+B)^-1&quot;</span><span class="p">)</span>
+        <span class="n">mom0</span> <span class="o">=</span> <span class="n">integral</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="n">mom0</span> <span class="o">-=</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">ri_apb_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">ri_apb_inv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">mom0</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.test_eta0_error">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.test_eta0_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_eta0_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mom0</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test how well our obtained zeroth moment obeys relation used to derive it, namely</span>
+<span class="sd">                A-B = eta0 (A+B) eta0</span>
+<span class="sd">        From this we can estimate the error in eta0 using Cauchy-Schwartz.</span>
+<span class="sd">        For details see Appendix B of https://arxiv.org/abs/2301.09107, Eq. 96-99.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">amb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_amb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">apb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">amb_exact</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">amb</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="n">error</span> <span class="o">=</span> <span class="n">amb_exact</span> <span class="o">-</span> <span class="n">dot</span><span class="p">(</span><span class="n">mom0</span><span class="p">,</span> <span class="n">apb</span><span class="p">,</span> <span class="n">mom0</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error</span> <span class="o">=</span> <span class="n">error</span>
+        <span class="n">e_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="n">p_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">peta_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,qp-&gt;pq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">mom0</span><span class="p">)</span> <span class="o">+</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">mom0</span><span class="o">.</span><span class="n">T</span><span class="p">)))</span>
+        <span class="c1"># Now to estimate resulting error estimate in eta0.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">poly</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polynomial</span><span class="o">.</span><span class="n">Polynomial</span><span class="p">([</span><span class="n">e_norm</span> <span class="o">/</span> <span class="n">p_norm</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">peta_norm</span> <span class="o">/</span> <span class="n">p_norm</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">roots</span> <span class="o">=</span> <span class="n">poly</span><span class="o">.</span><span class="n">roots</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Could not obtain eta0 error lower bound; this is usually due to vanishing norms: </span><span class="si">%e</span><span class="s2">, &quot;</span> <span class="s2">&quot;</span><span class="si">%e</span><span class="s2">, </span><span class="si">%e</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">e_norm</span><span class="p">,</span>
+                <span class="n">p_norm</span><span class="p">,</span>
+                <span class="n">peta_norm</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Proportional error in eta0 relation=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">e_norm</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">amb_exact</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Resulting error bounds: </span><span class="si">%6.4e</span><span class="s2"> to </span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">roots</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">roots</span><span class="o">.</span><span class="n">min</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.kernel_trMPrt">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_trMPrt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_trMPrt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate Tr((MP)^(1/2)).&quot;&quot;&quot;</span>
+        <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">npoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+
+        <span class="n">niworker</span> <span class="o">=</span> <span class="n">energy_NI</span><span class="o">.</span><span class="n">NITrRootMP</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">integral</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">ainit</span><span class="p">,</span> <span class="n">opt_quad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Compute offset; possible analytically in N^3 for diagonal.</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.kernel_energy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.kernel_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">correction</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">):</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">e1</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel_trMPrt</span><span class="p">(</span><span class="n">npoints</span><span class="p">,</span> <span class="n">ainit</span><span class="p">)</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">ri_apb_eri</span><span class="p">,</span> <span class="n">ri_apb_eri_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_apb_eri_ri</span><span class="p">()</span>
+        <span class="c1"># Note that eri contribution to A and B is equal, so can get trace over one by dividing by two</span>
+        <span class="n">e3</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="n">ri_apb_eri</span><span class="p">,</span> <span class="n">ri_apb_eri</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">ri_apb_eri_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">e3</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="n">ri_apb_eri_neg</span><span class="p">,</span> <span class="n">ri_apb_eri_neg</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">err</span> <span class="o">/=</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">correction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">correction</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;linear&quot;</span><span class="p">:</span>
+                <span class="n">ri_a_xc</span><span class="p">,</span> <span class="n">ri_b_xc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ab_xc_ri</span><span class="p">()</span>
+                <span class="n">eta0_xc</span><span class="p">,</span> <span class="n">errs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="n">ainit</span><span class="p">)</span>
+                <span class="n">eta0_xc</span> <span class="o">=</span> <span class="n">eta0_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">err</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([(</span><span class="n">err</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">errs</span><span class="p">])</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">eta0_xc</span><span class="p">,</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Approximated correlation energy contribution: </span><span class="si">%e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="n">e2</span> <span class="o">-=</span> <span class="n">val</span>
+                <span class="n">e3</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="k">elif</span> <span class="n">correction</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;xc_ac&quot;</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span> <span class="o">-</span> <span class="n">e3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Total RIRPA Energy Calculation wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.direct_AC_integration">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.direct_AC_integration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">direct_AC_integration</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">local_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">fragment_projectors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">deg</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span>
+        <span class="n">cluster_constrain</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform direct integration of the adiabatic connection for RPA correlation energy.</span>
+<span class="sd">        This will be preferable when the xc kernel is comparable or larger in magnitude to the coulomb kernel, as it</span>
+<span class="sd">        only requires evaluation of the moment and not its inverse.</span>
+<span class="sd">        local_rot describes the rotation of the ov-excitations to the space of local excitations within a cluster, while</span>
+<span class="sd">        fragment_projectors gives the projector within this local excitation space to the actual fragment.&quot;&quot;&quot;</span>
+        <span class="c1"># Get the coulomb integrals.</span>
+        <span class="n">ri_eri</span><span class="p">,</span> <span class="n">ri_eri_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_apb_eri_ri</span><span class="p">()</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># TODO use ri_eri_neg here.</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">):</span>
+            <span class="n">newrirpa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="n">rixc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">moms</span><span class="p">,</span> <span class="n">errs</span> <span class="o">=</span> <span class="n">newrirpa</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">moms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">run_ac_inter</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">points</span><span class="p">,</span> <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polynomial</span><span class="o">.</span><span class="n">legendre</span><span class="o">.</span><span class="n">leggauss</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span>
+            <span class="c1"># Shift and reweight to interval of [0,1].</span>
+            <span class="n">points</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">points</span> <span class="o">/=</span> <span class="mi">2</span>
+            <span class="n">weights</span> <span class="o">/=</span> <span class="mi">2</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">w</span> <span class="o">*</span> <span class="n">func</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">points</span><span class="p">)])</span>
+
+        <span class="k">if</span> <span class="n">ri_eri_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Use of negative CDERI contributions with direct integration for the RIRPA &quot;</span>
+                <span class="s2">&quot;correlation energy not yet supported.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">naux_eri</span> <span class="o">=</span> <span class="n">ri_eri</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">local_rot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">fragment_projectors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lrot</span> <span class="o">=</span> <span class="n">ri_eri</span>
+            <span class="n">rrot</span> <span class="o">=</span> <span class="n">ri_eri</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cluster_constrain</span><span class="p">:</span>
+                <span class="n">lrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">local_rot</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">nloc_cum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">local_rot</span><span class="p">])</span>
+
+                <span class="n">rrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">lrot</span><span class="p">)</span>
+
+                <span class="k">def</span><span class="w"> </span><span class="nf">get_contrib</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="n">proj</span><span class="p">):</span>
+                    <span class="n">lloc</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="n">ri_eri</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="n">lloc</span><span class="p">,</span> <span class="n">lloc</span><span class="p">[:</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">rot</span><span class="p">[:</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+
+                <span class="c1"># return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">[:</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">ri_eri</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_eri</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">local_rot</span><span class="p">,</span> <span class="n">fragment_projectors</span><span class="p">)],</span>
+                    <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">nloc_cum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">fragment_projectors</span><span class="p">])</span>
+
+                <span class="n">rrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">lrot</span><span class="p">)</span>
+
+                <span class="k">def</span><span class="w"> </span><span class="nf">get_contrib</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="n">proj</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="n">rot</span><span class="p">[:</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+
+            <span class="n">rrot</span><span class="p">[:</span> <span class="n">nloc_cum</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">get_contrib</span><span class="p">(</span><span class="n">local_rot</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">fragment_projectors</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="c1"># rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nloc_cum</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">local_rot</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">fragment_projectors</span><span class="p">[</span><span class="mi">1</span><span class="p">:])):</span>
+                    <span class="n">rrot</span><span class="p">[</span><span class="n">nloc_cum</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">nloc_cum</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">get_contrib</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="n">lrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_eri</span><span class="p">,</span> <span class="n">lrot</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">rrot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_eri</span><span class="p">,</span> <span class="n">rrot</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_contrib</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+            <span class="n">eta0</span> <span class="o">=</span> <span class="n">get_eta_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="n">lrot</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">eta0</span> <span class="o">-</span> <span class="n">lrot</span><span class="p">)[:</span><span class="n">naux_eri</span><span class="p">],</span> <span class="n">rrot</span><span class="p">[:</span><span class="n">naux_eri</span><span class="p">]),</span>
+                    <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">eta0</span> <span class="o">-</span> <span class="n">lrot</span><span class="p">)[</span><span class="n">naux_eri</span><span class="p">:],</span> <span class="n">rrot</span><span class="p">[</span><span class="n">naux_eri</span><span class="p">:]),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">run_ac_inter</span><span class="p">(</span><span class="n">get_contrib</span><span class="p">,</span> <span class="n">deg</span><span class="o">=</span><span class="n">deg</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="p">,</span> <span class="n">get_contrib</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.get_gap">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_gap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_gap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">calc_xy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tol_eig</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">max_space</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the RPA gap using a Davidson solver. First checks that A+B and A-B are PSD by calculating their</span>
+<span class="sd">        lowest eigenvalues. For a fixed number of eigenvalues in each case this scales as O(N^3), so shouldn&#39;t be</span>
+<span class="sd">        prohibitively expensive.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">()</span>
+
+        <span class="n">min_d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+
+        <span class="n">mininds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">-</span> <span class="n">min_d</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol_eig</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">nmin</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mininds</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_space</span> <span class="o">&lt;</span> <span class="n">nmin</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Expanded Davidson space size to </span><span class="si">%d</span><span class="s2"> to span degenerate lowest mean-field eigenvalues.&quot;</span><span class="p">,</span>
+                <span class="n">nmin</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">max_space</span> <span class="o">=</span> <span class="n">nmin</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_unit_vec</span><span class="p">(</span><span class="n">pos</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">return</span> <span class="n">x</span>
+
+        <span class="n">c0</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_unit_vec</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span> <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">mininds</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_lowest_eigenvals</span><span class="p">(</span><span class="n">diag</span><span class="p">,</span> <span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">nosym</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">hop</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,p-&gt;p&quot;</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,nq,q-&gt;p&quot;</span><span class="p">,</span> <span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+            <span class="n">mdiag</span> <span class="o">=</span> <span class="n">diag</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;p&quot;</span><span class="p">,</span> <span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">precond</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="p">(</span><span class="n">mdiag</span> <span class="o">-</span> <span class="n">e</span> <span class="o">+</span> <span class="mf">1e-4</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">nosym</span><span class="p">:</span>
+                <span class="c1"># Ensure left isn&#39;t in our kwargs.</span>
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">e</span><span class="p">,</span> <span class="n">c_l</span><span class="p">,</span> <span class="n">c_r</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">hop</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">precond</span><span class="p">,</span> <span class="n">max_space</span><span class="o">=</span><span class="n">max_space</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">e</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c_l</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c_r</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">davidson</span><span class="p">(</span><span class="n">hop</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">precond</span><span class="p">,</span> <span class="n">max_space</span><span class="o">=</span><span class="n">max_space</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">e</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+
+        <span class="c1"># Since A+B and A-B are symmetric can get eigenvalues straightforwardly.</span>
+        <span class="n">e_apb</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">get_lowest_eigenvals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="o">*</span><span class="n">ri_apb</span><span class="p">,</span> <span class="n">c0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">e_apb</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Lowest eigenvalue of A+B is negative!&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;RPA approximation broken down!&quot;</span><span class="p">)</span>
+        <span class="n">e_amb</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">get_lowest_eigenvals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="o">*</span><span class="n">ri_amb</span><span class="p">,</span> <span class="n">c0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">e_amb</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Lowest eigenvalue of A-B is negative!&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;RPA approximation broken down!&quot;</span><span class="p">)</span>
+        <span class="c1"># MP is asymmetric, so need to take care to obtain actual eigenvalues.</span>
+        <span class="c1"># Use Davidson to obtain accurate right eigenvectors...</span>
+        <span class="n">e_mp_r</span><span class="p">,</span> <span class="n">c_l_approx</span><span class="p">,</span> <span class="n">c_r</span> <span class="o">=</span> <span class="n">get_lowest_eigenvals</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">*</span><span class="n">ri_mp</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span> <span class="n">nosym</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">calc_xy</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">e_mp_r</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="c1"># Then solve for accurate left eigenvectors, starting from subspace approximation from right eigenvectors. Take</span>
+        <span class="c1"># the real component since all solutions should be real.</span>
+        <span class="n">e_mp_l</span><span class="p">,</span> <span class="n">c_r_approx</span><span class="p">,</span> <span class="n">c_l</span> <span class="o">=</span> <span class="n">get_lowest_eigenvals</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_l_approx</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span> <span class="n">nosym</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="c1"># We use c_r and c_l2, since these are likely the most accurate.</span>
+        <span class="c1"># Enforce correct RPA orthonormality.</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c_l</span><span class="p">,</span> <span class="n">c_r</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">nroots</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">c_l</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">ovlp</span><span class="p">),</span> <span class="n">c_l</span><span class="p">)</span>
+            <span class="c1"># Now diagonalise in corresponding subspace to get eigenvalues.</span>
+            <span class="n">subspace</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,p,mp-&gt;nm&quot;</span><span class="p">,</span> <span class="n">c_l</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">c_r</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,yp,yq,mq-&gt;nm&quot;</span><span class="p">,</span> <span class="n">c_l</span><span class="p">,</span> <span class="o">*</span><span class="n">ri_mp</span><span class="p">,</span> <span class="n">c_r</span><span class="p">)</span>
+            <span class="n">e</span><span class="p">,</span> <span class="n">c_sub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">subspace</span><span class="p">)</span>
+            <span class="c1"># Now fold these eigenvectors into our definitions,</span>
+            <span class="n">xpy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">c_sub</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c_r</span><span class="p">)</span>
+            <span class="n">xmy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">c_sub</span><span class="p">),</span> <span class="n">c_l</span><span class="p">)</span>
+
+            <span class="n">sorted_args</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">argsort</span><span class="p">()</span>
+            <span class="n">xpy</span> <span class="o">=</span> <span class="n">xpy</span><span class="p">[</span><span class="n">sorted_args</span><span class="p">]</span>
+            <span class="n">xmy</span> <span class="o">=</span> <span class="n">xmy</span><span class="p">[</span><span class="n">sorted_args</span><span class="p">]</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">e</span><span class="p">[</span><span class="n">sorted_args</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xpy</span> <span class="o">=</span> <span class="n">c_r</span> <span class="o">/</span> <span class="p">(</span><span class="n">ovlp</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">xmy</span> <span class="o">=</span> <span class="n">c_l</span> <span class="o">/</span> <span class="p">(</span><span class="n">ovlp</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,p,p-&gt;&quot;</span><span class="p">,</span> <span class="n">xmy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">xpy</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,yp,yq,q-&gt;&quot;</span><span class="p">,</span> <span class="n">xmy</span><span class="p">,</span> <span class="o">*</span><span class="n">ri_mp</span><span class="p">,</span> <span class="n">xpy</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">e</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">xpy</span><span class="p">,</span> <span class="n">xmy</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.get_compressed_MP">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_compressed_MP">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_compressed_MP</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="c1"># AB corresponds to scaling RI components at this point.</span>
+        <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_RI_AB</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">ri_apb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_apb</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;A+B&quot;</span><span class="p">)</span>
+            <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_amb</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;A-B&quot;</span><span class="p">)</span>
+        <span class="n">ri_apb</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ri_apb</span><span class="p">]</span>
+        <span class="n">ri_amb</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ri_amb</span><span class="p">]</span>
+
+        <span class="n">ri_mp</span> <span class="o">=</span> <span class="n">construct_product_RI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ri_mp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_mp</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;(A-B)(A+B)&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.check_errors">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.check_errors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">nelements</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">error</span> <span class="o">/</span> <span class="n">nelements</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">err_tol</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Estimated error per element exceeded tolerance </span><span class="si">%6.4e</span><span class="s2">. Please increase number of points.&quot;</span><span class="p">,</span>
+                <span class="n">error</span> <span class="o">/</span> <span class="n">nelements</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.construct_RI_AB">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.construct_RI_AB">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">construct_RI_AB</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the RI expressions for the deviation of A+B and A-B from D.&quot;&quot;&quot;</span>
+        <span class="n">ri_apb_eri</span><span class="p">,</span> <span class="n">ri_neg_apb_eri</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_apb_eri_ri</span><span class="p">()</span>
+        <span class="c1"># Use empty AmB contrib initially; this is the dRPA contrib.</span>
+        <span class="n">ri_amb_eri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">ri_apb_eri</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="n">apb_lhs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ri_apb_eri</span><span class="p">]</span>
+        <span class="n">apb_rhs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ri_apb_eri</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">ri_neg_apb_eri</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Negative is factored in on only one side.</span>
+            <span class="n">apb_lhs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">ri_neg_apb_eri</span><span class="p">]</span>
+            <span class="n">apb_rhs</span> <span class="o">+=</span> <span class="p">[</span><span class="o">-</span><span class="n">ri_neg_apb_eri</span><span class="p">]</span>
+
+        <span class="n">amb_lhs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ri_amb_eri</span><span class="p">]</span>
+        <span class="n">amb_rhs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ri_amb_eri</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ri_a_xc</span><span class="p">,</span> <span class="n">ri_b_xc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ab_xc_ri</span><span class="p">()</span>
+
+            <span class="n">apb_lhs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="n">apb_rhs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
+
+            <span class="n">amb_lhs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
+            <span class="n">amb_rhs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_a_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">ri_b_xc</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">apb_lhs</span><span class="p">,</span> <span class="n">apb_rhs</span><span class="p">]]),</span>
+            <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">amb_lhs</span><span class="p">,</span> <span class="n">amb_rhs</span><span class="p">]]),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.compress_low_rank">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.compress_low_rank">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compress_low_rank</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">compress_low_rank</span><span class="p">(</span><span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">svd_tol</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.get_apb_eri_ri">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_apb_eri_ri">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_apb_eri_ri</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Coulomb integrals only contribute to A+B.</span>
+        <span class="n">lov</span><span class="p">,</span> <span class="n">lov_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cderi</span><span class="p">()</span>
+
+        <span class="n">lov</span> <span class="o">=</span> <span class="n">lov</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">lov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">lov_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lov_neg</span> <span class="o">=</span> <span class="n">lov_neg</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">lov_neg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Need to include factor of two since eris appear in both A and B.</span>
+        <span class="n">ri_apb_eri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">lov</span><span class="p">,</span> <span class="n">lov</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">ri_neg_apb_eri</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">lov_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ri_neg_apb_eri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">lov_neg</span><span class="p">,</span> <span class="n">lov_neg</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ri_apb_eri</span><span class="p">,</span> <span class="n">ri_neg_apb_eri</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.get_ab_xc_ri">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_ab_xc_ri">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_ab_xc_ri</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Have low-rank representation for interactions over and above coulomb interaction.</span>
+        <span class="c1"># Note that this is usually asymmetric, as correction is non-PSD.</span>
+        <span class="n">ri_a_aa</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,pi,qa-&gt;nia&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">ri_a_bb</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,pi,qa-&gt;nia&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">]</span>
+
+        <span class="n">ri_b_aa</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ri_a_aa</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,qi,pa-&gt;nia&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)),</span>
+        <span class="p">]</span>
+        <span class="n">ri_b_bb</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ri_a_bb</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,qi,pa-&gt;nia&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)),</span>
+        <span class="p">]</span>
+
+        <span class="n">ri_a_xc</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ri_a_aa</span><span class="p">,</span> <span class="n">ri_a_bb</span><span class="p">)]</span>
+        <span class="n">ri_b_xc</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ri_b_aa</span><span class="p">,</span> <span class="n">ri_b_bb</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">ri_a_xc</span><span class="p">,</span> <span class="n">ri_b_xc</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.get_cderi">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.get_cderi">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cderi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lov</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">get_cderi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="p">),</span> <span class="n">compact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">blksize</span><span class="o">=</span><span class="n">blksize</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lov</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">lov</span><span class="p">,</span> <span class="n">lov_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lov</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">lov</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">naux_eri</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nvir</span><span class="p">)</span>
+                <span class="n">lov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lov</span>
+                <span class="n">lov_neg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">lov</span><span class="p">,</span> <span class="n">lov_neg</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.test_spectral_rep">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.test_spectral_rep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_spectral_rep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freqs</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRPA</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+
+        <span class="n">xc_kernel</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xc_kernel</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;npq,nrs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">rixc</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="p">]</span>
+        <span class="n">fullrpa</span> <span class="o">=</span> <span class="n">ssRPA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">)</span>
+        <span class="n">fullrpa</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">xc_kernel</span><span class="o">=</span><span class="n">xc_kernel</span><span class="p">)</span>
+        <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">)</span>
+        <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_RI_AB</span><span class="p">()</span>
+        <span class="n">ri_mp</span> <span class="o">=</span> <span class="n">construct_product_RI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_amb</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">)</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">target_rot</span><span class="p">,</span> <span class="mi">48</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+        <span class="n">niworker</span> <span class="o">=</span> <span class="n">momzero_NI</span><span class="o">.</span><span class="n">MomzeroDeductHigherOrder</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">naux</span> <span class="o">=</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_qval</span><span class="p">(</span><span class="n">freq</span><span class="p">):</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">q</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_log_qval</span><span class="p">(</span><span class="n">freq</span><span class="p">):</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">logm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">naux</span><span class="p">)</span> <span class="o">+</span> <span class="n">q</span><span class="p">)</span><span class="o">.</span><span class="n">trace</span><span class="p">()</span>
+
+        <span class="n">log_qvals</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_log_qval</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">freqs</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_log_specvals</span><span class="p">(</span><span class="n">freq</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">fullrpa</span><span class="o">.</span><span class="n">freqs_ss</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+
+        <span class="n">log_specvals</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_log_specvals</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">freqs</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">log_qvals</span><span class="p">,</span> <span class="n">log_specvals</span><span class="p">,</span> <span class="n">get_log_qval</span><span class="p">,</span> <span class="n">get_log_specvals</span></div>
+
+
+<div class="viewcode-block" id="ssRIRRPA.record_memory">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.ssRIRRPA.record_memory">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">record_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">memory_string</span><span class="p">())</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="construct_product_RI">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.construct_product_RI">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">construct_product_RI</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">ri_1</span><span class="p">,</span> <span class="n">ri_2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given two matrices expressed as low-rank modifications, cderi_1 and cderi_2, of some full-rank matrix D,</span>
+<span class="sd">    construct the RI expression for the deviation of their product from D**2.</span>
+<span class="sd">    The rank of the resulting deviation is at most the sum of the ranks of the original modifications.&quot;&quot;&quot;</span>
+    <span class="c1"># Construction of this matrix is the computationally limiting step of this construction (O(N^4)) in our usual use,</span>
+    <span class="c1"># but we only need to perform it once per calculation since it&#39;s frequency-independent.</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">ri_1</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">ri_1_L</span> <span class="o">=</span> <span class="n">ri_1_R</span> <span class="o">=</span> <span class="n">ri_1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">ri_1_L</span><span class="p">,</span> <span class="n">ri_1_R</span><span class="p">)</span> <span class="o">=</span> <span class="n">ri_1</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">ri_2</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">ri_2_L</span> <span class="o">=</span> <span class="n">ri_2_R</span> <span class="o">=</span> <span class="n">ri_2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">ri_2_L</span><span class="p">,</span> <span class="n">ri_2_R</span><span class="p">)</span> <span class="o">=</span> <span class="n">ri_2</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ri_1_R</span><span class="p">,</span> <span class="n">ri_2_L</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+    <span class="n">ri_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">ri_1_L</span><span class="p">,</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,np-&gt;np&quot;</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">ri_2_L</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_1_L</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">ri_R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,np-&gt;np&quot;</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">ri_1_R</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">ri_2_R</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">ri_2_R</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ri_L</span><span class="p">,</span> <span class="n">ri_R</span></div>
+
+
+
+<div class="viewcode-block" id="construct_inverse_RI">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.construct_inverse_RI">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">construct_inverse_RI</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">ri</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">ri</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">ri</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">ri_L</span> <span class="o">=</span> <span class="n">ri_R</span> <span class="o">=</span> <span class="n">ri</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">ri_L</span><span class="p">,</span> <span class="n">ri_R</span><span class="p">)</span> <span class="o">=</span> <span class="n">ri</span>
+
+    <span class="n">naux</span> <span class="o">=</span> <span class="n">ri_R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># This construction scales as O(N^4).</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,p,mp-&gt;nm&quot;</span><span class="p">,</span> <span class="n">ri_R</span><span class="p">,</span> <span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">ri_L</span><span class="p">)</span>
+    <span class="c1"># This inversion and square root should only scale as O(N^3).</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">naux</span><span class="p">)</span> <span class="o">+</span> <span class="n">U</span><span class="p">)</span>
+    <span class="c1"># Want to split matrix between left and right fairly evenly; could just associate to one side or the other.</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+    <span class="n">urt_l</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;nm,m-&gt;nm&quot;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">s</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+    <span class="n">urt_r</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;n,nm-&gt;nm&quot;</span><span class="p">,</span> <span class="n">s</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span>
+    <span class="c1"># Evaluate the resulting RI</span>
+    <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,np,nm-&gt;mp&quot;</span><span class="p">,</span> <span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">ri_L</span><span class="p">,</span> <span class="n">urt_l</span><span class="p">),</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;p,np,nm-&gt;mp&quot;</span><span class="p">,</span> <span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">ri_R</span><span class="p">,</span> <span class="n">urt_r</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compress_low_rank">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIRPA.compress_low_rank">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compress_low_rank</span><span class="p">(</span><span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">naux_init</span> <span class="o">=</span> <span class="n">ri_l</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">inner_prod</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+
+    <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">inner_prod</span><span class="p">)</span>
+
+    <span class="n">want</span> <span class="o">=</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="n">tol</span>
+    <span class="n">nwant</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">want</span><span class="p">)</span>
+    <span class="n">rot</span> <span class="o">=</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">want</span><span class="p">]</span>
+
+    <span class="n">ri_l</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_l</span><span class="p">)</span>
+    <span class="n">ri_r</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_r</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nwant</span> <span class="o">&lt;</span> <span class="n">naux_init</span> <span class="ow">and</span> <span class="n">log</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Compressed low-rank representation from rank </span><span class="si">%d</span><span class="s2"> to </span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">naux_init</span><span class="p">,</span>
+                <span class="n">nwant</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Compressed low-rank representation of </span><span class="si">%s</span><span class="s2"> from rank </span><span class="si">%d</span><span class="s2"> to </span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">name</span><span class="p">,</span>
+                <span class="n">naux_init</span><span class="p">,</span>
+                <span class="n">nwant</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ri_l</span><span class="p">,</span> <span class="n">ri_r</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

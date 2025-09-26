@@ -1,0 +1,258 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.scmf.scmf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../scmf.html">vayesta.core.scmf</a></li>
+      <li class="breadcrumb-item active">vayesta.core.scmf.scmf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.scmf.scmf</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Self-consistent mean-field decorators&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractMethodError</span><span class="p">,</span> <span class="n">SymmetryError</span><span class="p">,</span> <span class="n">energy_string</span>
+
+
+<div class="viewcode-block" id="SCMF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.brueckner.SCMF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SCMF</span><span class="p">:</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;SCMF&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">diis_space</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">diis_min_space</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span> <span class="o">=</span> <span class="n">emb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">etol</span> <span class="o">=</span> <span class="n">etol</span> <span class="k">if</span> <span class="n">etol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtol</span> <span class="o">=</span> <span class="n">dtol</span> <span class="k">if</span> <span class="n">dtol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxiter</span> <span class="o">=</span> <span class="n">maxiter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="n">damping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diis</span> <span class="o">=</span> <span class="n">diis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diis_space</span> <span class="o">=</span> <span class="n">diis_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diis_min_space</span> <span class="o">=</span> <span class="n">diis_min_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Save original kernel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_orig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">kernel</span>
+        <span class="c1"># Save original orbitals</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mo_orig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="c1"># Output</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Total energy per iteration</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_tot_oneshot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="SCMF.get_diis">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.brueckner.SCMF.get_diis">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_diis</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">diis</span><span class="o">.</span><span class="n">DIIS</span><span class="p">()</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_orig</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Original kernel of embedding method.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_orig</span>
+
+<div class="viewcode-block" id="SCMF.update_mo_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.brueckner.SCMF.update_mo_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get new set of MO coefficients.</span>
+
+<span class="sd">        Must be implemented for any SCMF method.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">AbstractMethodError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SCMF.check_convergence">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.brueckner.SCMF.check_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e_tot</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">e_last</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dm1_last</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">etol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">etol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">etol</span>
+        <span class="k">if</span> <span class="n">dtol</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dtol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtol</span>
+        <span class="k">if</span> <span class="n">e_last</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">de</span> <span class="o">=</span> <span class="n">e_tot</span> <span class="o">-</span> <span class="n">e_last</span>
+            <span class="c1"># RHF:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">is_rhf</span><span class="p">:</span>
+                <span class="n">ddm</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dm1</span> <span class="o">-</span> <span class="n">dm1_last</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># UHF:</span>
+                <span class="n">ddm</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">dm1_last</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dm1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">dm1_last</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">de</span> <span class="o">=</span> <span class="n">ddm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="n">tighten</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">de</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tighten</span> <span class="o">*</span> <span class="n">etol</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ddm</span> <span class="o">&lt;</span> <span class="n">tighten</span> <span class="o">*</span> <span class="n">dtol</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">de</span><span class="p">,</span> <span class="n">ddm</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">de</span><span class="p">,</span> <span class="n">ddm</span></div>
+
+
+<div class="viewcode-block" id="SCMF.kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.brueckner.SCMF.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis</span><span class="p">:</span>
+            <span class="n">diis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_diis</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">diis</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+                <span class="c1"># Unrestricted</span>
+                <span class="n">diis</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">space</span><span class="p">,</span> <span class="n">diis</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_space</span>
+                <span class="n">diis</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min_space</span><span class="p">,</span> <span class="n">diis</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_min_space</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_min_space</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Restricted</span>
+                <span class="n">diis</span><span class="o">.</span><span class="n">space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_space</span>
+                <span class="n">diis</span><span class="o">.</span><span class="n">min_space</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diis_min_space</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">diis</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">e_last</span> <span class="o">=</span> <span class="n">dm1_last</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxiter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> iteration </span><span class="si">%3d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">==============&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot;=&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+            <span class="c1"># Run clusters, save results</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel_orig</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">e_mf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span>
+            <span class="n">e_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">get_e_corr</span><span class="p">()</span>
+            <span class="n">e_tot</span> <span class="o">=</span> <span class="n">e_mf</span> <span class="o">+</span> <span class="n">e_corr</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e_tot</span><span class="p">)</span>
+
+            <span class="c1"># Update MF</span>
+            <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="n">diis</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">update_mf</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">)</span>
+
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+            <span class="c1"># Check symmetry</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">check_fragment_symmetry</span><span class="p">(</span><span class="n">dm1</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">SymmetryError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Symmetry check failed in </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">break</span>
+
+            <span class="c1"># Check convergence</span>
+            <span class="n">conv</span><span class="p">,</span> <span class="n">de</span><span class="p">,</span> <span class="n">ddm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_convergence</span><span class="p">(</span><span class="n">e_tot</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">e_last</span><span class="p">,</span> <span class="n">dm1_last</span><span class="p">)</span>
+            <span class="n">fmt</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> iteration </span><span class="si">%3d</span><span class="s2"> (dE= </span><span class="si">%s</span><span class="s2">  dDM= </span><span class="si">%9.3e</span><span class="s2">): E(MF)= </span><span class="si">%s</span><span class="s2">  E(corr)= </span><span class="si">%s</span><span class="s2">  E(tot)= </span><span class="si">%s</span><span class="s2">&quot;</span>
+            <span class="n">estr</span> <span class="o">=</span> <span class="n">energy_string</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">fmt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">,</span> <span class="n">estr</span><span class="p">(</span><span class="n">de</span><span class="p">),</span> <span class="n">ddm</span><span class="p">,</span> <span class="n">estr</span><span class="p">(</span><span class="n">e_mf</span><span class="p">),</span> <span class="n">estr</span><span class="p">(</span><span class="n">e_corr</span><span class="p">),</span> <span class="n">estr</span><span class="p">(</span><span class="n">e_tot</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">conv</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> converged in </span><span class="si">%d</span><span class="s2"> iterations&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">break</span>
+            <span class="n">e_last</span><span class="p">,</span> <span class="n">dm1_last</span> <span class="o">=</span> <span class="n">e_tot</span><span class="p">,</span> <span class="n">dm1</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> did not converge in </span><span class="si">%d</span><span class="s2"> iterations!&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

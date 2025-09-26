@@ -1,0 +1,448 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.symmetry.symmetry &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.symmetry.symmetry</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.symmetry.symmetry</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.symmetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">tsymmetry</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="unit_vector">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.unit_vector">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unit_vector</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the unit vector of the vector.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">vector</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vector</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="angle_between">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.angle_between">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">angle_between</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the angle in radians between vectors &#39;v1&#39; and &#39;v2&#39;::</span>
+
+<span class="sd">    &gt;&gt;&gt; angle_between((1, 0, 0), (0, 1, 0))</span>
+<span class="sd">    1.5707963267948966</span>
+<span class="sd">    &gt;&gt;&gt; angle_between((1, 0, 0), (1, 0, 0))</span>
+<span class="sd">    0.0</span>
+<span class="sd">    &gt;&gt;&gt; angle_between((1, 0, 0), (-1, 0, 0))</span>
+<span class="sd">    3.141592653589793</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">u1</span> <span class="o">=</span> <span class="n">unit_vector</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span>
+    <span class="n">u2</span> <span class="o">=</span> <span class="n">unit_vector</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">u1</span><span class="p">,</span> <span class="n">u2</span><span class="p">),</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="Symmetry">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Symmetry</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nsubcells</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_pbc</span><span class="p">:</span>
+            <span class="c1"># self.nsubcells = self.find_subcells(respect_dm1=self.mf.make_rdm1())</span>
+            <span class="c1"># MF is FoldedSCF</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;nsubcells&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nsubcells</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">nsubcells</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> x </span><span class="si">%d</span><span class="s2"> x </span><span class="si">%d</span><span class="s2"> primitive subcells in unit cell&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">nsubcells</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pbcndims</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">natom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">natom_unique</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="s2">&quot;kmf&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span>
+
+<div class="viewcode-block" id="Symmetry.get_unique_atoms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.get_unique_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_unique_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># , r_tol=1e-5):</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">natom_unique</span><span class="p">))</span></div>
+
+
+        <span class="c1"># if self.nsubcells is None:</span>
+        <span class="c1">#    return list(range(self.natom))</span>
+        <span class="c1"># avecs = self.primitive_lattice_vectors()</span>
+        <span class="c1"># bvecs = np.linalg.inv(avecs.T)</span>
+        <span class="c1"># atoms = []</span>
+        <span class="c1"># for atom, coords in enumerate(self.atom_coords()):</span>
+        <span class="c1">#    coords = np.dot(coords, bvecs.T)</span>
+        <span class="c1">#    if np.any(coords &gt;= (1.0-r_tol)):</span>
+        <span class="c1">#        continue</span>
+        <span class="c1">#    atoms.append(atom)</span>
+        <span class="c1"># return atoms</span>
+
+<div class="viewcode-block" id="Symmetry.primitive_lattice_vectors">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.primitive_lattice_vectors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primitive_lattice_vectors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">nsubcells</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Symmetry.atom_coords">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.atom_coords">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">atom_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Bohr&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_coords</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Symmetry.lattice_vectors">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.lattice_vectors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lattice_vectors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pbcndims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of periodic boundary conditions: 0 = No PBC, 1 = 1D 2 = 2D, 3 = 3D.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">dimension</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_pbc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pbcndims</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="Symmetry.compare_atoms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.compare_atoms">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare_atoms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atom1</span><span class="p">,</span> <span class="n">atom2</span><span class="p">,</span> <span class="n">respect_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">respect_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare atom symbol and (optionally) basis between atom1 and atom2.&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">respect_labels</span><span class="p">:</span>
+            <span class="n">type1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)</span>
+            <span class="n">type2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">type1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_pure_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)</span>
+            <span class="n">type2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_pure_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">type1</span> <span class="o">!=</span> <span class="n">type2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">respect_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="n">bas1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">_basis</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom1</span><span class="p">)]</span>
+        <span class="n">bas2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">_basis</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">atom_symbol</span><span class="p">(</span><span class="n">atom2</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">bas1</span> <span class="o">!=</span> <span class="n">bas2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="Symmetry.find_subcells">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.symmetry.html#vayesta.core.symmetry.symmetry.Symmetry.find_subcells">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_subcells</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">respect_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">respect_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">respect_dm1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">r_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">dm1_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find subcells within cell, with unit cell vectors parallel to the supercell.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        respect_basis: bool, optional</span>
+<span class="sd">            If True, the basis functions are considered when determining the symmetry. Default: True.</span>
+<span class="sd">        respect_labels: bool, optional</span>
+<span class="sd">            If True, the labels of atoms (such as &quot;H1&quot; or &quot;C*&quot;) are considered when determining the symmetry. Default: False.</span>
+<span class="sd">        respect_dm1: array or None, optional</span>
+<span class="sd">            If a (tuple of) density-matrix is passed, it is considered when determining the symmetry. Default: None.</span>
+<span class="sd">        r_tol: float, optional</span>
+<span class="sd">            Real space tolerance to determine if two atoms are symmetry equivalent. Default: 1e-5.</span>
+<span class="sd">        dm1_tol: float, optional</span>
+<span class="sd">            Density-matrix tolerance to determine the symmetry. Default: 1e-6.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        nsubcells: tuple(3)</span>
+<span class="sd">            Number of primitive subcells in (a0, a1, a2) direction.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">avecs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lattice_vectors</span><span class="p">()</span>
+        <span class="n">bvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">avecs</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">atom_coords</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">respect_dm1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># RHF</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">respect_dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">dm1s</span> <span class="o">=</span> <span class="p">[</span><span class="n">respect_dm1</span><span class="p">]</span>
+                <span class="n">dm1_tol</span> <span class="o">*=</span> <span class="mi">2</span>
+            <span class="c1"># UHF</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dm1s</span> <span class="o">=</span> <span class="n">respect_dm1</span>
+
+        <span class="n">coords_internal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ar,br-&gt;ab&quot;</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">bvecs</span><span class="p">)</span>
+
+        <span class="n">checked</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Keep track of vectors which were already checked, to improve performance</span>
+        <span class="n">dvecs</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">atm1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">natom</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">atm2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">atm1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">natom</span><span class="p">):</span>
+                <span class="c1"># 1) Compare atom symbol and basis</span>
+                <span class="n">equal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compare_atoms</span><span class="p">(</span><span class="n">atm1</span><span class="p">,</span> <span class="n">atm2</span><span class="p">,</span> <span class="n">respect_basis</span><span class="o">=</span><span class="n">respect_basis</span><span class="p">,</span> <span class="n">respect_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">equal</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">pos1</span> <span class="o">=</span> <span class="n">coords_internal</span><span class="p">[</span><span class="n">atm1</span><span class="p">]</span>
+                <span class="n">pos2</span> <span class="o">=</span> <span class="n">coords_internal</span><span class="p">[</span><span class="n">atm2</span><span class="p">]</span>
+                <span class="n">dvec</span> <span class="o">=</span> <span class="n">pos2</span> <span class="o">-</span> <span class="n">pos1</span>
+
+                <span class="c1"># 3) Check parallel to one and only lattice vector</span>
+                <span class="n">dim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">dvec</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">r_tol</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="c1"># Check if vector has been checked before</span>
+                <span class="k">if</span> <span class="n">checked</span><span class="p">:</span>
+                    <span class="n">diff</span> <span class="o">=</span> <span class="n">dvec</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">checked</span><span class="p">)</span>
+                    <span class="n">checked_before</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">diff</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">checked_before</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                <span class="n">checked</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dvec</span><span class="p">)</span>
+
+                <span class="c1"># 4) Check if dvec already in dvecs or an integer multiple of a vector already in dvecs</span>
+                <span class="k">if</span> <span class="n">dvecs</span><span class="p">[</span><span class="n">dim</span><span class="p">]:</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">):</span>
+                        <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dvec</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">i</span> <span class="o">-</span> <span class="n">dvecs</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">diff</span> <span class="o">&lt;</span> <span class="n">r_tol</span><span class="p">):</span>
+                            <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+                            <span class="k">break</span>
+                    <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+                        <span class="k">continue</span>
+
+                <span class="c1"># 5) Check if dvec is valid symmetry for all atoms:</span>
+                <span class="n">tvec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dvec</span><span class="p">,</span> <span class="n">avecs</span><span class="p">)</span>
+                <span class="n">reorder</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">phases</span> <span class="o">=</span> <span class="n">tsymmetry</span><span class="o">.</span><span class="n">reorder_atoms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="n">tvec</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Bohr&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">reorder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="c1"># Check if mean-field is symmetric</span>
+                <span class="k">if</span> <span class="n">respect_dm1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">reorder</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">phases</span> <span class="o">=</span> <span class="n">tsymmetry</span><span class="o">.</span><span class="n">reorder_atoms2aos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="n">reorder</span><span class="p">,</span> <span class="n">phases</span><span class="p">)</span>
+                    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">phases</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">dmsym</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">for</span> <span class="n">dm1</span> <span class="ow">in</span> <span class="n">dm1s</span><span class="p">:</span>
+                        <span class="n">dm1t</span> <span class="o">=</span> <span class="n">dm1</span><span class="p">[</span><span class="n">reorder</span><span class="p">][:,</span> <span class="n">reorder</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">dm1</span><span class="p">,</span> <span class="n">dm1t</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">dm1_tol</span><span class="p">):</span>
+                            <span class="n">dmsym</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="k">break</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">dmsym</span><span class="p">:</span>
+                        <span class="k">continue</span>
+
+                <span class="c1"># 6) Add as new dvec</span>
+                <span class="n">dvecs</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dvec</span><span class="p">)</span>
+
+        <span class="c1"># Check that not more than a single vector was found for each dimension</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">([(</span><span class="nb">len</span><span class="p">(</span><span class="n">dvecs</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+        <span class="n">nsubcells</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">dvecs</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">d</span><span class="p">])</span> <span class="k">if</span> <span class="n">dvecs</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">nsubcells</span><span class="p">),</span> <span class="n">nsubcells</span><span class="p">)</span>
+
+        <span class="n">nsubcells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">nsubcells</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nsubcells</span></div>
+</div>
+
+
+    <span class="c1"># def find_primitive_cells_old(self, tol=1e-5):</span>
+    <span class="c1">#    if self.pbcndims == 0:</span>
+    <span class="c1">#        raise ValueError()</span>
+
+    <span class="c1">#    # Construct all atom1 &lt; atom2 vectors</span>
+    <span class="c1">#    #for atom1, coords1 in enumerate(self.atom_coords()):</span>
+    <span class="c1">#    #    for atom2, coords2 in enumerate(self.atom_coords</span>
+    <span class="c1">#    coords = self.atom_coords()</span>
+    <span class="c1">#    aavecs = (coords[:,None,:] - coords[None,:,:])</span>
+
+    <span class="c1">#    #print(coords[3] - coords[1])</span>
+    <span class="c1">#    #print(aavecs[3,1])</span>
+
+    <span class="c1">#    tvecs = aavecs.reshape(self.natom*self.natom, 3)</span>
+    <span class="c1">#    #tvecs = np.unique(tvecs, axis=0)</span>
+
+    <span class="c1">#    # Filter zero T vectors</span>
+    <span class="c1">#    tvecs = np.asarray([t for t in tvecs if (np.linalg.norm(t) &gt; 1e-6)])</span>
+
+    <span class="c1">#    # Filter unique T vectors</span>
+    <span class="c1">#    tvecs_unique = []</span>
+    <span class="c1">#    for tvec in tvecs[1:]:</span>
+    <span class="c1">#        if np.sum(tvec) &lt; 0:</span>
+    <span class="c1">#            tvec *= -1</span>
+    <span class="c1">#        if len(tvecs_unique) == 0:</span>
+    <span class="c1">#            tvecs_unique.append(tvec)</span>
+    <span class="c1">#            continue</span>
+    <span class="c1">#        unique = True</span>
+    <span class="c1">#        for utvec in tvecs_unique:</span>
+    <span class="c1">#            if min(np.linalg.norm(tvec - utvec), np.linalg.norm(tvec + utvec)) &lt; tol:</span>
+    <span class="c1">#                unique = False</span>
+    <span class="c1">#                break</span>
+    <span class="c1">#        if unique:</span>
+    <span class="c1">#            tvecs_unique.append(tvec)</span>
+    <span class="c1">#    tvecs = np.asarray(tvecs_unique)</span>
+
+    <span class="c1">#    # Filter and sort according to parallelity to lattice vectors</span>
+    <span class="c1">#    latvec = self.lattice_vectors()</span>
+    <span class="c1">#    tvecs_dim = [[], [], []]</span>
+    <span class="c1">#    for tvec in tvecs:</span>
+    <span class="c1">#        for d in range(3):</span>
+    <span class="c1">#            angle = min(angle_between(tvec, latvec[d]), angle_between(-tvec, latvec[d]))</span>
+    <span class="c1">#            if angle &lt; 1e-5:</span>
+    <span class="c1">#                tvecs_dim[d].append(tvec)</span>
+    <span class="c1">#                break</span>
+    <span class="c1">#    #tvecs = np.asarray(tvecs_para)</span>
+    <span class="c1">#    print(tvecs_dim[0])</span>
+    <span class="c1">#    print(tvecs_dim[1])</span>
+    <span class="c1">#    print(tvecs_dim[2])</span>
+
+    <span class="c1">#    # Find most</span>
+    <span class="c1">#    for d in range(3):</span>
+    <span class="c1">#        pass</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">timeit</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.gto</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.scf</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.tools</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="c1"># cell.a[0,2] += 2.0</span>
+    <span class="c1"># cell.atom = [&#39;He 0 0 0&#39;, &#39;He 0 0 1&#39;, &#39;He 0 0 2.0000000001&#39;, &#39;He 0 1 2&#39;, &#39;He 2 2 1&#39;, &#39;He 5 5 5&#39;]</span>
+    <span class="c1"># cell.atom = [&#39;He %f %f %f&#39; % tuple(xyz) for xyz in np.random.rand(4,3)]</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;He 0 0 0&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">unit</span> <span class="o">=</span> <span class="s2">&quot;Bohr&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;def2-svp&quot;</span>
+    <span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+    <span class="c1"># cell.dimension = 2</span>
+
+    <span class="n">sc</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">super_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+    <span class="c1"># cell.atom += [&#39;Ne 1 2 3&#39;]</span>
+    <span class="c1"># cell.build()</span>
+
+    <span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+    <span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s2">&quot;def2-svp-ri&quot;</span><span class="p">)</span>
+    <span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+    <span class="n">dm1</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+    <span class="n">dm1</span> <span class="o">+=</span> <span class="mf">1e-7</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="o">*</span><span class="n">dm1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="n">sym</span> <span class="o">=</span> <span class="n">Symmetry</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+    <span class="n">ncells</span> <span class="o">=</span> <span class="n">sym</span><span class="o">.</span><span class="n">find_primitive_ncells</span><span class="p">(</span><span class="n">respect_dm1</span><span class="o">=</span><span class="n">dm1</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ncells</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

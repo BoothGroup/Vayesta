@@ -1,0 +1,830 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.coupling &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.coupling</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.solver.coupling</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">dot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span><span class="p">,</span> <span class="n">RMA_Dict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">ccsdtq</span>
+
+
+<div class="viewcode-block" id="transform_amplitude">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.transform_amplitude">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">u_occ</span><span class="p">,</span> <span class="n">u_vir</span><span class="p">,</span> <span class="n">u_occ2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">u_vir2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;u: (old basis|new basis)&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">u_occ2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">u_occ2</span> <span class="o">=</span> <span class="n">u_occ</span>
+    <span class="k">if</span> <span class="n">u_vir2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">u_vir2</span> <span class="o">=</span> <span class="n">u_vir</span>
+    <span class="k">if</span> <span class="n">inverse</span><span class="p">:</span>
+        <span class="n">u_occ</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">u_occ</span><span class="p">)</span>
+        <span class="n">u_occ2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">u_occ2</span><span class="p">)</span>
+        <span class="n">u_vir</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">u_vir</span><span class="p">)</span>
+        <span class="n">u_vir2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">u_vir2</span><span class="p">)</span>
+
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="c1"># Restricted T1:</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia,ix,ay-&gt;xy&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u_occ</span><span class="p">,</span> <span class="n">u_vir</span><span class="p">)</span>
+    <span class="c1"># Restricted T2:</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab,ix,jy,az,bw-&gt;xyzw&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u_occ</span><span class="p">,</span> <span class="n">u_occ2</span><span class="p">,</span> <span class="n">u_vir</span><span class="p">,</span> <span class="n">u_vir2</span><span class="p">)</span>
+    <span class="c1"># Unrestricted T1:</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">ta</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">tb</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ta</span><span class="p">,</span> <span class="n">tb</span><span class="p">)</span>
+    <span class="c1"># Unrestricted T2:</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">taa</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">tab</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">tbb</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">u_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">u_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">taa</span><span class="p">,</span> <span class="n">tab</span><span class="p">,</span> <span class="n">tbb</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Transformation of amplitudes with ndim=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="get_amplitude_norm">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.get_amplitude_norm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_amplitude_norm</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">):</span>
+    <span class="c1"># Restricted:</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t1norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span>
+        <span class="n">t2norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+    <span class="c1"># Unrestricted</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">t1norm</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">t2norm</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t2</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">t1norm</span><span class="p">,</span> <span class="n">t2norm</span></div>
+
+
+
+<div class="viewcode-block" id="project_t2">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.project_t2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_t2</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="p">):</span>
+    <span class="n">ndim</span> <span class="o">=</span> <span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">project_t2_rspin</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">project_t2_uspin</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span></div>
+
+
+
+<div class="viewcode-block" id="project_t2_rspin">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.project_t2_rspin">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_t2_rspin</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">t2</span>
+    <span class="k">if</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,i...-&gt;x...&quot;</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t2</span> <span class="o">+</span> <span class="n">t2</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">if</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,yj,ij...-&gt;xy...&quot;</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span></div>
+
+
+
+<div class="viewcode-block" id="project_t2_uspin">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.project_t2_uspin">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_t2_uspin</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">t2</span>
+    <span class="n">t2aa</span> <span class="o">=</span> <span class="n">project_t2_rspin</span><span class="p">(</span><span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">proj</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">projectors</span><span class="o">=</span><span class="n">projectors</span><span class="p">)</span>
+    <span class="n">t2bb</span> <span class="o">=</span> <span class="n">project_t2_rspin</span><span class="p">(</span><span class="n">t2</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">proj</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">projectors</span><span class="o">=</span><span class="n">projectors</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Average between projecting alpha and beta:</span>
+        <span class="n">t2ab</span> <span class="o">=</span> <span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,ij...-&gt;xj...&quot;</span><span class="p">,</span> <span class="n">proj</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xj,ij...-&gt;ix...&quot;</span><span class="p">,</span> <span class="n">proj</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">elif</span> <span class="n">projectors</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">t2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;xi,yj,ij...-&gt;xy...&quot;</span><span class="p">,</span> <span class="n">proj</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">proj</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+    <span class="c1"># assert np.allclose(t2ab, -t2ab.transpose(0,1,3,2))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">t2aa</span><span class="p">,</span> <span class="n">t2ab</span><span class="p">,</span> <span class="n">t2bb</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="couple_ccsd_iterations">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.couple_ccsd_iterations">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">couple_ccsd_iterations</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">fragments</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    Requires MPI.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Make projector P(y):</span>
+    <span class="c1"># P(y) = C(x).T S F(y) F(y).T S C(y)</span>
+    <span class="c1"># where</span>
+    <span class="c1"># C(x): Cluster orbitals of fragment x</span>
+    <span class="c1"># S: AO-overlap</span>
+    <span class="c1"># F(x): Fragment orbitals of fragment x</span>
+
+    <span class="n">ovlp</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+    <span class="n">c_occ_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">solver</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+    <span class="n">c_vir_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">solver</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+    <span class="n">p_occ</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">r_occ</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">r_vir</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">rma</span> <span class="o">=</span> <span class="n">RMA_Dict</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span>
+        <span class="n">mpi</span><span class="p">,</span> <span class="p">{(</span><span class="n">solver</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;c_active_occ&quot;</span><span class="p">):</span> <span class="n">c_occ_x</span><span class="p">,</span> <span class="p">(</span><span class="n">solver</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;c_active_vir&quot;</span><span class="p">):</span> <span class="n">c_vir_x</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">:</span>
+        <span class="n">fy</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">c_proj</span>
+        <span class="n">c_occ_y</span> <span class="o">=</span> <span class="n">rma</span><span class="p">[(</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;c_active_occ&quot;</span><span class="p">)]</span>
+        <span class="n">c_vir_y</span> <span class="o">=</span> <span class="n">rma</span><span class="p">[(</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;c_active_vir&quot;</span><span class="p">)]</span>
+        <span class="n">p_occ</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,by,cy,cd,dj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">c_occ_x</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_occ_y</span><span class="p">)</span>
+        <span class="n">r_occ</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">c_occ_x</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_occ_y</span><span class="p">)</span>
+        <span class="n">r_vir</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">c_vir_x</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">,</span> <span class="n">c_vir_y</span><span class="p">)</span>
+    <span class="n">rma</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tailorfunc</span><span class="p">(</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">cc</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;mycc&quot;</span><span class="p">]</span>
+        <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t1new&quot;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t2new&quot;</span><span class="p">]</span>
+        <span class="n">cc</span><span class="o">.</span><span class="n">force_iter</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">cc</span><span class="o">.</span><span class="n">force_exit</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">conv_flag</span><span class="p">),</span> <span class="n">op</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">MPI</span><span class="o">.</span><span class="n">PROD</span><span class="p">))</span>
+        <span class="n">conv</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">conv_flag</span><span class="p">),</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">rma</span> <span class="o">=</span> <span class="n">RMA_Dict</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">mpi</span><span class="p">,</span> <span class="p">{(</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;t1&quot;</span><span class="p">):</span> <span class="n">t1</span><span class="p">,</span> <span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;t2&quot;</span><span class="p">):</span> <span class="n">t2</span><span class="p">})</span>
+
+        <span class="n">t1_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span>
+        <span class="n">t2_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">:</span>
+            <span class="n">t1y</span><span class="p">,</span> <span class="n">t2y</span> <span class="o">=</span> <span class="n">rma</span><span class="p">[(</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;t1&quot;</span><span class="p">)],</span> <span class="n">rma</span><span class="p">[(</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;t2&quot;</span><span class="p">)]</span>
+            <span class="n">po</span> <span class="o">=</span> <span class="n">p_occ</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+            <span class="n">ro</span> <span class="o">=</span> <span class="n">r_occ</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+            <span class="n">rv</span> <span class="o">=</span> <span class="n">r_vir</span><span class="p">[</span><span class="n">y</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+            <span class="c1"># print(solver.fragment.id, y.id, py.shape, t1_out.shape, t1y.shape)</span>
+            <span class="n">t1_out</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,ia,Aa-&gt;IA&quot;</span><span class="p">,</span> <span class="n">po</span><span class="p">,</span> <span class="n">t1y</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+            <span class="n">t2_out</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ii,Jj,ijab,Aa,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">po</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">t2y</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Tailoring: |dT1|= </span><span class="si">%.3e</span><span class="s2">  |dT2|= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t1_out</span> <span class="o">-</span> <span class="n">t1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t2_out</span> <span class="o">-</span> <span class="n">t2</span><span class="p">))</span>
+        <span class="n">rma</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">t1</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">t1_out</span>
+        <span class="n">t2</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">t2_out</span>
+
+    <span class="k">return</span> <span class="n">tailorfunc</span></div>
+
+
+
+<div class="viewcode-block" id="tailor_with_fragments">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.tailor_with_fragments">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tailor_with_fragments</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">fragments</span><span class="p">,</span> <span class="n">project</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tailor_t1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tailor_t2</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ovlp_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tailor current CCSD calculation with amplitudes of other fragments.</span>
+
+<span class="sd">    This assumes orthogonal fragment spaces.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    project: int, optional</span>
+<span class="sd">        Level of external correction of T2 amplitudes:</span>
+<span class="sd">        1: Both occupied indices are projected to each other fragment X.</span>
+<span class="sd">        2: Both occupied indices are projected to each other fragment X</span>
+<span class="sd">           and combinations of other fragments X,Y.</span>
+<span class="sd">        3: Only the first occupied indices is projected to each other fragment X.</span>
+<span class="sd">    coupled_fragments: list, optional</span>
+<span class="sd">        List of fragments, which are used for the external correction.</span>
+<span class="sd">        Each fragment x must have the following attributes defined:</span>
+<span class="sd">        `c_active_occ` : Active occupied MO orbitals of fragment x</span>
+<span class="sd">        `c_active_vir` : Active virtual MO orbitals of fragment x</span>
+<span class="sd">        `results.t1` :   T1 amplitudes of fragment x</span>
+<span class="sd">        `results.t2` :   T2 amplitudes of fragment x</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tailor_func : function(cc, t1, t2) -&gt; t1, t2</span>
+<span class="sd">        Tailoring function for CCSD.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fragment</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">cluster</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span>
+    <span class="n">ovlp</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>  <span class="c1"># AO overlap matrix</span>
+    <span class="n">cx_occ</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span>  <span class="c1"># Occupied active orbitals of current cluster</span>
+    <span class="n">cx_vir</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span>  <span class="c1"># Virtual  active orbitals of current cluster</span>
+    <span class="n">cxs_occ</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">cx_occ</span><span class="p">),</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="n">cxs_vir</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">cx_vir</span><span class="p">),</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="n">project</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">project</span><span class="p">)</span>
+    <span class="n">nxy_occ</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_fragment_overlap_norm</span><span class="p">(</span><span class="n">fragments</span><span class="o">=</span><span class="p">([</span><span class="n">fragment</span><span class="p">],</span> <span class="n">fragments</span><span class="p">),</span> <span class="n">virtual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">nxy_vir</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_fragment_overlap_norm</span><span class="p">(</span><span class="n">fragments</span><span class="o">=</span><span class="p">([</span><span class="n">fragment</span><span class="p">],</span> <span class="n">fragments</span><span class="p">),</span> <span class="n">occupied</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">spinsym</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">spinsym</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tailor_func</span><span class="p">(</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add external correction to T1 and T2 amplitudes.&quot;&quot;&quot;</span>
+        <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t1new&quot;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t2new&quot;</span><span class="p">]</span>
+        <span class="c1"># Collect all changes to the amplitudes in dt1 and dt2:</span>
+        <span class="k">if</span> <span class="n">tailor_t1</span><span class="p">:</span>
+            <span class="n">dt1</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tailor_t2</span><span class="p">:</span>
+            <span class="n">dt2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+
+        <span class="c1"># Loop over all *other* fragments/cluster X</span>
+        <span class="k">for</span> <span class="n">y</span><span class="p">,</span> <span class="n">fy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fragments</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">fy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">fragment</span>
+
+            <span class="c1"># Rotation &amp; projections from cluster X active space to current fragment active space</span>
+            <span class="n">rxy_occ</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cxs_occ</span><span class="p">,</span> <span class="n">fy</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">)</span>
+            <span class="n">rxy_vir</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cxs_vir</span><span class="p">,</span> <span class="n">fy</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">)</span>
+            <span class="c1"># Skip fragment if there is no overlap</span>
+            <span class="k">if</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+                <span class="n">maxovlp</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">rxy_occ</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">rxy_vir</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="k">elif</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+                <span class="n">maxovlp</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+                    <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">maxovlp</span> <span class="o">&lt;</span> <span class="n">ovlp_tol</span><span class="p">:</span>
+                <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Skipping tailoring fragment </span><span class="si">%s</span><span class="s2"> due to small overlap= </span><span class="si">%.1e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">maxovlp</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">wfy</span> <span class="o">=</span> <span class="n">fy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span>
+            <span class="c1"># Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:</span>
+            <span class="c1"># x may be CCSD and y FCI, such that x-space &gt;&gt; y-space</span>
+            <span class="k">if</span> <span class="n">tailor_t1</span><span class="p">:</span>
+                <span class="n">t1x</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+                <span class="n">dt1y</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">wfy</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">t1x</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">tailor_t2</span><span class="p">:</span>
+                <span class="n">t2x</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+                <span class="n">dt2y</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">wfy</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">t2x</span><span class="p">)</span>
+
+            <span class="c1"># Project first one/two occupied index/indices onto fragment(y) space:</span>
+            <span class="k">if</span> <span class="n">project</span><span class="p">:</span>
+                <span class="n">proj</span> <span class="o">=</span> <span class="n">fy</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;frag|cluster-occ&quot;</span><span class="p">)</span>
+                <span class="n">proj</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">proj</span><span class="p">),</span> <span class="n">proj</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">tailor_t1</span><span class="p">:</span>
+                    <span class="n">dt1y</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="n">dt1y</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">tailor_t2</span><span class="p">:</span>
+                    <span class="n">dt2y</span> <span class="o">=</span> <span class="n">project_t2</span><span class="p">(</span><span class="n">dt2y</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="o">=</span><span class="n">project</span><span class="p">)</span>
+
+            <span class="c1"># Transform back to x-space and add:</span>
+            <span class="k">if</span> <span class="n">tailor_t1</span><span class="p">:</span>
+                <span class="n">dt1</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dt1</span><span class="p">,</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">dt1y</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">tailor_t2</span><span class="p">:</span>
+                <span class="n">dt2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dt2</span><span class="p">,</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">dt2y</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+            <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Tailoring with fragment </span><span class="si">%3d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">):  S(occ)= </span><span class="si">%.3e</span><span class="s2">  S(vir)= </span><span class="si">%.3e</span><span class="s2">  dT1= </span><span class="si">%.3e</span><span class="s2">  dT2= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">fy</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">fy</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span>
+                <span class="n">nxy_occ</span><span class="p">[</span><span class="n">y</span><span class="p">],</span>
+                <span class="n">nxy_vir</span><span class="p">[</span><span class="n">y</span><span class="p">],</span>
+                <span class="o">*</span><span class="n">get_amplitude_norm</span><span class="p">(</span><span class="n">dt1y</span><span class="p">,</span> <span class="n">dt2y</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Add correction:</span>
+        <span class="k">if</span> <span class="n">tailor_t1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+                <span class="n">t1</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">dt1</span>
+            <span class="k">elif</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+                <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">tailor_t2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+                <span class="n">t2</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">dt2</span>
+            <span class="k">elif</span> <span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+                <span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">t2</span><span class="p">[</span><span class="mi">2</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Tailoring total:  dT1= </span><span class="si">%.3e</span><span class="s2">  dT2= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">get_amplitude_norm</span><span class="p">(</span><span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">tailor_func</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_integrals_for_extcorr</span><span class="p">(</span><span class="n">fragment</span><span class="p">,</span> <span class="n">fock</span><span class="p">):</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span>
+    <span class="n">emb</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span>
+    <span class="n">eris</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_screened</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+        <span class="n">occ</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">]</span>
+        <span class="n">vir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span> <span class="p">:]</span>
+        <span class="n">govov</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[</span><span class="n">occ</span><span class="p">,</span> <span class="n">vir</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">vir</span><span class="p">]</span>  <span class="c1"># chemical notation</span>
+        <span class="n">gvvov</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[</span><span class="n">vir</span><span class="p">,</span> <span class="n">vir</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">vir</span><span class="p">]</span>
+        <span class="n">gooov</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[</span><span class="n">occ</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">vir</span><span class="p">]</span>
+        <span class="n">govoo</span> <span class="o">=</span> <span class="n">eris</span><span class="p">[</span><span class="n">occ</span><span class="p">,</span> <span class="n">vir</span><span class="p">,</span> <span class="n">occ</span><span class="p">,</span> <span class="n">occ</span><span class="p">]</span>
+        <span class="n">fov</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fov</span><span class="p">,</span> <span class="p">(</span><span class="n">govov</span><span class="p">,</span> <span class="n">gvvov</span><span class="p">,</span> <span class="n">gooov</span><span class="p">,</span> <span class="n">govoo</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+        <span class="n">oa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">ob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span> <span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">va</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:]</span>
+        <span class="n">vb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span>
+        <span class="n">fova</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">fovb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">fock</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">fov</span> <span class="o">=</span> <span class="p">(</span><span class="n">fova</span><span class="p">,</span> <span class="n">fovb</span><span class="p">)</span>
+        <span class="n">gooov</span> <span class="o">=</span> <span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+        <span class="n">govov</span> <span class="o">=</span> <span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+        <span class="n">govvv</span> <span class="o">=</span> <span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="n">eris</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">,</span> <span class="n">vb</span><span class="p">])</span>
+        <span class="n">gvvov</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">va</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">vb</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">govoo</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">oa</span><span class="p">,</span> <span class="n">va</span><span class="p">,</span> <span class="n">ob</span><span class="p">,</span> <span class="n">ob</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fov</span><span class="p">,</span> <span class="p">(</span><span class="n">gooov</span><span class="p">,</span> <span class="n">govov</span><span class="p">,</span> <span class="n">govvv</span><span class="p">,</span> <span class="n">gvvov</span><span class="p">,</span> <span class="n">govoo</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_delta_t_for_extcorr</span><span class="p">(</span><span class="n">fragment</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">include_t3v</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make T3 and T4 residual correction to CCSD wave function for given fragment.</span>
+<span class="sd">    Expressions consistent with J. Chem. Phys. 86, 2881 (1987): G. E. Scuseria et al.</span>
+<span class="sd">    and verified same behaviour as implementation in git@github.com:gustavojra/Methods.git</span>
+<span class="sd">    TODO</span>
+<span class="sd">    ----</span>
+<span class="sd">    o Add Option: Contract T4&#39;s down at original solver point to save memory.</span>
+<span class="sd">    o UHF implementation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fragment : Fragment</span>
+<span class="sd">        FCI fragment with FCI, CISDTQ or CCSDTQ wave function object in results</span>
+<span class="sd">    fock : numpy.ndarray</span>
+<span class="sd">        Full system for matrix used for CCSD residuals</span>
+<span class="sd">    solver : Solver</span>
+<span class="sd">        Used for logging options</span>
+<span class="sd">    include_t3v : bool</span>
+<span class="sd">        If include_t3v, then these terms are included. If not, they are left out</span>
+<span class="sd">        (to be contracted later with cluster y integrals).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dt1, dt2 : numpy.ndarray</span>
+<span class="sd">        T1 and T2 expressions.</span>
+
+<span class="sd">    NOTE: These expressions still need to be contracted with energy denominators</span>
+<span class="sd">    for full amplitude updates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">wf</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsdtq</span><span class="p">()</span>
+
+    <span class="c1"># --- Make correction to T1 and T2 amplitudes</span>
+    <span class="c1"># J. Chem. Theory Comput. 2021, 17, 182−190</span>
+    <span class="c1"># also with reference to git@github.com:gustavojra/Methods.git</span>
+
+    <span class="k">if</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+        <span class="c1"># Get ERIs and Fock matrix for the given fragment</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">_integrals_for_extcorr</span><span class="p">(</span><span class="n">fragment</span><span class="p">,</span> <span class="n">fock</span><span class="p">)</span>
+        <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">t3</span> <span class="o">=</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t3</span>
+        <span class="n">t4_abaa</span><span class="p">,</span> <span class="n">t4_abab</span> <span class="o">=</span> <span class="n">wf</span><span class="o">.</span><span class="n">t4</span>
+
+        <span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span> <span class="o">=</span> <span class="n">ccsdtq</span><span class="o">.</span><span class="n">t_residual_rhf</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t3</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t4</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">include_t3v</span><span class="o">=</span><span class="n">include_t3v</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+        <span class="c1"># Get ERIs and Fock matrix for the given fragment</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">_integrals_for_extcorr</span><span class="p">(</span><span class="n">fragment</span><span class="p">,</span> <span class="n">fock</span><span class="p">)</span>
+
+        <span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span> <span class="o">=</span> <span class="n">ccsdtq</span><span class="o">.</span><span class="n">t_residual_uhf</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t3</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t4</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">include_t3v</span><span class="o">=</span><span class="n">include_t3v</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+
+    <span class="k">return</span> <span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_delta_t2_from_t3v</span><span class="p">(</span><span class="n">govvv_x</span><span class="p">,</span> <span class="n">gvvov_x</span><span class="p">,</span> <span class="n">gooov_x</span><span class="p">,</span> <span class="n">govoo_x</span><span class="p">,</span> <span class="n">frag_child</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">cxs_occ</span><span class="p">,</span> <span class="n">projectors</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform the (T3 * V) contraction for the external correction, with the V integrals</span>
+<span class="sd">    in the parent basis (x). This will change the results as the V retains one open index</span>
+<span class="sd">    in the resulting T2 contributions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    govvv_x, gvvov_x, gooov_x, govoo_x : ndarray</span>
+<span class="sd">        Integrals over various occ, vir slices in the parent (x) cluster.</span>
+<span class="sd">        govvv_x not required for unrestricted calculations.</span>
+<span class="sd">    frag_child : Fragment</span>
+<span class="sd">        Fragment of the child cluster (y)</span>
+<span class="sd">    rxy_occ, rxy_vir : numpy.ndarray</span>
+<span class="sd">        Projection operator from x cluster to y cluster in the occ (vir) space</span>
+<span class="sd">    cxs_occ : numpy.ndarray</span>
+<span class="sd">        Cluster orbitals of cluster x contracted with overlap</span>
+<span class="sd">    projectors : int</span>
+<span class="sd">        Number of projectors onto the fragment space of y</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dt2 : numpy.ndarray</span>
+<span class="sd">        Update to T2 amplitudes in the parent (x) basis</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">wf</span> <span class="o">=</span> <span class="n">frag_child</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsdtq</span><span class="p">()</span>
+    <span class="n">t3</span> <span class="o">=</span> <span class="n">wf</span><span class="o">.</span><span class="n">t3</span>
+
+    <span class="k">if</span> <span class="n">frag_child</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+        <span class="c1"># First term, using (vv|ov): 1/2 P_ab [t_ijmaef v_efbm]</span>
+        <span class="c1"># Three-quarter transform of passed-in integrals from parent (x) to child (y) basis</span>
+        <span class="c1"># Keep first index of vvov integrals in x basis. Transform rest to y basis.</span>
+        <span class="n">gvvov_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;abic,bB,iI,cC -&gt; aBIC&quot;</span><span class="p">,</span> <span class="n">gvvov_x</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+
+        <span class="c1"># Contract with T3 amplitudes in the y basis</span>
+        <span class="n">t3v_</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;bemf, jimeaf -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">gvvov_</span> <span class="o">-</span> <span class="n">gvvov_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">t3</span><span class="p">)</span>
+        <span class="n">t3v_</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;bemf, ijmaef -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">gvvov_</span><span class="p">,</span> <span class="n">t3</span><span class="p">)</span>
+        <span class="c1"># Final is in a mixed basis form, with last index in t3v here in the x basis</span>
+        <span class="c1"># Rotate remaining indices into x basis: another three-quarter transform</span>
+        <span class="n">t3v_x</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;IJAb,iI,jJ,aA -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">t3v_</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+
+        <span class="c1"># Second term: -1/2 P_ij [t_imnabe v_jemn]</span>
+        <span class="c1"># ooov three-quarter transform, to IjKA (capital is y (child) basis)</span>
+        <span class="n">gooov_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijka,iI,kK,aA -&gt; IjKA&quot;</span><span class="p">,</span> <span class="n">gooov_x</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+        <span class="c1"># ovoo three-quarter transform, to IAJk (capital is y (child) basis)</span>
+        <span class="n">govoo_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajk,iI,aA,jJ -&gt; IAJk&quot;</span><span class="p">,</span> <span class="n">govoo_x</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">)</span>
+
+        <span class="c1"># Second index of t3v_ in the parent (x) basis</span>
+        <span class="n">t3v_</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;mjne, minbae -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">gooov_</span> <span class="o">-</span> <span class="n">govoo_</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">t3</span><span class="p">)</span>
+        <span class="n">t3v_</span> <span class="o">-=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;mjne, imnabe -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">gooov_</span><span class="p">,</span> <span class="n">t3</span><span class="p">)</span>
+        <span class="c1"># Rotate remaining indices into x basis: another three-quarter transform</span>
+        <span class="n">t3v_x</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;IjAB,iI,aA,bB -&gt; ijab&quot;</span><span class="p">,</span> <span class="n">t3v_</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">)</span>
+
+        <span class="c1"># Include permutation</span>
+        <span class="n">dt2</span> <span class="o">=</span> <span class="n">t3v_x</span> <span class="o">+</span> <span class="n">t3v_x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">frag_child</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+        <span class="n">gooov_aaaa</span><span class="p">,</span> <span class="n">gooov_aabb</span><span class="p">,</span> <span class="n">gooov_bbbb</span> <span class="o">=</span> <span class="n">gooov_x</span>
+        <span class="n">govoo_aaaa</span><span class="p">,</span> <span class="n">govoo_aabb</span><span class="p">,</span> <span class="n">govoo_bbbb</span> <span class="o">=</span> <span class="n">govoo_x</span>
+        <span class="n">govvv_aaaa</span><span class="p">,</span> <span class="n">govvv_aabb</span><span class="p">,</span> <span class="n">govvv_bbbb</span> <span class="o">=</span> <span class="n">govvv_x</span>
+        <span class="n">gvvov_aaaa</span><span class="p">,</span> <span class="n">gvvov_aabb</span><span class="p">,</span> <span class="n">gvvov_bbbb</span> <span class="o">=</span> <span class="n">gvvov_x</span>
+
+        <span class="n">t3_aaa</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">,</span> <span class="n">t3_bbb</span> <span class="o">=</span> <span class="n">t3</span>
+
+        <span class="n">govvv_aaaa_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iabc,iI,aA,cC -&gt; IAbC&quot;</span><span class="p">,</span> <span class="n">govvv_aaaa</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">govvv_aabb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iabc,iI,aA,cC -&gt; IAbC&quot;</span><span class="p">,</span> <span class="n">govvv_aabb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">govvv_bbbb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iabc,iI,aA,cC -&gt; IAbC&quot;</span><span class="p">,</span> <span class="n">govvv_bbbb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">gvvov_aaaa_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;abic,bB,iI,cC -&gt; aBIC&quot;</span><span class="p">,</span> <span class="n">gvvov_aaaa</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">gvvov_aabb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;abic,bB,iI,cC -&gt; aBIC&quot;</span><span class="p">,</span> <span class="n">gvvov_aabb</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">gvvov_bbbb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;abic,bB,iI,cC -&gt; aBIC&quot;</span><span class="p">,</span> <span class="n">gvvov_bbbb</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">gooov_aaaa_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijka,jJ,kK,aA -&gt; iJKA&quot;</span><span class="p">,</span> <span class="n">gooov_aaaa</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">gooov_aabb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijka,jJ,kK,aA -&gt; iJKA&quot;</span><span class="p">,</span> <span class="n">gooov_aabb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">gooov_bbbb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijka,jJ,kK,aA -&gt; iJKA&quot;</span><span class="p">,</span> <span class="n">gooov_bbbb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">govoo_aaaa_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajk,iI,aA,kK -&gt; IAjK&quot;</span><span class="p">,</span> <span class="n">govoo_aaaa</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">govoo_aabb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajk,iI,aA,kK -&gt; IAjK&quot;</span><span class="p">,</span> <span class="n">govoo_aabb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">govoo_bbbb_</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iajk,iI,aA,kK -&gt; IAjK&quot;</span><span class="p">,</span> <span class="n">govoo_bbbb</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Jlkc,iklacb-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">gooov_aabb_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Jlkc,iklabc-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">gooov_aaaa_</span><span class="p">,</span> <span class="n">t3_aaa</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJba-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJba-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJab,Ii,Aa,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">dt2_aaaa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_aaaa</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;jiab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Bdkc,ikjacd-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">gvvov_aabb_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kcBd,ijkacd-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">govvv_aaaa_</span><span class="p">,</span> <span class="n">t3_aaa</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB,Ii,Jj,Aa-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">dt2_aaaa</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+        <span class="n">dt2_aaaa</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijba-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Jklc,iklabc-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">gooov_bbbb_</span><span class="p">,</span> <span class="n">t3_bbb</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;lcJk,ilkacb-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">govoo_aabb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJba-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJba-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJab,Ii,Aa,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">dt2_bbbb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_bbbb</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;jiab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kdBc,ijkacd-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">govvv_bbbb_</span><span class="p">,</span> <span class="n">t3_bbb</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kdBc,ikjadc-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">govvv_aabb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB,Ii,Jj,Aa-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">dt2_bbbb</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijab-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_bbbb</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijba-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ilkc,jlkbac-&gt;Ijab&quot;</span><span class="p">,</span> <span class="n">gooov_aabb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x0</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ilmd,ljmabd-&gt;Ijab&quot;</span><span class="p">,</span> <span class="n">gooov_aaaa_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_abab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Ijab,Jj,Aa,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Jnkc,kinbac-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">gooov_bbbb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span>
+        <span class="n">x0</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ldJk,iklabd-&gt;iJab&quot;</span><span class="p">,</span> <span class="n">govoo_aabb_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_abab</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJab,Ii,Aa,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ldAe,ijldbe-&gt;ijAb&quot;</span><span class="p">,</span> <span class="n">govvv_aaaa_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">x0</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;Adkc,jikbdc-&gt;ijAb&quot;</span><span class="p">,</span> <span class="n">gvvov_aabb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span>
+        <span class="n">dt2_abab</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijAb,Ii,Jj,Bb-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ldBc,ijlacd-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">govvv_aabb_</span><span class="p">,</span> <span class="n">t3_aba</span><span class="p">)</span>
+        <span class="n">x0</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;kcBf,jikcaf-&gt;ijaB&quot;</span><span class="p">,</span> <span class="n">govvv_bbbb_</span><span class="p">,</span> <span class="n">t3_bab</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="n">dt2_abab</span> <span class="o">+=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijaB,Ii,Jj,Aa-&gt;IJAB&quot;</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rxy_occ</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rxy_vir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">dt2</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt2_aaaa</span><span class="p">,</span> <span class="n">dt2_abab</span><span class="p">,</span> <span class="n">dt2_bbbb</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+
+    <span class="c1"># Find the fragment projector of cluster y (child) in the basis of cluster x (parent)</span>
+    <span class="n">c_frag_xocc</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">frag_child</span><span class="o">.</span><span class="n">c_frag</span><span class="p">),</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">cxs_occ</span><span class="p">))</span>
+    <span class="n">proj_y_in_x</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">c_frag_xocc</span><span class="p">),</span> <span class="n">c_frag_xocc</span><span class="p">)</span>
+
+    <span class="c1"># Project (t3 v) contribution onto fragment of cluster y</span>
+    <span class="n">dt2</span> <span class="o">=</span> <span class="n">project_t2</span><span class="p">(</span><span class="n">dt2</span><span class="p">,</span> <span class="n">proj_y_in_x</span><span class="p">,</span> <span class="n">projectors</span><span class="o">=</span><span class="n">projectors</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dt2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_delta_t_for_delta_tailor</span><span class="p">(</span><span class="n">fragment</span><span class="p">):</span>
+    <span class="n">wf</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">wf</span><span class="o">.</span><span class="n">as_ccsd</span><span class="p">()</span>
+    <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span>
+    <span class="c1"># Run CCSD calculation with same Hamiltonian. Don&#39;t need lambda amplitudes.</span>
+    <span class="c1"># TODO set up passing through solver_options from tailored CCSD calculation</span>
+    <span class="n">ccsd</span> <span class="o">=</span> <span class="n">fragment</span><span class="o">.</span><span class="n">get_solver</span><span class="p">(</span><span class="s2">&quot;CCSD&quot;</span><span class="p">)</span>
+    <span class="n">ccsd</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">solve_lambda</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">ccsd</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">ccsd</span><span class="o">.</span><span class="n">converged</span>
+    <span class="n">wf</span> <span class="o">=</span> <span class="n">ccsd</span><span class="o">.</span><span class="n">wf</span>
+    <span class="n">dt1</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t1</span><span class="p">)</span>
+    <span class="n">dt2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="n">wf</span><span class="o">.</span><span class="n">t2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span>
+
+
+<div class="viewcode-block" id="externally_correct">
+<a class="viewcode-back" href="../../../apidoc/vayesta.solver.html#vayesta.solver.coupling.externally_correct">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">externally_correct</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">external_corrections</span><span class="p">,</span> <span class="n">hamil</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>  <span class="c1"># eris=None):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build callback function for CCSD, to add external correction from other fragments.</span>
+
+<span class="sd">    TODO: combine with `tailor_with_fragments`?</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    solver : CCSD_Solver</span>
+<span class="sd">        Vayesta CCSD solver.</span>
+<span class="sd">    external_corrections : list of tuple of (int, str, int, bool)</span>
+<span class="sd">        List of external corrections. Each tuple contains the fragment ID, type of correction,</span>
+<span class="sd">        and number of projectors for the given external correction. Final element is boolean giving</span>
+<span class="sd">        the low_level_coul optional argument.</span>
+<span class="sd">    eris : _ChemistsERIs</span>
+<span class="sd">        ERIs for parent CCSD fragment. Used for MO energies in residual contraction, and for</span>
+<span class="sd">        the case of low_level_coul, where the parent Coulomb integral is contracted.</span>
+<span class="sd">        If not passed in, MO energy if needed will be constructed from the diagonal of</span>
+<span class="sd">        get_fock() of embedding base class, and the eris will be also be obtained from the</span>
+<span class="sd">        embedding base class. Optional.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callback : callable</span>
+<span class="sd">        Callback function for PySCF&#39;s CCSD solver.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fx</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">_fragment</span>
+    <span class="n">cluster</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">hamil</span><span class="o">.</span><span class="n">cluster</span>
+    <span class="n">emb</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">base</span>
+    <span class="n">nocc</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">nocc</span>
+    <span class="n">nvir</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">nvir</span>
+    <span class="n">ovlp</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>  <span class="c1"># AO overlap matrix</span>
+    <span class="n">cx_occ</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span>  <span class="c1"># Occupied active orbitals of current cluster</span>
+    <span class="n">cx_vir</span> <span class="o">=</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span>  <span class="c1"># Virtual  active orbitals of current cluster</span>
+    <span class="n">cxs_occ</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">cx_occ</span><span class="p">),</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="n">cxs_vir</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">cx_vir</span><span class="p">),</span> <span class="n">ovlp</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hamil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Note that if no MO energies are passed in, we construct them from the</span>
+        <span class="c1"># get_fock function without with_exxdiv=False. For PBC CCSD, this may be different</span>
+        <span class="c1"># behaviour.</span>
+        <span class="n">mo_energy</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ai,ab,bi-&gt;i&quot;</span><span class="p">,</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">,</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">(),</span> <span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mo_energy</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_clus_mf_info</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span>  <span class="c1"># Do we want this True or False?</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">external_corrections</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">([</span><span class="n">corr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">corr</span> <span class="ow">in</span> <span class="n">external_corrections</span><span class="p">]):</span>
+        <span class="c1"># We are externally correcting from multiple fragments, but not projecting them</span>
+        <span class="c1"># into their fragment spaces. This means we are at risk of double-counting the external</span>
+        <span class="c1"># corrections.</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Multiple external correcting fragments, but not fragment-projecting the resulting correction!&quot;</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;This will likely lead to double-counting of external correction.&quot;</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Are you sure you want to do this?!&quot;</span><span class="p">)</span>
+
+    <span class="c1"># CCSD uses exxdiv-uncorrected Fock matrix for residuals</span>
+    <span class="n">fock</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">(</span><span class="n">with_exxdiv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">corr</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="ow">and</span> <span class="n">corr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span> <span class="k">for</span> <span class="n">corr</span> <span class="ow">in</span> <span class="n">external_corrections</span><span class="p">]):</span>
+        <span class="c1"># At least one fragment is externally corrected, *and* contracted with</span>
+        <span class="c1"># integrals in the parent (i.e. CCSD) cluster. We can take the integrals from eris</span>
+        <span class="c1"># if passed in. Otherwise, form the required integrals</span>
+        <span class="c1"># for this parent cluster. Note that not all of these are needed.</span>
+        <span class="k">if</span> <span class="n">hamil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">govvv_x</span><span class="p">,</span> <span class="n">gvvov_x</span><span class="p">,</span> <span class="n">gooov_x</span><span class="p">,</span> <span class="n">govoo_x</span> <span class="o">=</span> <span class="n">_integrals_for_extcorr</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fock</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">eri_generator</span> <span class="o">=</span> <span class="n">hamil</span><span class="o">.</span><span class="n">get_eris_bare</span>
+
+            <span class="k">if</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+                <span class="n">govvv_x</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">gvvov_x</span> <span class="o">=</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;vvov&quot;</span><span class="p">)</span>
+                <span class="n">gooov_x</span> <span class="o">=</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ooov&quot;</span><span class="p">)</span>
+                <span class="n">govoo_x</span> <span class="o">=</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ovoo&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">govvv_x</span> <span class="o">=</span> <span class="p">(</span><span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ovvv&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ovVV&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;OVVV&quot;</span><span class="p">))</span>
+                <span class="n">gvvov_x</span> <span class="o">=</span> <span class="p">(</span><span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;vvov&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;vvOV&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;VVOV&quot;</span><span class="p">))</span>
+                <span class="n">gooov_x</span> <span class="o">=</span> <span class="p">(</span><span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ooov&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ooOV&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;OOOV&quot;</span><span class="p">))</span>
+                <span class="n">govoo_x</span> <span class="o">=</span> <span class="p">(</span><span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ovoo&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;ovOO&quot;</span><span class="p">),</span> <span class="n">eri_generator</span><span class="p">(</span><span class="s2">&quot;OVOO&quot;</span><span class="p">))</span>
+
+    <span class="c1"># delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes</span>
+    <span class="k">if</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+        <span class="n">dt1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">))</span>
+        <span class="n">dt2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">,</span> <span class="n">nvir</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+        <span class="n">dt1</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">dt2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nvir</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+        <span class="p">)</span>
+
+    <span class="n">frag_dir</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="o">.</span><span class="n">id</span><span class="p">:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">emb</span><span class="o">.</span><span class="n">fragments</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">y</span><span class="p">,</span> <span class="n">corrtype</span><span class="p">,</span> <span class="n">projectors</span><span class="p">,</span> <span class="n">low_level_coul</span> <span class="ow">in</span> <span class="n">external_corrections</span><span class="p">:</span>
+        <span class="n">fy</span> <span class="o">=</span> <span class="n">frag_dir</span><span class="p">[</span><span class="n">y</span><span class="p">]</span>  <span class="c1"># Get fragment y object from its index</span>
+        <span class="k">assert</span> <span class="n">y</span> <span class="o">!=</span> <span class="n">fx</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="k">if</span> <span class="n">corrtype</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">low_level_coul</span><span class="p">:</span>
+                <span class="n">dt1y</span><span class="p">,</span> <span class="n">dt2y</span> <span class="o">=</span> <span class="n">_get_delta_t_for_extcorr</span><span class="p">(</span><span class="n">fy</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">include_t3v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dt1y</span><span class="p">,</span> <span class="n">dt2y</span> <span class="o">=</span> <span class="n">_get_delta_t_for_extcorr</span><span class="p">(</span><span class="n">fy</span><span class="p">,</span> <span class="n">fock</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">include_t3v</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">corrtype</span> <span class="o">==</span> <span class="s2">&quot;delta-tailor&quot;</span><span class="p">:</span>
+            <span class="n">dt1y</span><span class="p">,</span> <span class="n">dt2y</span> <span class="o">=</span> <span class="n">_get_delta_t_for_delta_tailor</span><span class="p">(</span><span class="n">fy</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+
+        <span class="c1"># Project T1 and T2 corrections:</span>
+        <span class="k">if</span> <span class="n">projectors</span><span class="p">:</span>
+            <span class="c1"># projectors is an integer giving the number of projectors onto</span>
+            <span class="c1"># occupied fragment</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">fy</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;frag|cluster-occ&quot;</span><span class="p">)</span>
+            <span class="n">proj</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">T</span><span class="p">(</span><span class="n">proj</span><span class="p">),</span> <span class="n">proj</span><span class="p">)</span>
+            <span class="n">dt1y</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">proj</span><span class="p">,</span> <span class="n">dt1y</span><span class="p">)</span>
+            <span class="n">dt2y</span> <span class="o">=</span> <span class="n">project_t2</span><span class="p">(</span><span class="n">dt2y</span><span class="p">,</span> <span class="n">proj</span><span class="p">,</span> <span class="n">projectors</span><span class="o">=</span><span class="n">projectors</span><span class="p">)</span>
+
+        <span class="c1"># Transform back to fragment x space</span>
+        <span class="n">rxy_occ</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cxs_occ</span><span class="p">,</span> <span class="n">fy</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">)</span>
+        <span class="n">rxy_vir</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">cxs_vir</span><span class="p">,</span> <span class="n">fy</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span><span class="p">)</span>
+        <span class="n">dt1y</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">dt1y</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">dt2y</span> <span class="o">=</span> <span class="n">transform_amplitude</span><span class="p">(</span><span class="n">dt2y</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">dt1</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dt1</span><span class="p">,</span> <span class="n">dt1y</span><span class="p">)</span>
+        <span class="n">dt2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dt2</span><span class="p">,</span> <span class="n">dt2y</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">low_level_coul</span> <span class="ow">and</span> <span class="n">corrtype</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
+            <span class="c1"># Include the t3v term, contracting with the integrals from the x cluster</span>
+            <span class="c1"># These have already been fragment projected, and rotated into the x cluster</span>
+            <span class="c1"># in this function.</span>
+            <span class="n">dt2y_t3v</span> <span class="o">=</span> <span class="n">_get_delta_t2_from_t3v</span><span class="p">(</span>
+                <span class="n">govvv_x</span><span class="p">,</span> <span class="n">gvvov_x</span><span class="p">,</span> <span class="n">gooov_x</span><span class="p">,</span> <span class="n">govoo_x</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">rxy_occ</span><span class="p">,</span> <span class="n">rxy_vir</span><span class="p">,</span> <span class="n">cxs_occ</span><span class="p">,</span> <span class="n">projectors</span>
+            <span class="p">)</span>
+            <span class="n">dt2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dt2</span><span class="p">,</span> <span class="n">dt2y_t3v</span><span class="p">)</span>
+
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;External correction residuals from fragment </span><span class="si">%3d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2"> via </span><span class="si">%s</span><span class="s2">):  dT1= </span><span class="si">%.3e</span><span class="s2">  dT2= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">fy</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">fy</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span>
+            <span class="n">corrtype</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">get_amplitude_norm</span><span class="p">(</span><span class="n">dt1y</span><span class="p">,</span> <span class="n">dt2y</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;restricted&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">corrtype</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
+            <span class="c1"># Contract with fragment x (CCSD) energy denominators</span>
+            <span class="c1"># Note that this will not work correctly if a level shift used</span>
+            <span class="n">eia</span> <span class="o">=</span> <span class="n">mo_energy</span><span class="p">[:</span><span class="n">nocc</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">mo_energy</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">nocc</span><span class="p">:]</span>
+            <span class="n">eijab</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">direct_sum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">eia</span><span class="p">,</span> <span class="n">eia</span><span class="p">)</span>
+            <span class="n">dt1</span> <span class="o">/=</span> <span class="n">eia</span>
+            <span class="n">dt2</span> <span class="o">/=</span> <span class="n">eijab</span>
+
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Total external correction amplitudes from all fragments:  dT1= </span><span class="si">%.3e</span><span class="s2">  dT2= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">get_amplitude_norm</span><span class="p">(</span><span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">callback</span><span class="p">(</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Add external correction to T1 and T2 amplitudes.&quot;&quot;&quot;</span>
+            <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t1new&quot;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t2new&quot;</span><span class="p">]</span>
+            <span class="n">t1</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">dt1</span>
+            <span class="n">t2</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">dt2</span>
+
+    <span class="k">elif</span> <span class="n">emb</span><span class="o">.</span><span class="n">spinsym</span> <span class="o">==</span> <span class="s2">&quot;unrestricted&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">corrtype</span> <span class="o">==</span> <span class="s2">&quot;external&quot;</span><span class="p">:</span>
+            <span class="n">eia_a</span> <span class="o">=</span> <span class="n">mo_energy</span><span class="p">[</span><span class="mi">0</span><span class="p">][:</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">mo_energy</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="kc">None</span><span class="p">,</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:]</span>
+            <span class="n">eia_b</span> <span class="o">=</span> <span class="n">mo_energy</span><span class="p">[</span><span class="mi">1</span><span class="p">][:</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">mo_energy</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="kc">None</span><span class="p">,</span> <span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span>
+            <span class="n">eijab_aa</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">direct_sum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">eia_a</span><span class="p">,</span> <span class="n">eia_a</span><span class="p">)</span>
+            <span class="n">eijab_ab</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">direct_sum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">eia_a</span><span class="p">,</span> <span class="n">eia_b</span><span class="p">)</span>
+            <span class="n">eijab_bb</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">direct_sum</span><span class="p">(</span><span class="s2">&quot;ia,jb-&gt;ijab&quot;</span><span class="p">,</span> <span class="n">eia_b</span><span class="p">,</span> <span class="n">eia_b</span><span class="p">)</span>
+
+            <span class="n">dt1</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">eia_a</span><span class="p">,</span> <span class="n">dt1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">eia_b</span><span class="p">)</span>
+            <span class="n">dt2</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">eijab_aa</span><span class="p">,</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">eijab_ab</span><span class="p">,</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">eijab_bb</span><span class="p">)</span>
+
+        <span class="n">solver</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Total external correction amplitudes from all fragments:  dT1= </span><span class="si">%.3e</span><span class="s2">  dT2= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">get_amplitude_norm</span><span class="p">(</span><span class="n">dt1</span><span class="p">,</span> <span class="n">dt2</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">callback</span><span class="p">(</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Add external correction to T1 and T2 amplitudes.&quot;&quot;&quot;</span>
+            <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t1new&quot;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;t2new&quot;</span><span class="p">]</span>
+
+            <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t1</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">t2</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">t2</span><span class="p">[</span><span class="mi">2</span><span class="p">][:]</span> <span class="o">+=</span> <span class="n">dt2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">callback</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

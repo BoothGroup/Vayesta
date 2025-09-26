@@ -1,0 +1,443 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.rirpa.momzero_NI &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../../rpa.html">vayesta.rpa</a></li>
+          <li class="breadcrumb-item"><a href="../rirpa.html">vayesta.rpa.rirpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.rirpa.momzero_NI</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.rirpa.momzero_NI</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Functionality to calculate zeroth moment via numerical integration &quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa.NI_eval</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NumericalIntegratorClenCurInfinite</span><span class="p">,</span>
+    <span class="n">NumericalIntegratorClenCurSemiInfinite</span><span class="p">,</span>
+    <span class="n">NumericalIntegratorGaussianSemiInfinite</span><span class="p">,</span>
+    <span class="n">NumericalIntegratorBase</span><span class="p">,</span>
+    <span class="n">NIException</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="NIMomZero">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NIMomZero</span><span class="p">(</span><span class="n">NumericalIntegratorClenCurInfinite</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">S_L</span><span class="p">,</span> <span class="n">S_R</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">D</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span> <span class="o">=</span> <span class="n">S_L</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span> <span class="o">=</span> <span class="n">S_R</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span> <span class="o">=</span> <span class="n">target_rot</span>
+        <span class="n">out_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">diag_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_aux</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<div class="viewcode-block" id="NIMomZero.get_F">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_F">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NIMomZero.get_Q">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.NIMomZero.get_Q">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_Q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Efficiently construct Q = S_R F S_L^T</span>
+<span class="sd">        This is generally the limiting step.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">S_L</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="p">,</span> <span class="n">S_L</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diagmat1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagmat1</span>
+
+    <span class="nd">@diagmat1</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diagmat1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">val</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Error in numerical integration; diagonal approximation is non-PSD&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_diagmat1</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diagmat2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagmat2</span>
+
+    <span class="nd">@diagmat2</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diagmat2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">val</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Error in numerical integration; diagonal approximation is non-PSD&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_diagmat2</span> <span class="o">=</span> <span class="n">val</span></div>
+
+
+
+<div class="viewcode-block" id="MomzeroDeductNone">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroDeductNone</span><span class="p">(</span><span class="n">NIMomZero</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;p&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MomzeroDeductNone.eval_diag_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">diag_sqrt_contrib</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">-=</span> <span class="n">diag_sqrt_contrib</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductNone.eval_diag_deriv_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_deriv_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">diag_sqrt_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">-=</span> <span class="n">diag_sqrt_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductNone.eval_diag_deriv2_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_deriv2_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">diag_sqrt_deriv2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">-=</span> <span class="n">diag_sqrt_deriv2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductNone.eval_diag_exact">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_diag_exact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_exact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagmat1</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductNone.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductNone.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Diagonal deducted quantity specified without being included in full contribution &quot;</span>
+                <span class="s2">&quot;evaluation; please update overwrite .eval_contrib() for subclass.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+
+        <span class="n">rrot</span> <span class="o">=</span> <span class="n">F</span>
+        <span class="n">lrot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span> <span class="o">*</span> <span class="n">rrot</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="n">val_aux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_aux</span><span class="p">)</span> <span class="o">+</span> <span class="n">Q</span><span class="p">)</span>
+        <span class="n">lres</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">lrot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">lres</span><span class="p">,</span> <span class="n">val_aux</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span> <span class="o">*</span> <span class="n">rrot</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span> <span class="o">+</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">res</span> <span class="o">-</span> <span class="n">lrot</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MomzeroDeductD">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroDeductD</span><span class="p">(</span><span class="n">MomzeroDeductNone</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagmat2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span>
+
+<div class="viewcode-block" id="MomzeroDeductD.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductD.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+
+        <span class="n">rrot</span> <span class="o">=</span> <span class="n">F</span>
+        <span class="n">lrot</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;lq,q-&gt;lq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">F</span><span class="p">)</span>
+        <span class="n">val_aux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_aux</span><span class="p">)</span> <span class="o">+</span> <span class="n">Q</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">lrot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">val_aux</span><span class="p">),</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,p-&gt;np&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="p">,</span> <span class="n">rrot</span><span class="p">))</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">res</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroDeductHigherOrder</span><span class="p">(</span><span class="n">MomzeroDeductD</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;p&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="p">)</span>
+
+    <span class="c1"># Just calculate diagonals via expression for D-deducted quantity, minus diagonal approximation for higher-order</span>
+    <span class="c1"># terms.</span>
+<div class="viewcode-block" id="MomzeroDeductHigherOrder.eval_diag_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">Dval</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">eval_diag_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">F</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">HOval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">Dval</span> <span class="o">-</span> <span class="n">HOval</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder.eval_diag_deriv_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_deriv_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">Dval</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="p">(</span><span class="n">F</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">-</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">F</span><span class="o">**</span><span class="mi">3</span><span class="p">))</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">HOval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">Dval</span> <span class="o">-</span> <span class="n">HOval</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder.eval_diag_deriv2_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_deriv2_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">Dval</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">F</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">F</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">24</span> <span class="o">*</span> <span class="n">freq</span><span class="o">**</span><span class="mi">4</span> <span class="o">*</span> <span class="n">F</span><span class="o">**</span><span class="mi">4</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">HOval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">Dval</span> <span class="o">-</span> <span class="n">HOval</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder.eval_diag_exact">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_diag_exact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_exact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">Dval</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">eval_diag_exact</span><span class="p">()</span>
+        <span class="n">HOval</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Dval</span> <span class="o">-</span> <span class="n">HOval</span></div>
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_F</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+
+        <span class="n">rrot</span> <span class="o">=</span> <span class="n">F</span>
+        <span class="n">lrot</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;lq,q-&gt;lq&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">F</span><span class="p">)</span>
+        <span class="n">val_aux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_aux</span><span class="p">)</span> <span class="o">+</span> <span class="n">Q</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_aux</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">lrot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">val_aux</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span> <span class="o">*</span> <span class="n">rrot</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">res</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseMomzeroOffset</span><span class="p">(</span><span class="n">NumericalIntegratorBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;NB this is an abstract class!&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">S_L</span><span class="p">,</span> <span class="n">S_R</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">D</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span> <span class="o">=</span> <span class="n">S_L</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span> <span class="o">=</span> <span class="n">S_R</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span> <span class="o">=</span> <span class="n">target_rot</span>
+        <span class="n">out_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">diag_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">.</span><span class="n">shape</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;np,np-&gt;p&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BaseMomzeroOffset.get_offset">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.get_offset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_shape</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="c1"># This should be real currently, so can safely do this.</span>
+        <span class="n">expval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">freq</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span>
+        <span class="n">lrot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_rot</span> <span class="o">*</span> <span class="n">expval</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="n">rrot</span> <span class="o">=</span> <span class="n">expval</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">lrot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_L</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">S_R</span> <span class="o">*</span> <span class="n">rrot</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset.eval_diag_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">expval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">expval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset.eval_diag_deriv_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_deriv_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">expval</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">expval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset.eval_diag_deriv2_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_deriv2_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="n">expval</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">expval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseMomzeroOffset.eval_diag_exact">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.BaseMomzeroOffset.eval_diag_exact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_exact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">D</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">diagRI</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MomzeroOffsetCalcGaussLag">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcGaussLag">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroOffsetCalcGaussLag</span><span class="p">(</span><span class="n">BaseMomzeroOffset</span><span class="p">,</span> <span class="n">NumericalIntegratorGaussianSemiInfinite</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="MomzeroOffsetCalcCC">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroOffsetCalcCC">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroOffsetCalcCC</span><span class="p">(</span><span class="n">BaseMomzeroOffset</span><span class="p">,</span> <span class="n">NumericalIntegratorClenCurSemiInfinite</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="diag_sqrt_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_contrib">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">diag_sqrt_contrib</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">M</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span></div>
+
+
+
+<div class="viewcode-block" id="diag_sqrt_grad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_grad">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">diag_sqrt_grad</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="n">freq</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">M</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">freq</span> <span class="o">*</span> <span class="n">M</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span></div>
+
+
+
+<div class="viewcode-block" id="diag_sqrt_deriv2">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.diag_sqrt_deriv2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">diag_sqrt_deriv2</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span> <span class="o">+</span> <span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">M</span> <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">M</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">8</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">M</span><span class="o">**</span><span class="mi">3</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span></div>
+
+
+
+<span class="c1"># Subclass for performing calculations with RHF quantities.</span>
+
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder_dRHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomzeroDeductHigherOrder_dRHF</span><span class="p">(</span><span class="n">MomzeroDeductHigherOrder</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the</span>
+<span class="sd">    get_Q method.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MomzeroDeductHigherOrder_dRHF.get_Q">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.momzero_NI.MomzeroDeductHigherOrder_dRHF.get_Q">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_Q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="c1"># Have equal contributions from both spin channels.</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_Q</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

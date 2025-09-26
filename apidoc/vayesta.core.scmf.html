@@ -1,0 +1,574 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.scmf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.core.screening" href="vayesta.core.screening.html" />
+    <link rel="prev" title="vayesta.core.qemb" href="vayesta.core.qemb.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.html">vayesta.core</a></li>
+      <li class="breadcrumb-item active">vayesta.core.scmf</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.core.scmf.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-core-scmf">
+<h1>vayesta.core.scmf<a class="headerlink" href="#vayesta-core-scmf" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.core.scmf.brueckner">
+<span id="vayesta-core-scmf-brueckner"></span><h2>vayesta.core.scmf.brueckner<a class="headerlink" href="#module-vayesta.core.scmf.brueckner" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.brueckner.</span></span><span class="sig-name descname"><span class="pre">Brueckner_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'dm1'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.scmf.scmf.SCMF" title="vayesta.core.scmf.scmf.SCMF"><code class="xref py py-class docutils literal notranslate"><span class="pre">SCMF</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Brueckner'</span></em><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.get_t1">
+<span class="sig-name descname"><span class="pre">get_t1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_RHF.get_t1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.get_t1" title="Link to this definition"></a></dt>
+<dd><p>Get global T1 amplitudes from quantum embedding calculation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_RHF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new MO coefficients.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.get_diis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.brueckner.</span></span><span class="sig-name descname"><span class="pre">Brueckner_UHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'dm1'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_UHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.scmf.brueckner.Brueckner_RHF" title="vayesta.core.scmf.brueckner.Brueckner_RHF"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brueckner_RHF</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_UHF.get_diis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.get_diis" title="Link to this definition"></a></dt>
+<dd><p>Two separate DIIS objects for alpha and beta orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/brueckner.html#Brueckner_UHF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new MO coefficients.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.get_t1">
+<span class="sig-name descname"><span class="pre">get_t1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.get_t1" title="Link to this definition"></a></dt>
+<dd><p>Get global T1 amplitudes from quantum embedding calculation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.brueckner.Brueckner_UHF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Brueckner'</span></em><a class="headerlink" href="#vayesta.core.scmf.brueckner.Brueckner_UHF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.scmf.pdmet">
+<span id="vayesta-core-scmf-pdmet"></span><h2>vayesta.core.scmf.pdmet<a class="headerlink" href="#module-vayesta.core.scmf.pdmet" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.pdmet.</span></span><span class="sig-name descname"><span class="pre">PDMET_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.scmf.scmf.SCMF" title="vayesta.core.scmf.scmf.SCMF"><code class="xref py py-class docutils literal notranslate"><span class="pre">SCMF</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p-DMET'</span></em><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.get_rdm1">
+<span class="sig-name descname"><span class="pre">get_rdm1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_RHF.get_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.get_rdm1" title="Link to this definition"></a></dt>
+<dd><p>DM1 in MO basis.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_RHF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new set of MO coefficients.</p>
+<p>Must be implemented for any SCMF method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.get_diis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.pdmet.</span></span><span class="sig-name descname"><span class="pre">PDMET_UHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_UHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.scmf.pdmet.PDMET_RHF" title="vayesta.core.scmf.pdmet.PDMET_RHF"><code class="xref py py-class docutils literal notranslate"><span class="pre">PDMET_RHF</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_UHF.get_diis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.get_diis" title="Link to this definition"></a></dt>
+<dd><p>Two separate DIIS objects for alpha and beta orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.get_rdm1">
+<span class="sig-name descname"><span class="pre">get_rdm1</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_UHF.get_rdm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.get_rdm1" title="Link to this definition"></a></dt>
+<dd><p>DM1 in MO basis.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/pdmet.html#PDMET_UHF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new set of MO coefficients.</p>
+<p>Must be implemented for any SCMF method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.pdmet.PDMET_UHF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'p-DMET'</span></em><a class="headerlink" href="#vayesta.core.scmf.pdmet.PDMET_UHF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.scmf.qpewdmet">
+<span id="vayesta-core-scmf-qpewdmet"></span><h2>vayesta.core.scmf.qpewdmet<a class="headerlink" href="#module-vayesta.core.scmf.qpewdmet" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.qpewdmet.</span></span><span class="sig-name descname"><span class="pre">QPEWDMET_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">static_potential_conv_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">global_static_potential</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aux_shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aux_shift_frag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_hist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_scfs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_sym</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">static_potential_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">se_degen_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">se_eval_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_non_causal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/qpewdmet.html#QPEWDMET_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.scmf.scmf.SCMF" title="vayesta.core.scmf.scmf.SCMF"><code class="xref py py-class docutils literal notranslate"><span class="pre">SCMF</span></code></a></p>
+<p>Quasi-particle self-consistent energy weighted density matrix embedding</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'QP-EWDMET'</span></em><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/qpewdmet.html#QPEWDMET_RHF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new MO coefficients for a SCMF iteration.</p>
+<p>TODO: Should GF and SE be stored in AO basis since the MO basis may change between iterations?</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mf</strong> (<em>PySCF compatible SCF object</em>) – Mean-field object.</p></li>
+<li><p><strong>diis</strong> (<em>pyscf.lib.diis.DIIS object</em><em>, </em><em>optional</em>) – DIIS object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>mo_coeff</strong> – New MO coefficients.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.fock_scf">
+<span class="sig-name descname"><span class="pre">fock_scf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/qpewdmet.html#QPEWDMET_RHF.fock_scf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.fock_scf" title="Link to this definition"></a></dt>
+<dd><p>Relax density in presence of new static potential</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>v</strong> (<em>ndarray</em>) – Static potential</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>mo_coeff</strong> – New MO coefficients.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/qpewdmet.html#QPEWDMET_RHF.check_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.get_greens_function">
+<span class="sig-name descname"><span class="pre">get_greens_function</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/qpewdmet.html#QPEWDMET_RHF.get_greens_function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.get_greens_function" title="Link to this definition"></a></dt>
+<dd><p>Calculate the dynamic and static Green’s function in the Lehmann representation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>gf</strong> (<em>Lehmann</em>) – Dynamic Green’s function from Block Lanczos</p></li>
+<li><p><strong>gf_qp</strong> (<em>Lehmann</em>) – Static Green’s function from Fock matrix + Klein potential</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.get_diis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.scmf.scmf">
+<span id="vayesta-core-scmf-scmf"></span><h2>vayesta.core.scmf.scmf<a class="headerlink" href="#module-vayesta.core.scmf.scmf" title="Link to this heading"></a></h2>
+<p>Self-consistent mean-field decorators</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.scmf.</span></span><span class="sig-name descname"><span class="pre">SCMF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">damping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis_space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis_min_space</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/scmf.html#SCMF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'SCMF'</span></em><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.e_tot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot</span></span><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.e_tot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.e_tot_oneshot">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">e_tot_oneshot</span></span><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.e_tot_oneshot" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.get_diis">
+<span class="sig-name descname"><span class="pre">get_diis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/scmf.html#SCMF.get_diis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.get_diis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.kernel_orig">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_orig</span></span><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.kernel_orig" title="Link to this definition"></a></dt>
+<dd><p>Original kernel of embedding method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.update_mo_coeff">
+<span class="sig-name descname"><span class="pre">update_mo_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/scmf.html#SCMF.update_mo_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.update_mo_coeff" title="Link to this definition"></a></dt>
+<dd><p>Get new set of MO coefficients.</p>
+<p>Must be implemented for any SCMF method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.check_convergence">
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_tot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/scmf.html#SCMF.check_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.check_convergence" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.scmf.scmf.SCMF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf/scmf.html#SCMF.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.scmf.SCMF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.scmf">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.core.scmf" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.scmf.PDMET">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.</span></span><span class="sig-name descname"><span class="pre">PDMET</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emb</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf.html#PDMET"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.PDMET" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.scmf.Brueckner">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.</span></span><span class="sig-name descname"><span class="pre">Brueckner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emb</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf.html#Brueckner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.Brueckner" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.scmf.QPEWDMET">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.scmf.</span></span><span class="sig-name descname"><span class="pre">QPEWDMET</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emb</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/scmf.html#QPEWDMET"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.scmf.QPEWDMET" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.core.qemb.html" class="btn btn-neutral float-left" title="vayesta.core.qemb" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.core.screening.html" class="btn btn-neutral float-right" title="vayesta.core.screening" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

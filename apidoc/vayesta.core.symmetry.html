@@ -1,0 +1,835 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.symmetry &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.core.types" href="vayesta.core.types.html" />
+    <link rel="prev" title="vayesta.core.screening" href="vayesta.core.screening.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.html">vayesta.core</a></li>
+      <li class="breadcrumb-item active">vayesta.core.symmetry</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.core.symmetry.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-core-symmetry">
+<h1>vayesta.core.symmetry<a class="headerlink" href="#vayesta-core-symmetry" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.core.symmetry.group">
+<span id="vayesta-core-symmetry-group"></span><h2>vayesta.core.symmetry.group<a class="headerlink" href="#module-vayesta.core.symmetry.group" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.group.</span></span><span class="sig-name descname"><span class="pre">SymmetryGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Detect symmetry group automatically (use spglib?).</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.dimension">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimension</span></span><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.dimension" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.compare_atoms">
+<span class="sig-name descname"><span class="pre">compare_atoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup.compare_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.compare_atoms" title="Link to this definition"></a></dt>
+<dd><p>Compare atom symbol and (optionally) basis between atom1 and atom2.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.get_closest_atom">
+<span class="sig-name descname"><span class="pre">get_closest_atom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup.get_closest_atom"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.get_closest_atom" title="Link to this definition"></a></dt>
+<dd><p>pos in internal coordinates.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.add_rotation">
+<span class="sig-name descname"><span class="pre">add_rotation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ang'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup.add_rotation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.add_rotation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.set_translations">
+<span class="sig-name descname"><span class="pre">set_translations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nimages</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup.set_translations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.set_translations" title="Link to this definition"></a></dt>
+<dd><p>Set translational symmetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nimages</strong> (<em>array</em><em>(</em><em>3</em><em>)</em>) – Number of translationally symmetric images in the direction of the first, second,
+and third lattice vector.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.group.SymmetryGroup.clear_translations">
+<span class="sig-name descname"><span class="pre">clear_translations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/group.html#SymmetryGroup.clear_translations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.group.SymmetryGroup.clear_translations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.symmetry.operation">
+<span id="vayesta-core-symmetry-operation"></span><h2>vayesta.core.symmetry.operation<a class="headerlink" href="#module-vayesta.core.symmetry.operation" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryOperation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.call_wrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.call_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.apply_to_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.apply_to_point" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.get_atom_reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.get_ao_reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryOperation.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryOperation.rotate_angular_orbitals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryOperation.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryIdentity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryIdentity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="vayesta.core.symmetry.operation.SymmetryOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymmetryOperation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryIdentity.apply_to_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.apply_to_point" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryIdentity.get_atom_reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryIdentity.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryIdentity.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryInversion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryInversion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="vayesta.core.symmetry.operation.SymmetryOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymmetryOperation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryInversion.apply_to_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.apply_to_point" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryInversion.call_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryInversion.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryInversion.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryReflection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryReflection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="vayesta.core.symmetry.operation.SymmetryOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymmetryOperation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.as_matrix">
+<span class="sig-name descname"><span class="pre">as_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryReflection.as_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.as_matrix" title="Link to this definition"></a></dt>
+<dd><p>Householder matrix. Does not account for shifted origin!</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryReflection.apply_to_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.apply_to_point" title="Link to this definition"></a></dt>
+<dd><p>Householder transformation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryReflection.call_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryReflection.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryReflection.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryRotation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotvec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryRotation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="vayesta.core.symmetry.operation.SymmetryOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymmetryOperation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.as_matrix">
+<span class="sig-name descname"><span class="pre">as_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryRotation.as_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.as_matrix" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryRotation.apply_to_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.apply_to_point" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryRotation.call_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryRotation.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryRotation.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.operation.</span></span><span class="sig-name descname"><span class="pre">SymmetryTranslation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ao_reorder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryTranslation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.symmetry.operation.SymmetryOperation" title="vayesta.core.symmetry.operation.SymmetryOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymmetryOperation</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.call_kernel">
+<span class="sig-name descname"><span class="pre">call_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryTranslation.call_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.call_kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.inverse">
+<span class="sig-name descname"><span class="pre">inverse</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryTranslation.inverse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.inverse" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.lattice_vectors">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">lattice_vectors</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.lattice_vectors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.inv_lattice_vectors">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">inv_lattice_vectors</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.inv_lattice_vectors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.boundary_phases">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">boundary_phases</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.boundary_phases" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.vector_xyz">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">vector_xyz</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.vector_xyz" title="Link to this definition"></a></dt>
+<dd><p>Translation vector in real-space coordinates (unit = Bohr).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.inverse_atom_reorder">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">inverse_atom_reorder</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.inverse_atom_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.apply_to_point">
+<span class="sig-name descname"><span class="pre">apply_to_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.apply_to_point" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.call_wrapper">
+<span class="sig-name descname"><span class="pre">call_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.call_wrapper" title="Link to this definition"></a></dt>
+<dd><p>Common pre- and post-processing for all symmetries.</p>
+<p>Symmetry specific processing is performed in call_kernel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.get_atom_reorder">
+<span class="sig-name descname"><span class="pre">get_atom_reorder</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryTranslation.get_atom_reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.get_atom_reorder" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given translation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+<li><p><strong>phases</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.nao">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nao</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.nao" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.rotate_angular_orbitals">
+<span class="sig-name descname"><span class="pre">rotate_angular_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotmats</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.rotate_angular_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Rotate between orbitals in p,d,f,… shells.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.xtol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xtol</span></span><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.xtol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.operation.SymmetryTranslation.get_ao_reorder">
+<span class="sig-name descname"><span class="pre">get_ao_reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom_reorder_phases</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/operation.html#SymmetryTranslation.get_ao_reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.operation.SymmetryTranslation.get_ao_reorder" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.symmetry.symmetry">
+<span id="vayesta-core-symmetry-symmetry"></span><h2>vayesta.core.symmetry.symmetry<a class="headerlink" href="#module-vayesta.core.symmetry.symmetry" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.unit_vector">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.symmetry.</span></span><span class="sig-name descname"><span class="pre">unit_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#unit_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.unit_vector" title="Link to this definition"></a></dt>
+<dd><p>Returns the unit vector of the vector.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.angle_between">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.symmetry.</span></span><span class="sig-name descname"><span class="pre">angle_between</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#angle_between"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.angle_between" title="Link to this definition"></a></dt>
+<dd><p>Returns the angle in radians between vectors ‘v1’ and ‘v2’:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">angle_between</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>1.5707963267948966
+&gt;&gt;&gt; angle_between((1, 0, 0), (1, 0, 0))
+0.0
+&gt;&gt;&gt; angle_between((1, 0, 0), (-1, 0, 0))
+3.141592653589793</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.symmetry.</span></span><span class="sig-name descname"><span class="pre">Symmetry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log=&lt;Logger</span> <span class="pre">vayesta.core.symmetry.symmetry</span> <span class="pre">(INFO)&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.cell">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cell</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.cell" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.natom">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.natom" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.natom_unique">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">natom_unique</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.natom_unique" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.get_unique_atoms">
+<span class="sig-name descname"><span class="pre">get_unique_atoms</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.get_unique_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.get_unique_atoms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.primitive_lattice_vectors">
+<span class="sig-name descname"><span class="pre">primitive_lattice_vectors</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.primitive_lattice_vectors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.primitive_lattice_vectors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.atom_coords">
+<span class="sig-name descname"><span class="pre">atom_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Bohr'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.atom_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.atom_coords" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.lattice_vectors">
+<span class="sig-name descname"><span class="pre">lattice_vectors</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.lattice_vectors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.lattice_vectors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.pbcndims">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">pbcndims</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.pbcndims" title="Link to this definition"></a></dt>
+<dd><p>0 = No PBC, 1 = 1D 2 = 2D, 3 = 3D.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of periodic boundary conditions</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.has_pbc">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">has_pbc</span></span><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.has_pbc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.compare_atoms">
+<span class="sig-name descname"><span class="pre">compare_atoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atom1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">respect_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">respect_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.compare_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.compare_atoms" title="Link to this definition"></a></dt>
+<dd><p>Compare atom symbol and (optionally) basis between atom1 and atom2.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.symmetry.Symmetry.find_subcells">
+<span class="sig-name descname"><span class="pre">find_subcells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">respect_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">respect_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">respect_dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/symmetry.html#Symmetry.find_subcells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.symmetry.Symmetry.find_subcells" title="Link to this definition"></a></dt>
+<dd><p>Find subcells within cell, with unit cell vectors parallel to the supercell.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>respect_basis</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, the basis functions are considered when determining the symmetry. Default: True.</p></li>
+<li><p><strong>respect_labels</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, the labels of atoms (such as “H1” or “C*”) are considered when determining the symmetry. Default: False.</p></li>
+<li><p><strong>respect_dm1</strong> (<em>array</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – If a (tuple of) density-matrix is passed, it is considered when determining the symmetry. Default: None.</p></li>
+<li><p><strong>r_tol</strong> (<em>float</em><em>, </em><em>optional</em>) – Real space tolerance to determine if two atoms are symmetry equivalent. Default: 1e-5.</p></li>
+<li><p><strong>dm1_tol</strong> (<em>float</em><em>, </em><em>optional</em>) – Density-matrix tolerance to determine the symmetry. Default: 1e-6.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>nsubcells</strong> – Number of primitive subcells in (a0, a1, a2) direction.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple(3)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.symmetry.tsymmetry">
+<span id="vayesta-core-symmetry-tsymmetry"></span><h2>vayesta.core.symmetry.tsymmetry<a class="headerlink" href="#module-vayesta.core.symmetry.tsymmetry" title="Link to this heading"></a></h2>
+<p>Translational symmetry module.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.to_bohr">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">to_bohr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#to_bohr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.to_bohr" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.get_mesh_tvecs">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">get_mesh_tvecs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvecs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#get_mesh_tvecs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.get_mesh_tvecs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.loop_tvecs">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">loop_tvecs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvecs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#loop_tvecs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.loop_tvecs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.tsymmetric_atoms">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">tsymmetric_atoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rvecs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_element</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#tsymmetric_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.tsymmetric_atoms" title="Link to this definition"></a></dt>
+<dd><p>Get indices of translationally symmetric atoms.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cell</strong> (<em>pyscf.pbc.gto.Cell</em>) – Unit cell.</p></li>
+<li><p><strong>rvecs</strong> (<em>(</em><em>3</em><em>, </em><em>3</em><em>) </em><em>array</em>) – The rows contain the real space translation vectors.</p></li>
+<li><p><strong>xtol</strong> (<em>float</em><em>, </em><em>optional</em>) – Tolerance to identify equivalent atom positions. Default: 1e-8</p></li>
+<li><p><strong>unit</strong> (<em>[</em><em>'Ang'</em><em>, </em><em>'Bohr'</em><em>]</em>) – Unit of <cite>rvecs</cite> and <cite>xtol</cite>. Default: ‘Ang’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>indices</strong> – List with length <cite>cell.natm</cite>. Each element represents the lowest atom index of a
+translationally symmetry equivalent atom.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.compare_atoms">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">compare_atoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#compare_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.compare_atoms" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.reorder_atoms">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">reorder_atoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_basis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#reorder_atoms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.reorder_atoms" title="Link to this definition"></a></dt>
+<dd><p>Reordering of atoms for a given translation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tvec</strong> – Translation vector.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>reorder</strong> (<em>list</em>)</p></li>
+<li><p><strong>inverse</strong> (<em>list</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.reorder_atoms2aos">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">reorder_atoms2aos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom_reorder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atom_phases</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#reorder_atoms2aos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.reorder_atoms2aos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.reorder_aos">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">reorder_aos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#reorder_aos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.reorder_aos" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.symmetry.tsymmetry.get_tsymmetry_op">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.symmetry.tsymmetry.</span></span><span class="sig-name descname"><span class="pre">get_tsymmetry_op</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/symmetry/tsymmetry.html#get_tsymmetry_op"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.symmetry.tsymmetry.get_tsymmetry_op" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-vayesta.core.symmetry">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.core.symmetry" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.core.screening.html" class="btn btn-neutral float-left" title="vayesta.core.screening" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.core.types.html" class="btn btn-neutral float-right" title="vayesta.core.types" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

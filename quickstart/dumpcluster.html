@@ -1,0 +1,203 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dumping Cluster Hamiltonians &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="FAQ" href="../faq/index.html" />
+    <link rel="prev" title="Parallel Computing with MPI" href="mpi.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quickstart</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dmet.html">Density-Matrix Embbeding Theory (DMET)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ewf.html">Wave Function Based Embedding (EWF)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fragmentation.html">Defining Fragments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpi.html">Parallel Computing with MPI</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Dumping Cluster Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Quickstart</a></li>
+      <li class="breadcrumb-item active">Dumping Cluster Hamiltonians</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/dumpcluster.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dumping-cluster-hamiltonians">
+<span id="dumpcluster"></span><h1>Dumping Cluster Hamiltonians<a class="headerlink" href="#dumping-cluster-hamiltonians" title="Link to this heading"></a></h1>
+<p>Some users may want to utilize <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> to easily define fragments within the system
+and obtain the corresponding cluster Hamiltonians, but solve the embedding problems externally and with their own solvers.
+To accomodate for this, the <code class="docutils literal notranslate"><span class="pre">EWF</span></code> class allows setting <code class="docutils literal notranslate"><span class="pre">solver='Dump'</span></code>, which will dump orbitals and integrals
+of all fragments to an <a class="reference external" href="https://www.hdfgroup.org/solutions/hdf5/">HDF5</a> file and exit.</p>
+<p>The name of the HDF5 file is <code class="docutils literal notranslate"><span class="pre">clusters.h5</span></code> by default, but can be adjusted via an additional solver option:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">mf</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;DUMP&quot;</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">),</span> <span class="n">solver_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">dumpfile</span><span class="o">=</span><span class="s2">&quot;clusters-rhf.h5&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The full example can be found at <code class="docutils literal notranslate"><span class="pre">examples/ewf/molecules/20-dump-clusters.py</span></code></p>
+</div>
+<p>The dump file contains a separate group for each fragment which was defined for the embedding.
+The content of each group can be best illustrated via this code snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+
+<span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s2">&quot;clusters-rhf.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="c1"># The HDF5 file contains a separate group for each fragment in the system:</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">frag</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># The HDF5-group key for each fragment is constructed as &#39;fragment_%d&#39; % id</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Key= </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+        <span class="c1"># Name and ID of fragment:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;name= </span><span class="si">%s</span><span class="s2">, id= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]))</span>
+        <span class="c1"># Number of all/occupied/virtual orbitals:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Full cluster:&quot;</span><span class="p">)</span>
+        <span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;norb&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nocc&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nvir&quot;</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;norb= </span><span class="si">%d</span><span class="s2">, nocc= </span><span class="si">%d</span><span class="s2">, nvir= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">))</span>
+        <span class="c1"># Orbital coefficients:</span>
+        <span class="c1"># The first dimension corresponds to the atomic orbitals,</span>
+        <span class="c1"># the second dimension to the cluster or fragment orbitals, respectively.</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_cluster.shape= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_cluster&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_frag.shape=    (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_frag&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># Integral arrays:</span>
+        <span class="c1"># fock, and eris are the Fock, and 2-electron Hamiltonian</span>
+        <span class="c1"># matrix elements in the cluster space.</span>
+        <span class="c1"># heff is the 1-electron Hamiltonian, plus an additional potential due to the Coulomb and exchange</span>
+        <span class="c1"># interaction with the occupied environment orbitals outside the cluster.</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;heff.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;heff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;fock.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;fock&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># The 2-electron integrals are in chemical ordering: eris[i,j,k,l] = (ij|kl)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eris.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;eris&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># DMET cluster:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DMET cluster:&quot;</span><span class="p">)</span>
+        <span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="p">[</span><span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_dmet_cluster&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;norb&quot;</span><span class="p">,</span> <span class="s2">&quot;nocc&quot;</span><span class="p">,</span> <span class="s2">&quot;nvir&quot;</span><span class="p">)]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;norb= </span><span class="si">%d</span><span class="s2">, nocc= </span><span class="si">%d</span><span class="s2">, nvir= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>For a spin-unrestricted calculation, the shapes and dataset names are slighlty different:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+<span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s2">&quot;clusters-uhf.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">frag</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Key= </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+        <span class="c1"># Name and ID:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;name= </span><span class="si">%s</span><span class="s2">, id= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]))</span>
+        <span class="c1"># The orbital sizes are now arrays of length 2, representing alpha and beta spin dimension</span>
+        <span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;norb&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nocc&quot;</span><span class="p">],</span> <span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nvir&quot;</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;norb= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">), nocc= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">), nvir= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="o">*</span><span class="n">norb</span><span class="p">,</span> <span class="o">*</span><span class="n">nocc</span><span class="p">,</span> <span class="o">*</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="c1"># The suffixes _a and _b correspond to alpha and beta spin:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_cluster_a.shape= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_cluster_a&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_cluster_b.shape= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_cluster_b&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_frag_a.shape=    (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_frag_a&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_frag_b.shape=    (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_frag_b&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># Integral arrays:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;heff_a.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;heff_a&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;heff_b.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;heff_b&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;fock_a.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;fock_a&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;fock_b.shape=      (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;fock_b&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># The spin blocks correspond to (aa|aa), (aa|bb), and (bb|bb)</span>
+        <span class="c1"># (Note that (bb|aa) = (aa|bb).transpose(2,3,0,1) for real orbitals):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eris_aa.shape=     (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;eris_aa&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eris_ab.shape=     (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;eris_ab&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eris_bb.shape=     (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;eris_bb&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="c1"># DMET cluster:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DMET cluster:&quot;</span><span class="p">)</span>
+        <span class="n">norb</span><span class="p">,</span> <span class="n">nocc</span><span class="p">,</span> <span class="n">nvir</span> <span class="o">=</span> <span class="p">[</span><span class="n">frag</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_dmet_cluster&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;norb&quot;</span><span class="p">,</span> <span class="s2">&quot;nocc&quot;</span><span class="p">,</span> <span class="s2">&quot;nvir&quot;</span><span class="p">)]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;norb= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">), nocc= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">), nvir= (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="o">*</span><span class="n">norb</span><span class="p">,</span> <span class="o">*</span><span class="n">nocc</span><span class="p">,</span> <span class="o">*</span><span class="n">nvir</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_dmet_cluster_a.shape=    (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_dmet_cluster_a&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;c_dmet_cluster_b.shape=    (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">frag</span><span class="p">[</span><span class="s2">&quot;c_dmet_cluster_b&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="mpi.html" class="btn btn-neutral float-left" title="Parallel Computing with MPI" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../faq/index.html" class="btn btn-neutral float-right" title="FAQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,259 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.fragmentation.iaopao &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../fragmentation.html">vayesta.core.fragmentation</a></li>
+      <li class="breadcrumb-item active">vayesta.core.fragmentation.iaopao</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.fragmentation.iaopao</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.lo</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.iao</span><span class="w"> </span><span class="kn">import</span> <span class="n">IAO_Fragmentation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.iao</span><span class="w"> </span><span class="kn">import</span> <span class="n">IAO_Fragmentation_UHF</span>
+
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IAOPAO_Fragmentation</span><span class="p">(</span><span class="n">IAO_Fragmentation</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;IAO/PAO&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Order according to AOs:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">iaopao_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_labels</span><span class="p">()</span>
+        <span class="n">ao_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">ao_labels</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">iaopao_labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">iaopao_labels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)[</span><span class="n">order</span><span class="p">])]</span> <span class="o">==</span> <span class="n">ao_labels</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation.get_pao_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation.get_pao_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_pao_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iao_coeff</span><span class="p">):</span>
+        <span class="n">core</span><span class="p">,</span> <span class="n">valence</span><span class="p">,</span> <span class="n">rydberg</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lo</span><span class="o">.</span><span class="n">nao</span><span class="o">.</span><span class="n">_core_val_ryd_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">)</span>
+        <span class="n">niao</span> <span class="o">=</span> <span class="n">iao_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">npao</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rydberg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">niao</span> <span class="o">+</span> <span class="n">npao</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;Incorrect number of PAOs!&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;n(IAO)= </span><span class="si">%d</span><span class="s2">  n(PAO)= </span><span class="si">%d</span><span class="s2">  n(AO)= </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">niao</span><span class="p">,</span> <span class="n">npao</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">)</span>
+            <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> core AOs:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">core</span><span class="p">),</span> <span class="n">labels</span><span class="p">[</span><span class="n">core</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> valence AOs:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">valence</span><span class="p">),</span> <span class="n">labels</span><span class="p">[</span><span class="n">valence</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">fatal</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> Rydberg AOs:</span><span class="se">\n</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rydberg</span><span class="p">),</span> <span class="n">labels</span><span class="p">[</span><span class="n">rydberg</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Incorrect number of PAOs!&quot;</span><span class="p">)</span>
+
+        <span class="c1"># In case a minimal basis set is used:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rydberg</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># &quot;Representation of Rydberg-AOs in terms of AOs&quot;</span>
+        <span class="n">pao_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">)[:,</span> <span class="n">rydberg</span><span class="p">]</span>
+        <span class="c1"># Project AOs onto non-IAO space:</span>
+        <span class="c1"># (S^-1 - C.CT) . S = (1 - C.CT.S)</span>
+        <span class="n">ovlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="n">p_pao</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nao</span><span class="p">)</span> <span class="o">-</span> <span class="n">dot</span><span class="p">(</span><span class="n">iao_coeff</span><span class="p">,</span> <span class="n">iao_coeff</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+        <span class="n">pao_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">p_pao</span><span class="p">,</span> <span class="n">pao_coeff</span><span class="p">)</span>
+
+        <span class="c1"># Orthogonalize PAOs:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">e_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symmetric_orth</span><span class="p">(</span><span class="n">pao_coeff</span><span class="p">,</span> <span class="n">ovlp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span>
+            <span class="s2">&quot;Lowdin orthogonalization of PAOs: n(in)= </span><span class="si">%3d</span><span class="s2"> -&gt; n(out)= </span><span class="si">%3d</span><span class="s2"> , e(min)= </span><span class="si">%.3e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">e_min</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">e_min</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Small eigenvalue in Lowdin orthogonalization: </span><span class="si">%.3e</span><span class="s2"> !&quot;</span><span class="p">,</span> <span class="n">e_min</span><span class="p">)</span>
+        <span class="n">pao_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pao_coeff</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pao_coeff</span></div>
+
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make projected atomic orbitals (PAOs).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="n">iao_coeff</span> <span class="o">=</span> <span class="n">IAO_Fragmentation</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">pao_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pao_coeff</span><span class="p">(</span><span class="n">iao_coeff</span><span class="p">)</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="n">iao_coeff</span><span class="p">,</span> <span class="n">pao_coeff</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># Test orthogonality of IAO+PAO</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_orthonormal</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">coeff</span><span class="p">[:,</span> <span class="n">order</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">coeff</span></div>
+
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation.get_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation.get_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="n">iao_labels</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_labels</span><span class="p">()</span>
+        <span class="n">core</span><span class="p">,</span> <span class="n">valence</span><span class="p">,</span> <span class="n">rydberg</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">lo</span><span class="o">.</span><span class="n">nao</span><span class="o">.</span><span class="n">_core_val_ryd_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">)</span>
+        <span class="n">pao_labels</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)[</span><span class="n">rydberg</span><span class="p">]]</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">iao_labels</span> <span class="o">+</span> <span class="n">pao_labels</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)[</span><span class="n">order</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">labels</span></div>
+
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation.search_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation.search_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">search_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">search_ao_label</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IAOPAO_Fragmentation_UHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation_UHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IAOPAO_Fragmentation_UHF</span><span class="p">(</span><span class="n">IAOPAO_Fragmentation</span><span class="p">,</span> <span class="n">IAO_Fragmentation_UHF</span><span class="p">):</span>
+<div class="viewcode-block" id="IAOPAO_Fragmentation_UHF.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.iaopao.IAOPAO_Fragmentation_UHF.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make projected atomic orbitals (PAOs).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="n">iao_coeff</span> <span class="o">=</span> <span class="n">IAO_Fragmentation_UHF</span><span class="o">.</span><span class="n">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">add_virtuals</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">pao_coeff_a</span> <span class="o">=</span> <span class="n">IAOPAO_Fragmentation</span><span class="o">.</span><span class="n">get_pao_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iao_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">pao_coeff_b</span> <span class="o">=</span> <span class="n">IAOPAO_Fragmentation</span><span class="o">.</span><span class="n">get_pao_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iao_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">pao_coeff</span> <span class="o">=</span> <span class="p">(</span><span class="n">pao_coeff_a</span><span class="p">,</span> <span class="n">pao_coeff_b</span><span class="p">)</span>
+
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">hstack_matrices</span><span class="p">(</span><span class="n">iao_coeff</span><span class="p">,</span> <span class="n">pao_coeff</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># Test orthogonality of IAO+PAO</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_orthonormal</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="n">order</span><span class="p">],</span> <span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">][:,</span> <span class="n">order</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">coeff</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+
+    <span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+    <span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;O 0 0 -1.2 ; C 0 0 0 ; O 0 0 1.2&quot;</span>
+    <span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pVDZ&quot;</span>
+    <span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+    <span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+    <span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+    <span class="n">iaopao</span> <span class="o">=</span> <span class="n">IAOPAO_Fragmentation</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+
+    <span class="n">ao_labels</span> <span class="o">=</span> <span class="n">mol</span><span class="o">.</span><span class="n">ao_labels</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Atomic order&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">iaopao</span><span class="o">.</span><span class="n">get_labels</span><span class="p">()):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%30r</span><span class="s2">   vs  </span><span class="si">%30r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">ao_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

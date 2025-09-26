@@ -1,0 +1,405 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.scmf.qpewdmet &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../scmf.html">vayesta.core.scmf</a></li>
+      <li class="breadcrumb-item active">vayesta.core.scmf.qpewdmet</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.scmf.qpewdmet</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.scmf.scmf</span><span class="w"> </span><span class="kn">import</span> <span class="n">SCMF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.foldscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">FoldedSCF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.lattmod</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatticeRHF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.qemb.self_energy</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_self_energy_1proj</span><span class="p">,</span> <span class="n">make_self_energy_2proj</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dyson</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lehmann</span><span class="p">,</span> <span class="n">AuxiliaryShift</span>
+
+<div class="viewcode-block" id="QPEWDMET_RHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">QPEWDMET_RHF</span><span class="p">(</span><span class="n">SCMF</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Quasi-particle self-consistent energy weighted density matrix embedding &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;QP-EWDMET&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb</span><span class="p">,</span> <span class="n">proj</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">static_potential_conv_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">global_static_potential</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sc</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">aux_shift</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">aux_shift_frag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">store_hist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">store_scfs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">static_potential_init</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">se_degen_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">se_eval_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">drop_non_causal</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">        Initialize QPEWDMET </span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        emb : QEmbedding o</span>
+<span class="sd">            Embedding object on which self consitency is based</span>
+<span class="sd">        proj : int </span>
+<span class="sd">            Number of fragment projectors applied to cluster self-energy</span>
+<span class="sd">        static_potential_conv_tol : float</span>
+<span class="sd">            Convergence threshold for static potential</span>
+<span class="sd">        eta : float</span>
+<span class="sd">            Broadening factor for static potential</span>
+<span class="sd">        damping : float</span>
+<span class="sd">            Damping factor for Fock matrix update</span>
+<span class="sd">        sc : bool</span>
+<span class="sd">            Use self-consistent determination of MOs for new Fock matrix</span>
+<span class="sd">        store_hist : bool</span>
+<span class="sd">            Store history throughout SCMF calculation (for debugging purposes)</span>
+<span class="sd">        use_sym : bool</span>
+<span class="sd">            Use fragment symmetry</span>
+<span class="sd">        static_potential_init : ndarray</span>
+<span class="sd">            Inital static potential</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">sc_fock</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sc_fock</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sc</span> <span class="o">=</span> <span class="n">sc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">=</span> <span class="n">eta</span> <span class="c1"># Broadening factor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_last</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_conv_tol</span> <span class="o">=</span> <span class="n">static_potential_conv_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">=</span> <span class="n">proj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store_hist</span> <span class="o">=</span> <span class="n">store_hist</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_sym</span> <span class="o">=</span> <span class="n">use_sym</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_init</span> <span class="o">=</span> <span class="n">static_potential_init</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store_scfs</span> <span class="o">=</span> <span class="n">store_scfs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">se_degen_tol</span> <span class="o">=</span> <span class="n">se_degen_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">se_eval_tol</span> <span class="o">=</span> <span class="n">se_eval_tol</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop_non_causal</span> <span class="o">=</span> <span class="n">drop_non_causal</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aux_shift</span> <span class="o">=</span> <span class="n">aux_shift</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aux_shift_frag</span> <span class="o">=</span> <span class="n">aux_shift_frag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_static_potential</span> <span class="o">=</span> <span class="n">global_static_potential</span>
+        
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">store_hist</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_hist</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_frag_hist</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fock_hist</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_gap_hist</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dynamic_gap_hist</span> <span class="o">=</span> <span class="p">[]</span>  
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_hist</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">mom_hist</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">store_scfs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="n">damping</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            
+            <span class="n">e</span><span class="p">,</span> <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_scf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">static_potential_init</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">update_mf</span><span class="p">(</span><span class="n">mo_coeff</span><span class="p">)</span>
+
+            <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+            <span class="c1"># Check symmetry - needs fixing</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">check_fragment_symmetry</span><span class="p">(</span><span class="n">dm1</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">SymmetryError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Symmetry check failed in </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="QPEWDMET_RHF.update_mo_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.update_mo_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_mo_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo_coeff</span><span class="p">,</span> <span class="n">mo_occ</span><span class="p">,</span> <span class="n">diis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get new MO coefficients for a SCMF iteration.</span>
+
+<span class="sd">        TODO: Should GF and SE be stored in AO basis since the MO basis may change between iterations?</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mf : PySCF compatible SCF object</span>
+<span class="sd">            Mean-field object.</span>
+<span class="sd">        diis : pyscf.lib.diis.DIIS object, optional</span>
+<span class="sd">            DIIS object.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mo_coeff : ndarray</span>
+<span class="sd">            New MO coefficients.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_last</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fock</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="n">make_self_energy_1proj</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_sym</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span><span class="n">aux_shift_frag</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aux_shift_frag</span><span class="p">,</span> <span class="n">se_degen_tol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">se_degen_tol</span><span class="p">,</span> <span class="n">se_eval_tol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">se_eval_tol</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="n">make_self_energy_2proj</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_sym</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="n">phys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span> 
+        <span class="n">gf</span> <span class="o">=</span> <span class="n">Lehmann</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="o">.</span><span class="n">diagonalise_matrix_with_projection</span><span class="p">(</span><span class="n">phys</span><span class="p">),</span> <span class="n">chempot</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="o">.</span><span class="n">chempot</span><span class="p">)</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span>
+        <span class="n">nelec_gf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Number of electrons in GF: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">nelec_gf</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_shift</span><span class="p">:</span>
+            <span class="n">aux</span> <span class="o">=</span> <span class="n">AuxiliaryShift</span><span class="p">(</span><span class="n">phys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nelectron</span><span class="p">,</span> <span class="n">occupancy</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">aux</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span> <span class="o">=</span> <span class="n">aux</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+            <span class="n">gf</span> <span class="o">=</span> <span class="n">aux</span><span class="o">.</span><span class="n">get_greens_function</span><span class="p">()</span>
+            <span class="n">dm</span> <span class="o">=</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span>
+            <span class="n">nelec_gf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Number of electrons in (shifted) GF: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">nelec_gf</span><span class="p">)</span>
+        <span class="n">gap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">gf</span><span class="p">:</span> <span class="n">gf</span><span class="o">.</span><span class="n">physical</span><span class="p">()</span><span class="o">.</span><span class="n">virtual</span><span class="p">()</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">gf</span><span class="o">.</span><span class="n">physical</span><span class="p">()</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+
+        <span class="n">v_old</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_static_potential</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="o">.</span><span class="n">as_static_potential</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">)</span>  <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">diis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">=</span> <span class="n">diis</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span><span class="p">)</span>
+        
+        <span class="n">new_fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">+</span> <span class="n">sc</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span> <span class="o">@</span> <span class="n">sc</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sc_fock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">damping</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">damping</span><span class="p">)</span> <span class="o">*</span> <span class="n">new_fock</span>
+        <span class="c1">#self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gf2</span> <span class="o">=</span> <span class="n">gf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gf_qp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_greens_function</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sc</span><span class="p">:</span>
+            <span class="n">e</span><span class="p">,</span> <span class="n">mo_coeff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock_scf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e</span><span class="p">,</span> <span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sc_fock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">())</span>
+        
+        <span class="n">dynamic_gap</span> <span class="o">=</span> <span class="n">gap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gf</span><span class="p">)</span>
+        <span class="n">static_gap</span> <span class="o">=</span> <span class="n">gap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gf_qp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">store_hist</span><span class="p">:</span>        
+            <span class="c1">#self.static_potential_frag_hist.append(v_frag.copy())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fock_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sc_fock</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">static_gap_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">static_gap</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dynamic_gap_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dynamic_gap</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_hist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Dynamic Gap = </span><span class="si">%f</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">dynamic_gap</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Static Gap = </span><span class="si">%f</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">static_gap</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mo_coeff</span></div>
+
+
+<div class="viewcode-block" id="QPEWDMET_RHF.fock_scf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.fock_scf">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fock_scf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Relax density in presence of new static potential</span>
+
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            v : ndarray</span>
+<span class="sd">                Static potential</span>
+<span class="sd">            </span>
+<span class="sd">            Returns</span>
+<span class="sd">            -------</span>
+<span class="sd">            mo_coeff : ndarray</span>
+<span class="sd">                New MO coefficients.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1">#mf = LatticeRHF(self.emb.mf.mol)</span>
+        <span class="n">mf_class</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mf_class</span> <span class="ow">is</span> <span class="n">FoldedSCF</span><span class="p">:</span>
+            <span class="c1"># Temporary work around for k-SCF</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF&quot;</span><span class="p">)</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">mf_class</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="p">)</span>
+        <span class="c1">#mf.get_fock_old = mf.get_fock</span>
+        <span class="c1">#def get_fock(*args, **kwargs):</span>
+        <span class="c1">#    return mf.get_fock_old(*args, **kwargs) + self.static_potential</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_hcore</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_hcore</span><span class="p">()</span> <span class="o">+</span> <span class="n">v</span>
+        <span class="n">mf</span><span class="o">.</span><span class="n">get_hcore</span> <span class="o">=</span> <span class="n">get_hcore</span>
+        <span class="n">e_tot</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+
+        <span class="c1"># def get_fock(dm):</span>
+        <span class="c1">#     dm_ao = np.linalg.multi_dot((mf.mo_coeff, dm, mf.mo_coeff.T))</span>
+        <span class="c1">#     fock = mf.get_fock(dm=dm_ao)</span>
+        <span class="c1">#     return np.linalg.multi_dot((mf.mo_coeff.T, fock, mf.mo_coeff))</span>
+
+        <span class="c1"># # Use the DensityRelaxation class to relax the density matrix such</span>
+        <span class="c1"># # that it is self-consistent with the Fock matrix, and the number of</span>
+        <span class="c1"># # electrons is correct</span>
+        <span class="c1"># solver = DensityRelaxation(get_fock, se, mol.nelectron)</span>
+        <span class="c1"># solver.conv_tol = 1e-10</span>
+        <span class="c1"># solver.max_cycle_inner = 30</span>
+        <span class="c1"># solver.kernel()2</span>
+
+        <span class="k">if</span> <span class="n">mf</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SCF converged, energy: </span><span class="si">{:.6f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e_tot</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;SCF NOT converged, energy: </span><span class="si">{:.6f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e_tot</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">store_scfs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span></div>
+
+
+<div class="viewcode-block" id="QPEWDMET_RHF.check_convergence">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.check_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e_tot</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">e_last</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dm1_last</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">de</span><span class="p">,</span> <span class="n">ddm</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">check_convergence</span><span class="p">(</span><span class="n">e_tot</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">e_last</span><span class="o">=</span><span class="n">e_last</span><span class="p">,</span> <span class="n">dm1_last</span><span class="o">=</span><span class="n">dm1_last</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="n">etol</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="n">dtol</span><span class="p">)</span>
+        <span class="n">dv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_last</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_last</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">dv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential_conv_tol</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">ddm</span>
+        <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">ddm</span></div>
+
+
+<div class="viewcode-block" id="QPEWDMET_RHF.get_greens_function">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.scmf.html#vayesta.core.scmf.qpewdmet.QPEWDMET_RHF.get_greens_function">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_greens_function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">        Calculate the dynamic and static Green&#39;s function in the Lehmann representation</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        gf : Lehmann</span>
+<span class="sd">            Dynamic Green&#39;s function from Block Lanczos</span>
+<span class="sd">        gf_qp : Lehmann</span>
+<span class="sd">            Static Green&#39;s function from Fock matrix + Klein potential</span>
+<span class="sd">         &quot;&quot;&quot;</span>
+
+
+        <span class="c1"># Shift final auxiliaries to ensure right particle number</span>
+        <span class="n">phys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span>
+        <span class="n">nelec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mol</span><span class="o">.</span><span class="n">nelectron</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">AuxiliaryShift</span><span class="p">(</span><span class="n">phys</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_energy</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">occupancy</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+        <span class="n">shift</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="n">se_shifted</span> <span class="o">=</span> <span class="n">shift</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+        <span class="n">vayesta</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Final (shifted) auxiliaries: </span><span class="si">{}</span><span class="s1"> (</span><span class="si">{}</span><span class="s1">o, </span><span class="si">{}</span><span class="s1">v)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">se_shifted</span><span class="o">.</span><span class="n">naux</span><span class="p">,</span> <span class="n">se_shifted</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">naux</span><span class="p">,</span> <span class="n">se_shifted</span><span class="o">.</span><span class="n">virtual</span><span class="p">()</span><span class="o">.</span><span class="n">naux</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">se_shifted</span> <span class="o">=</span> <span class="n">se_shifted</span>
+        <span class="c1"># Find the Green&#39;s function</span>
+
+        <span class="n">gf</span> <span class="o">=</span> <span class="n">Lehmann</span><span class="p">(</span><span class="o">*</span><span class="n">se_shifted</span><span class="o">.</span><span class="n">diagonalise_matrix_with_projection</span><span class="p">(</span><span class="n">phys</span><span class="p">),</span> <span class="n">chempot</span><span class="o">=</span><span class="n">se_shifted</span><span class="o">.</span><span class="n">chempot</span><span class="p">)</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span>
+        <span class="n">nelec_gf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">nelec_gf</span><span class="p">,</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">weights</span><span class="p">(</span><span class="n">occupancy</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()):</span>
+            <span class="n">vayesta</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Number of electrons in final (shifted) GF: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">nelec_gf</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vayesta</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Number of electrons in final (shifted) GF with dynamical self-energy: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">nelec_gf</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">nelec_gf</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">nelec</span><span class="p">)):</span>
+            <span class="n">vayesta</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Number of electrons in final (shifted) GF: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">nelec_gf</span><span class="p">)</span>
+
+        <span class="c1">#qp_ham = self.emb.get_fock() + self.static_potential</span>
+        <span class="n">sc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span>
+        <span class="n">qp_ham</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fock</span> <span class="o">+</span> <span class="n">sc</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_self_energy</span> <span class="o">@</span> <span class="n">sc</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">static_potential</span>
+        <span class="n">qp_e</span><span class="p">,</span> <span class="n">qp_c</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">qp_ham</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">())</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">qpham</span> <span class="o">=</span> <span class="n">qp_ham</span>
+        <span class="n">qp_mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">qp_e</span><span class="p">[</span><span class="n">nelec</span><span class="o">//</span><span class="mi">2</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">qp_e</span><span class="p">[</span><span class="n">nelec</span><span class="o">//</span><span class="mi">2</span><span class="p">]</span> <span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qpmu</span> <span class="o">=</span> <span class="n">qp_mu</span>
+        <span class="n">gf_qp</span> <span class="o">=</span> <span class="n">Lehmann</span><span class="p">(</span><span class="n">qp_e</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">qp_e</span><span class="p">)),</span> <span class="n">chempot</span><span class="o">=</span><span class="n">qp_mu</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">gf</span><span class="p">,</span> <span class="n">gf_qp</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

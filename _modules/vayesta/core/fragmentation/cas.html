@@ -1,0 +1,248 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.fragmentation.cas &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../fragmentation.html">vayesta.core.fragmentation</a></li>
+      <li class="breadcrumb-item active">vayesta.core.fragmentation.cas</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.fragmentation.cas</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">energy_string</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.fragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragmentation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.fragmentation.ufragmentation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fragmentation_UHF</span>
+
+
+<div class="viewcode-block" id="CAS_Fragmentation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CAS_Fragmentation</span><span class="p">(</span><span class="n">Fragmentation</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fragmentation into mean-field states.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CAS&quot;</span>
+
+<div class="viewcode-block" id="CAS_Fragmentation.get_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation.get_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return MO coefficients as &quot;fragment&quot; orbitals.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span></div>
+
+
+<div class="viewcode-block" id="CAS_Fragmentation.get_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation.get_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;MO&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nmo</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="CAS_Fragmentation.get_atom_indices_symbols">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation.get_atom_indices_symbols">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_atom_indices_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Atomic fragmentation is not compatible with CAS fragmentation&quot;</span><span class="p">)</span></div>
+
+
+    <span class="c1"># Need to overload this function since only accept integer specification in this case.</span>
+<div class="viewcode-block" id="CAS_Fragmentation.get_orbital_indices_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation.get_orbital_indices_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_orbital_indices_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">orbitals</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orbitals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="n">orbital_indices</span> <span class="o">=</span> <span class="n">orbitals</span>
+            <span class="n">orbital_labels</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)[</span><span class="n">orbitals</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">orbital_labels</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;</span><span class="si">%s%3s</span><span class="s2"> </span><span class="si">%s%-s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">l</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">orbital_labels</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">orbital_indices</span><span class="p">,</span> <span class="n">orbital_labels</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A list of integers is required! orbitals= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">orbitals</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CAS_Fragmentation.add_cas_fragment">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation.add_cas_fragment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_cas_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncas</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">degen_tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a single fragment containing a CAS.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ncas: int</span>
+<span class="sd">            Number of spatial orbitals within the fragment.</span>
+<span class="sd">        nelec: int</span>
+<span class="sd">            Number of electrons within the fragment.</span>
+<span class="sd">        name: str, optional</span>
+<span class="sd">            Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">is_rhf</span><span class="p">:</span>
+            <span class="n">occ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_occ</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">occ</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">nelec</span> <span class="o">&gt;</span> <span class="nb">sum</span><span class="p">(</span><span class="n">occ</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CAS specified with more electrons than present in system.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ncas</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">occ</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CAS specified with more orbitals than present in system.&quot;</span><span class="p">)</span>
+        <span class="c1"># Search for how many orbital pairs we have to include to obtain desired number of electrons.</span>
+        <span class="c1"># This should be stable regardless of occupancies etc.</span>
+        <span class="n">anyocc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">occ</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">offset</span><span class="p">,</span> <span class="n">nelec_curr</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">nelec_curr</span> <span class="o">&lt;</span> <span class="n">nelec</span><span class="p">:</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">nelec_curr</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">occ</span><span class="p">[</span><span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">nelec_curr</span> <span class="o">&gt;</span> <span class="n">nelec</span> <span class="ow">or</span> <span class="n">offset</span> <span class="o">&gt;</span> <span class="n">ncas</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot create CAS with required properties around Fermi level with current MO occupancy.&quot;</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">check_for_degen</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">po</span><span class="p">,</span> <span class="n">pv</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+            <span class="c1"># Log orbital energies</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">po</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">pv</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">))):</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">po</span><span class="p">:</span>
+                    <span class="n">orbtype</span> <span class="o">=</span> <span class="s2">&quot;core&quot;</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">pv</span><span class="p">:</span>
+                    <span class="n">orbtype</span> <span class="o">=</span> <span class="s2">&quot;external&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">orbtype</span> <span class="o">=</span> <span class="s2">&quot;CAS&quot;</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">po</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="mi">62</span> <span class="o">*</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;MO </span><span class="si">%4d</span><span class="s2">:  </span><span class="si">%-8s</span><span class="s2">  occupation= </span><span class="si">%1d</span><span class="s2">  energy= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">orbtype</span><span class="p">,</span> <span class="n">occ</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">energies</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="p">(</span><span class="n">pv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="mi">62</span> <span class="o">*</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">po</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ogap</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[</span><span class="n">po</span><span class="p">]</span> <span class="o">-</span> <span class="n">energies</span><span class="p">[</span><span class="n">po</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">CAS occupied energy gap: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">ogap</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">po</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">CAS contains all occupied orbitals.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                <span class="n">ogap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Shouldn&#39;t reach this as would require CAS to have more electrons than the full system.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CAS would contain more electrons than full system.&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ogap</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">degen_tol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Requested </span><span class="si">%s</span><span class="s2">CAS splits degenerate occupied orbitals.&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">vgap</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[</span><span class="n">pv</span><span class="p">]</span> <span class="o">-</span> <span class="n">energies</span><span class="p">[</span><span class="n">pv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">pv</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">CAS contains all virtual orbitals.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                <span class="n">vgap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">CAS virtual  energy gap: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">energy_string</span><span class="p">(</span><span class="n">vgap</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">vgap</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">degen_tol</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Requested CAS splits degenerate virtual orbitals.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">is_rhf</span><span class="p">:</span>
+            <span class="n">check_for_degen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">,</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">ncas</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">check_for_degen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">ncas</span><span class="p">,</span> <span class="s2">&quot;alpha &quot;</span><span class="p">)</span>
+            <span class="n">check_for_degen</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">ncas</span><span class="p">,</span> <span class="s2">&quot;beta &quot;</span><span class="p">)</span>
+
+        <span class="n">orbs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">anyocc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">ncas</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_orbital_fragment</span><span class="p">(</span><span class="n">orbs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CAS_Fragmentation_UHF">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation_UHF">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CAS_Fragmentation_UHF</span><span class="p">(</span><span class="n">Fragmentation_UHF</span><span class="p">,</span> <span class="n">CAS_Fragmentation</span><span class="p">):</span>
+<div class="viewcode-block" id="CAS_Fragmentation_UHF.get_labels">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.fragmentation.html#vayesta.core.fragmentation.cas.CAS_Fragmentation_UHF.get_labels">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;MO&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nmo</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

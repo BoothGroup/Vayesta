@@ -1,0 +1,628 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.qemb.self_energy &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.qemb.self_energy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.qemb.self_energy</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Routines to reconstruct the full system self-energy from cluster spectral moments&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">NotCalculatedError</span><span class="p">,</span> <span class="n">Object</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dyson</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lehmann</span><span class="p">,</span> <span class="n">MBLGF</span><span class="p">,</span> <span class="n">MixedMBLGF</span><span class="p">,</span> <span class="n">NullLogger</span><span class="p">,</span> <span class="n">AuxiliaryShift</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dyson required for self-energy calculations&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="make_self_energy_moments">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.make_self_energy_moments">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_self_energy_moments</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">n_se_mom</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">proj</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct full system self-energy moments from cluster spectral moments</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    emb : EWF object</span>
+<span class="sd">        Embedding object</span>
+<span class="sd">    n_se_mom : int</span>
+<span class="sd">        Number of self-energy moments</span>
+<span class="sd">    use_sym : bool</span>
+<span class="sd">        Use symmetry to reconstruct self-energy</span>
+<span class="sd">    proj : int</span>
+<span class="sd">        Number of projectors to use (1 or 2)</span>
+<span class="sd">    eta : float</span>
+<span class="sd">        Broadening factor for static potential</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    self_energy_moms : ndarry (n_se_mom, nmo, nmo)</span>
+<span class="sd">        Full system self-energy moments (MO basis)</span>
+<span class="sd">    static_self_energy : ndarray (nmo,nmo)</span>
+<span class="sd">        Static part of self-energy (MO basis)</span>
+<span class="sd">    static_potential : ndarray (nao,nao)</span>
+<span class="sd">        Static potential (AO basis)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fock</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+    <span class="n">static_self_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">static_potential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">self_energy_moms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_se_mom</span><span class="p">,</span> <span class="n">fock</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fock</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+    <span class="n">fragments</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">use_sym</span> <span class="k">else</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fragments</span><span class="p">):</span>
+        <span class="c1"># Calculate self energy from cluster moments</span>
+        <span class="n">th</span><span class="p">,</span> <span class="n">tp</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">moms</span>
+
+        <span class="n">solverh</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">th</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">NullLogger</span><span class="p">())</span>
+        <span class="n">solverp</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">NullLogger</span><span class="p">())</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="n">MixedMBLGF</span><span class="p">(</span><span class="n">solverh</span><span class="p">,</span> <span class="n">solverp</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="n">se</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+        <span class="n">se_moms_clus</span> <span class="o">=</span> <span class="p">[</span><span class="n">se</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_se_mom</span><span class="p">)]</span>
+
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|cluster&#39;</span><span class="p">)</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|frag&#39;</span><span class="p">)</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;frag|cluster&#39;</span><span class="p">)</span>
+        <span class="n">cfc</span> <span class="o">=</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">fc</span>
+        
+        <span class="c1"># Fock matrix in cluster basis</span>
+        <span class="n">fock_cls</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">fock</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+        <span class="n">e_cls</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">fock_cls</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">proj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Static potential</span>
+            <span class="n">v_cls</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">as_static_potential</span><span class="p">(</span><span class="n">e_cls</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="n">eta</span><span class="p">)</span> <span class="c1"># Static potential (used to update MF for the self-consistnecy)</span>
+            <span class="n">v_frag</span> <span class="o">=</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">v_cls</span>  
+            <span class="n">v_frag</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">v_frag</span> <span class="o">+</span> <span class="n">v_frag</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># Static self-energy</span>
+            <span class="n">static_se_cls</span> <span class="o">=</span> <span class="n">th</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">fock_cls</span>
+            <span class="n">static_self_energy_frag</span> <span class="o">=</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">static_se_cls</span>
+            <span class="n">static_self_energy_frag</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">static_self_energy_frag</span> <span class="o">+</span> <span class="n">static_self_energy_frag</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+            <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mc</span> <span class="o">@</span> <span class="n">static_self_energy_frag</span> <span class="o">@</span> <span class="n">mc</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># Self-energy moments</span>
+            <span class="n">se_moms_frag</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">cfc</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">+</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">cfc</span><span class="p">)</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_clus</span><span class="p">]</span>
+            <span class="n">self_energy_moms</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mc</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">mc</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_frag</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">use_sym</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">get_symmetry_children</span><span class="p">():</span>
+                    <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">child</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">mc_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|cluster&#39;</span><span class="p">)</span>
+                    <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mc_child</span> <span class="o">@</span> <span class="n">static_self_energy_frag</span> <span class="o">@</span> <span class="n">mc_child</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">self_energy_moms</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mc_child</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">mc_child</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_frag</span><span class="p">])</span>
+            
+        <span class="k">elif</span> <span class="n">proj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Static potential </span>
+            <span class="n">v_cls</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">as_static_potential</span><span class="p">(</span><span class="n">e_cls</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="n">eta</span><span class="p">)</span> 
+            <span class="n">v_frag</span> <span class="o">=</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">v_cls</span> <span class="o">@</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">f</span><span class="o">.</span><span class="n">c_frag</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># Static self-energy</span>
+            <span class="n">static_se_cls</span> <span class="o">=</span> <span class="n">th</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">fock_cls</span>
+            <span class="n">static_se_frag</span> <span class="o">=</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">static_se_cls</span> <span class="o">@</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mf</span> <span class="o">@</span> <span class="n">static_se_frag</span> <span class="o">@</span> <span class="n">mf</span><span class="o">.</span><span class="n">T</span>
+
+            <span class="c1"># Self-energy moments</span>
+            <span class="n">se_moms_frag</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">fc</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_clus</span><span class="p">]</span>
+            <span class="n">self_energy_moms</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mf</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">mf</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_frag</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">use_sym</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">get_symmetry_children</span><span class="p">():</span>
+                    <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">c_frag</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">child</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">mf_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|frag&#39;</span><span class="p">)</span>
+                    <span class="n">fc_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;frag|cluster&#39;</span><span class="p">)</span>
+                    <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mf_child</span> <span class="o">@</span> <span class="n">static_se_frag</span> <span class="o">@</span> <span class="n">mf_child</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">self_energy_moms</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mf_child</span> <span class="o">@</span> <span class="n">mom</span> <span class="o">@</span> <span class="n">mf_child</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">mom</span> <span class="ow">in</span> <span class="n">se_moms_frag</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">self_energy_moms</span><span class="p">,</span> <span class="n">static_self_energy</span><span class="p">,</span> <span class="n">static_potential</span></div>
+
+
+<div class="viewcode-block" id="make_self_energy_1proj">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.make_self_energy_1proj">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_self_energy_1proj</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_svd</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">aux_shift_frag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">se_degen_tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">se_eval_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">drop_non_causal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector</span>
+
+<span class="sd">    TODO: MPI, SVD</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    emb : EWF object</span>
+<span class="sd">        Embedding object</span>
+<span class="sd">    use_sym : bool</span>
+<span class="sd">        Use symmetry to reconstruct self-energy</span>
+<span class="sd">    use_svd : bool</span>
+<span class="sd">        Use SVD to decompose the self-energy as outer product</span>
+<span class="sd">    eta : float</span>
+<span class="sd">        Broadening factor for static potential</span>
+<span class="sd">    se_degen_tol : float</span>
+<span class="sd">        Tolerance for degeneracy in Lehmann representation</span>
+<span class="sd">    se_eval_tol : float</span>
+<span class="sd">        Tolerance for self-energy eigenvalues assumed to be kept</span>
+<span class="sd">    drop_non_causal : bool</span>
+<span class="sd">        Drop non-causal poles (negative eigenvalues) of self-energy</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    self_energy : Lehmann object</span>
+<span class="sd">        Reconstructed self-energy in Lehmann representation (MO basis)</span>
+<span class="sd">    static_self_energy : ndarray (nmo,nmo)</span>
+<span class="sd">        Static part of self-energy (MO basis)</span>
+<span class="sd">    static_potential : ndarray (nao,nao)</span>
+<span class="sd">        Static potential (AO basis)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fock</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+    <span class="n">static_self_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">static_potential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">use_svd</span><span class="p">:</span>
+        <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">fragments</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">use_sym</span> <span class="k">else</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fragments</span><span class="p">):</span>
+        <span class="c1"># Calculate self energy from cluster moments</span>
+        <span class="n">th</span><span class="p">,</span> <span class="n">tp</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">moms</span>
+
+        <span class="n">solverh</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">th</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+        <span class="n">solverp</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="n">MixedMBLGF</span><span class="p">(</span><span class="n">solverh</span><span class="p">,</span> <span class="n">solverp</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="n">se</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+        <span class="n">gf</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_greens_function</span><span class="p">()</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="n">nelec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>
+        <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2">: Electron target </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> without shift&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">nelectron</span><span class="p">,</span> <span class="n">nelec</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">aux_shift_frag</span><span class="p">:</span>
+            <span class="n">aux</span> <span class="o">=</span> <span class="n">AuxiliaryShift</span><span class="p">(</span><span class="n">th</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">tp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">se</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">nelectron</span><span class="p">,</span> <span class="n">occupancy</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">aux</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+            <span class="n">se</span> <span class="o">=</span> <span class="n">aux</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+            <span class="n">gf</span> <span class="o">=</span> <span class="n">aux</span><span class="o">.</span><span class="n">get_greens_function</span><span class="p">()</span>
+            <span class="n">dm</span> <span class="o">=</span> <span class="n">gf</span><span class="o">.</span><span class="n">occupied</span><span class="p">()</span><span class="o">.</span><span class="n">moment</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+            <span class="n">nelec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">dm</span><span class="p">)</span>
+            <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2">: Electron target </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> with shift&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">nelectron</span><span class="p">,</span> <span class="n">nelec</span><span class="p">))</span>
+
+        <span class="n">mc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|cluster&#39;</span><span class="p">)</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;frag|cluster&#39;</span><span class="p">)</span>
+        <span class="n">cfc</span> <span class="o">=</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">fc</span>
+        
+        <span class="c1"># Fock matrix in cluster basis</span>
+        <span class="n">fock_cls</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span>  <span class="o">@</span> <span class="n">fock</span>  <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+        <span class="n">e_cls</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">fock_cls</span><span class="p">)</span>
+        
+        <span class="c1"># Static potential</span>
+        <span class="n">v_cls</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">as_static_potential</span><span class="p">(</span><span class="n">e_cls</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="n">eta</span><span class="p">)</span> <span class="c1"># Static potential (used to update MF for the self-consistnecy)</span>
+        <span class="n">v_frag</span> <span class="o">=</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">v_cls</span>  
+        <span class="n">v_frag</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">v_frag</span> <span class="o">+</span> <span class="n">v_frag</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Static self-energy</span>
+        <span class="n">static_se_cls</span> <span class="o">=</span> <span class="n">th</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">fock_cls</span>
+        <span class="n">static_self_energy_frag</span> <span class="o">=</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">static_se_cls</span>
+        <span class="n">static_self_energy_frag</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">static_self_energy_frag</span> <span class="o">+</span> <span class="n">static_self_energy_frag</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mc</span> <span class="o">@</span> <span class="n">static_self_energy_frag</span> <span class="o">@</span> <span class="n">mc</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Dynamic self-energy</span>
+        <span class="n">coup_l</span><span class="p">,</span> <span class="n">coup_r</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">_unpack_couplings</span><span class="p">()</span>
+        <span class="n">sym_coup</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa-&gt;apq&#39;</span><span class="p">,</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">coup_l</span> <span class="p">,</span> <span class="n">coup_r</span><span class="p">)</span> <span class="o">+</span> <span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa-&gt;apq&#39;</span><span class="p">,</span> <span class="n">coup_l</span> <span class="p">,</span> <span class="n">cfc</span> <span class="o">@</span> <span class="n">coup_r</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">use_svd</span><span class="p">:</span>
+            <span class="n">couplings_l_frag</span><span class="p">,</span> <span class="n">couplings_r_frag</span><span class="p">,</span> <span class="n">energies_frag</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sym_coup</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">sym_coup</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
+                <span class="n">U</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">Vt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">se_eval_tol</span>
+                <span class="k">assert</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">2</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span><span class="n">idx</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">Vt</span><span class="o">.</span><span class="n">conj</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">[:,</span><span class="n">idx</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+                <span class="n">couplings_l_frag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                <span class="n">couplings_r_frag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="n">energies_frag</span> <span class="o">+=</span> <span class="p">[</span><span class="n">se</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">())]</span>
+            
+            <span class="n">couplings_l_frag</span><span class="p">,</span> <span class="n">couplings_r_frag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_l_frag</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_r_frag</span><span class="p">)</span>
+            <span class="n">couplings_l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc</span> <span class="o">@</span> <span class="n">couplings_l_frag</span><span class="p">)</span>
+            <span class="n">couplings_r</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc</span> <span class="o">@</span> <span class="n">couplings_r_frag</span><span class="p">)</span>
+            <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">energies_frag</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">couplings_frag</span><span class="p">,</span> <span class="n">energies_frag</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sym_coup</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">sym_coup</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
+                <span class="n">val</span><span class="p">,</span> <span class="n">vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">se_eval_tol</span>
+                <span class="k">assert</span> <span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">2</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="n">vec</span><span class="p">[:,</span><span class="n">idx</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">))</span>
+                <span class="n">couplings_frag</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+                <span class="n">energies_frag</span> <span class="o">+=</span> <span class="p">[</span><span class="n">se</span><span class="o">.</span><span class="n">energies</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">())]</span>
+
+            <span class="n">couplings_frag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_frag</span><span class="p">)</span>
+
+            <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc</span> <span class="o">@</span> <span class="n">couplings_frag</span><span class="p">)</span>
+            <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">energies_frag</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">use_sym</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">get_symmetry_children</span><span class="p">():</span>
+                <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">child</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">mc_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|cluster&#39;</span><span class="p">)</span>
+                <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mc_child</span> <span class="o">@</span> <span class="n">static_self_energy_frag</span> <span class="o">@</span> <span class="n">mc_child</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">energies_frag</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">use_svd</span><span class="p">:</span>
+                    <span class="n">couplings_l</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc_child</span> <span class="o">@</span> <span class="n">couplings_l_frag</span><span class="p">)</span>
+                    <span class="n">couplings_r</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc_child</span> <span class="o">@</span> <span class="n">couplings_r_frag</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mc_child</span> <span class="o">@</span> <span class="n">couplings_frag</span><span class="p">)</span>
+
+    <span class="n">energies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">use_svd</span><span class="p">:</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_l</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_r</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings</span><span class="p">)</span>
+    <span class="n">self_energy</span> <span class="o">=</span> <span class="n">Lehmann</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">couplings</span><span class="p">)</span>
+
+    <span class="n">self_energy</span> <span class="o">=</span> <span class="n">remove_se_degeneracy</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">self_energy</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="n">se_degen_tol</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="n">se_eval_tol</span><span class="p">,</span> <span class="n">drop_non_causal</span><span class="o">=</span><span class="n">drop_non_causal</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">self_energy</span><span class="p">,</span> <span class="n">static_self_energy</span><span class="p">,</span> <span class="n">static_potential</span></div>
+
+
+
+<div class="viewcode-block" id="make_self_energy_2proj">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.make_self_energy_2proj">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_self_energy_2proj</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">use_sym</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct full system self-energy in Lehmann representation from cluster spectral moments using 2 projectors</span>
+
+<span class="sd">    TODO: MPI, SVD</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    emb : EWF object</span>
+<span class="sd">        Embedding object</span>
+<span class="sd">    use_sym : bool</span>
+<span class="sd">        Use symmetry to reconstruct self-energy</span>
+<span class="sd">    eta : float</span>
+<span class="sd">        Broadening factor for static potential</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    self_energy : Lehmann object</span>
+<span class="sd">        Reconstructed self-energy in Lehmann representation (MO basis)</span>
+<span class="sd">    static_self_energy : ndarray (nmo,nmo)</span>
+<span class="sd">        Static part of self-energy (MO basis)</span>
+<span class="sd">    static_potential : ndarray (nao,nao)</span>
+<span class="sd">        Static potential (AO basis)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fock</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fock</span><span class="p">()</span>
+    <span class="n">static_self_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">static_potential</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">fock</span><span class="p">)</span>
+    <span class="n">couplings</span><span class="p">,</span> <span class="n">energies</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="n">fragments</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">use_sym</span> <span class="k">else</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fragments</span><span class="p">):</span>
+        <span class="c1"># Calculate self energy from cluster moments</span>
+        <span class="n">th</span><span class="p">,</span> <span class="n">tp</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">moms</span>
+
+        <span class="n">solverh</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">th</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">NullLogger</span><span class="p">())</span>
+        <span class="n">solverp</span> <span class="o">=</span> <span class="n">MBLGF</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">NullLogger</span><span class="p">())</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="n">MixedMBLGF</span><span class="p">(</span><span class="n">solverh</span><span class="p">,</span> <span class="n">solverp</span><span class="p">)</span>
+        <span class="n">solver</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+        <span class="n">se</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">get_self_energy</span><span class="p">()</span>
+
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|frag&#39;</span><span class="p">)</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;frag|cluster&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Fock matrix in cluster basis</span>
+        <span class="n">fock_cls</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">fock</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active</span>
+        <span class="n">e_cls</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">fock_cls</span><span class="p">)</span>
+        
+        <span class="c1"># Static potential </span>
+        <span class="n">v_cls</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">as_static_potential</span><span class="p">(</span><span class="n">e_cls</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="n">eta</span><span class="p">)</span> 
+        <span class="n">v_frag</span> <span class="o">=</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">v_cls</span> <span class="o">@</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">f</span><span class="o">.</span><span class="n">c_frag</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">f</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Static self-energy</span>
+        <span class="n">static_se_cls</span> <span class="o">=</span> <span class="n">th</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">fock_cls</span>
+        <span class="n">static_se_frag</span> <span class="o">=</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">static_se_cls</span> <span class="o">@</span> <span class="n">fc</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mf</span> <span class="o">@</span> <span class="n">static_se_frag</span> <span class="o">@</span> <span class="n">mf</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Dynamic self-energy</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">couplings</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+            <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">couplings</span>
+            <span class="n">couplings_l</span> <span class="o">=</span> <span class="n">mf</span> <span class="o">@</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">couplings_l</span>
+            <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">mf</span> <span class="o">@</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">couplings_r</span>
+            <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mf</span> <span class="o">@</span> <span class="n">fc</span> <span class="o">@</span> <span class="n">se</span><span class="o">.</span><span class="n">couplings</span><span class="p">)</span>
+        <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">energies</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">use_sym</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">get_symmetry_children</span><span class="p">():</span>
+                <span class="n">static_potential</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">c_frag</span> <span class="o">@</span> <span class="n">v_frag</span> <span class="o">@</span> <span class="n">child</span><span class="o">.</span><span class="n">c_frag</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">mf_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;mo|frag&#39;</span><span class="p">)</span>
+                <span class="n">fc_child</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s1">&#39;frag|cluster&#39;</span><span class="p">)</span>
+                <span class="n">static_self_energy</span> <span class="o">+=</span> <span class="n">mf_child</span> <span class="o">@</span> <span class="n">static_se_frag</span> <span class="o">@</span> <span class="n">mf_child</span><span class="o">.</span><span class="n">T</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">couplings</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+                    <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">couplings</span>
+                    <span class="n">couplings_l</span> <span class="o">=</span> <span class="n">mf_child</span> <span class="o">@</span> <span class="n">fc_child</span> <span class="o">@</span> <span class="n">couplings_l</span>
+                    <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">mf_child</span> <span class="o">@</span> <span class="n">fc_child</span> <span class="o">@</span> <span class="n">couplings_r</span>
+                    <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mf_child</span> <span class="o">@</span> <span class="n">fc_child</span> <span class="o">@</span> <span class="n">se</span><span class="o">.</span><span class="n">couplings</span><span class="p">)</span>
+
+                <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">energies</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">couplings</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">couplings</span><span class="p">)</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_l</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings_r</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">couplings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings</span><span class="p">)</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="n">self_energy</span> <span class="o">=</span> <span class="n">Lehmann</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">couplings</span><span class="p">)</span>
+    <span class="c1">#self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)</span>
+
+    <span class="k">return</span> <span class="n">self_energy</span><span class="p">,</span> <span class="n">static_self_energy</span><span class="p">,</span> <span class="n">static_potential</span></div>
+
+
+<div class="viewcode-block" id="remove_se_degeneracy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.remove_se_degeneracy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_se_degeneracy</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">se</span><span class="p">,</span> <span class="n">dtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">etol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">drop_non_causal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+    <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Removing degeneracy in self-energy - degenerate energy tol=</span><span class="si">%e</span><span class="s2">   evec tol=</span><span class="si">%e</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">dtol</span><span class="p">,</span> <span class="n">etol</span><span class="p">))</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">energies</span>
+    <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">_unpack_couplings</span><span class="p">()</span>
+    <span class="n">e_new</span><span class="p">,</span> <span class="n">slices</span> <span class="o">=</span> <span class="n">get_unique</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">dtol</span><span class="p">)</span><span class="c1">#</span>
+    <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Number of energies = </span><span class="si">%d</span><span class="s2">,  unique = </span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">e</span><span class="p">),</span><span class="nb">len</span><span class="p">(</span><span class="n">e_new</span><span class="p">)))</span>
+    <span class="n">energies</span><span class="p">,</span> <span class="n">couplings</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="n">warn_non_causal</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">slices</span><span class="p">):</span>
+        <span class="n">mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa-&gt;pq&#39;</span><span class="p">,</span> <span class="n">couplings_l</span><span class="p">[:,</span><span class="n">s</span><span class="p">],</span> <span class="n">couplings_r</span><span class="p">[:,</span><span class="n">s</span><span class="p">])</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">val</span><span class="p">,</span> <span class="n">vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+        <span class="k">if</span>  <span class="n">drop_non_causal</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">val</span> <span class="o">&gt;</span> <span class="n">etol</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">etol</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">etol</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warn_non_causal</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">vec</span><span class="p">[:,</span><span class="n">idx</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">))</span>
+        <span class="n">couplings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="n">energies</span> <span class="o">+=</span> <span class="p">[</span><span class="n">e_new</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">sum</span><span class="p">())]</span>
+
+        <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;    | E = </span><span class="si">%e</span><span class="s2"> &lt;&lt; </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">e_new</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">e</span><span class="p">[</span><span class="n">s</span><span class="p">]))</span>
+        <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;       evals: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">val</span><span class="p">)</span>
+        <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;       kept:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+    <span class="k">if</span> <span class="n">warn_non_causal</span><span class="p">:</span>
+        <span class="n">emb</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Non-causal poles found in self-energy&quot;</span><span class="p">)</span>
+    <span class="n">couplings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">couplings</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+    <span class="k">return</span> <span class="n">Lehmann</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">couplings</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="get_unique">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.get_unique">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_unique</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-15</span><span class="p">):</span>
+    
+    <span class="c1"># Find elements of a sorted float array which are unique up to a tolerance</span>
+    
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+    
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">idxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">while</span> <span class="n">i</span><span class="o">+</span><span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">array</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">array</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="n">j</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">atol</span><span class="p">:</span>
+                <span class="n">idxs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="n">j</span><span class="p">)</span>
+                <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="k">break</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">j</span>
+        <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">idxs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">new_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">array</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">new_array</span><span class="p">,</span> <span class="n">slices</span></div>
+
+
+
+<div class="viewcode-block" id="fit_hermitian">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.qemb.html#vayesta.core.qemb.self_energy.fit_hermitian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fit_hermitian</span><span class="p">(</span><span class="n">se</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fit a causal self-energy</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    se : Lehmann</span>
+<span class="sd">        Self-energy in Lehmann representation</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    se : Lehmann</span>
+<span class="sd">        Fitted causal self-energy</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">energies</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">energies</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">_unpack_couplings</span><span class="p">()</span>
+    <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span> <span class="o">=</span> <span class="n">couplings_l</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">couplings_r</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">energies</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">,</span> <span class="n">denom</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">obj</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">V</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">integrand</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+            <span class="n">denom</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">energies</span><span class="p">)</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">,</span> <span class="n">denom</span><span class="p">)</span>
+
+            <span class="n">denom</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">e</span><span class="p">)</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">denom</span><span class="p">)</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="c1">#print(c)</span>
+            <span class="k">return</span> <span class="n">c</span>
+        <span class="n">lim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="n">val</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">integrate</span><span class="o">.</span><span class="n">quad</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="o">-</span><span class="n">lim</span><span class="p">,</span> <span class="n">lim</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;obj: </span><span class="si">%s</span><span class="s2"> err: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">err</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">val</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">grad</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">V</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">integrand_V</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">energies</span><span class="p">))</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">e</span><span class="p">))</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+            <span class="n">omegaRe</span> <span class="o">=</span> <span class="n">e</span><span class="o">/</span><span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">omegaIm</span> <span class="o">=</span> <span class="n">w</span><span class="o">/</span><span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+            <span class="n">ret</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;rq,qb,b-&gt;rb&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaRe</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pr,pb,b-&gt;rb&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaRe</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;rq,qb,b-&gt;rb&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaIm</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pr,pb,b-&gt;rb&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaIm</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">ret</span>
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">integrand_e</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">couplings_l</span><span class="p">,</span> <span class="n">couplings_r</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">energies</span><span class="p">))</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pa,qa,a-&gt;pq&#39;</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">w</span> <span class="o">-</span> <span class="n">e</span><span class="p">))</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+            <span class="n">omegaRe</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">omegaIm</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">e</span><span class="o">*</span><span class="n">w</span><span class="o">/</span><span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="c1">#print(omegaIm)</span>
+
+            <span class="n">ret</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pq,pb,qb,b-&gt;b&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaRe</span><span class="p">)</span>
+            <span class="n">ret</span> <span class="o">+=</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;pq,pb,qb,b-&gt;b&#39;</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">omegaIm</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ret</span>
+
+
+        <span class="n">integrand</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">integrand_V</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">integrand_e</span><span class="p">(</span><span class="n">w</span><span class="p">)])</span>
+        <span class="n">lim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="n">jac</span><span class="p">,</span> <span class="n">err_V</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">integrate</span><span class="o">.</span><span class="n">quad_vec</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">integrand</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="o">-</span><span class="n">lim</span><span class="p">,</span> <span class="n">lim</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;grad norm: </span><span class="si">%s</span><span class="s1"> err: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">jac</span><span class="p">),</span><span class="n">err_V</span><span class="p">))</span>
+        <span class="c1">#print(grad)</span>
+        <span class="k">return</span> <span class="n">jac</span>
+        
+
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">couplings_l</span><span class="p">,</span> <span class="n">energies</span><span class="p">])</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+    <span class="n">xgrad</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;obj(x0) = </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">obj</span><span class="p">(</span><span class="n">x0</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;grad(x0)&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">xgrad</span><span class="p">)</span>
+    <span class="c1">#x0 = np.random.randn(*x0.shape)  #* 1e-2</span>
+
+    <span class="c1">#x = xgrad.reshape(x0.shape)</span>
+
+    <span class="c1">#return xgrad</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;BFGS&#39;</span><span class="p">)</span>
+    <span class="c1">#res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method=&#39;BFGS&#39;))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Sucess </span><span class="si">%s</span><span class="s2">, Integral = </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Lehmann</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

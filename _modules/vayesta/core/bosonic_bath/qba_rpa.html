@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.bosonic_bath.qba_rpa &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.bosonic_bath.qba_rpa</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.bosonic_bath.qba_rpa</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.bath.bath</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bath</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.bosonic_bath.bbath</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bosonic_Bath</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<div class="viewcode-block" id="RPA_Boson_Target_Space">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_Boson_Target_Space">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RPA_Boson_Target_Space</span><span class="p">(</span><span class="n">Bath</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to obtain the target excitation space from which we&#39;ll construct our bosonic bath.</span>
+<span class="sd">    This can either start from either the DMET or fully extended cluster, and can be optionally projected onto</span>
+<span class="sd">    excitations local to the fragment in either just the occupied space or both the occupied and virtual spaces.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">target_orbitals</span><span class="o">=</span><span class="s2">&quot;full&quot;</span><span class="p">,</span> <span class="n">local_projection</span><span class="o">=</span><span class="s2">&quot;fragment&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span> <span class="o">=</span> <span class="n">target_orbitals</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span> <span class="o">=</span> <span class="n">local_projection</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fragment</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">spin_restricted</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Spin-unrestricted RPA bosonic bath not yet implemented.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_occ</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_occ</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mo_coeff_vir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">mo_coeff_vir</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ovlp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_ovlp</span><span class="p">()</span>
+
+<div class="viewcode-block" id="RPA_Boson_Target_Space.get_c_target">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_Boson_Target_Space.get_c_target">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_c_target</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span> <span class="o">==</span> <span class="s2">&quot;full&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_occ</span><span class="p">),</span> <span class="n">dot</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">c_active_vir</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span> <span class="o">==</span> <span class="s2">&quot;dmet&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">_dmet_bath</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="p">),</span> <span class="n">dot</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">_dmet_bath</span><span class="o">.</span><span class="n">c_cluster_vir</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown target orbital requested.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RPA_Boson_Target_Space.get_c_loc">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_Boson_Target_Space.get_c_loc">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_c_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;fragment&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span><span class="p">)</span> <span class="o">==</span> <span class="mi">8</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span> <span class="o">==</span> <span class="s2">&quot;occ&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="p">),</span> <span class="kc">None</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">==</span> <span class="s2">&quot;ov&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span><span class="p">),</span> <span class="n">dot</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ovlp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_frag</span>
+                <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown fragment projection requested.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RPA_Boson_Target_Space.gen_target_excitation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_Boson_Target_Space.gen_target_excitation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_target_excitation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the targeted excitation space for a given fragment&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;Fragment </span><span class="si">%s</span><span class="s2"> generating RPA bosonic bath using </span><span class="si">%s</span><span class="s2"> excitations and projection onto </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">local_projection</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Obtain all values in the equivalent global space.</span>
+        <span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_c_target</span><span class="p">()</span>
+        <span class="n">c_loc_occ</span><span class="p">,</span> <span class="n">c_loc_vir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_c_loc</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">c_loc_occ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s_occ</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_loc_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c_occ</span><span class="p">)</span>
+            <span class="n">c_occ</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_occ</span><span class="p">,</span> <span class="n">s_occ</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s_occ</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c_loc_vir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s_vir</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_loc_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">)</span>
+            <span class="n">c_vir</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">c_vir</span><span class="p">,</span> <span class="n">s_vir</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">s_vir</span><span class="p">)</span>
+
+        <span class="n">tar_ss</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iI,aA-&gt;IAia&quot;</span><span class="p">,</span> <span class="n">c_occ</span><span class="p">,</span> <span class="n">c_vir</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">c_occ</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">c_vir</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">tar_ss</span><span class="p">,</span> <span class="n">tar_ss</span><span class="p">))</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_target_orbitals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span> <span class="o">==</span> <span class="s2">&quot;full&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_occ</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">c_vir</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_orbitals</span> <span class="o">==</span> <span class="s2">&quot;dmet&quot;</span><span class="p">:</span>
+            <span class="n">dmet_bath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fragment</span><span class="o">.</span><span class="n">_dmet_bath</span>
+            <span class="k">return</span> <span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_occ</span><span class="p">,</span> <span class="n">dmet_bath</span><span class="o">.</span><span class="n">c_cluster_vir</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown target orbital requested.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="RPA_QBA_Bath">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_QBA_Bath">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RPA_QBA_Bath</span><span class="p">(</span><span class="n">Bosonic_Bath</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fragment</span><span class="p">,</span> <span class="n">target_m0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_m0</span> <span class="o">=</span> <span class="n">target_m0</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fragment</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RPA_QBA_Bath.make_boson_coeff">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.bosonic_bath.html#vayesta.core.bosonic_bath.qba_rpa.RPA_QBA_Bath.make_boson_coeff">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_boson_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Generate full local fermionic excitation space.</span>
+        <span class="n">clus_ov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_excitations</span>
+        <span class="c1"># Remove any contributions within the fermionic excitation space of the fragment.</span>
+        <span class="n">m0_env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_m0</span> <span class="o">-</span> <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_m0</span><span class="p">,</span> <span class="n">clus_ov</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">clus_ov</span><span class="p">)</span>
+        <span class="c1"># Now we can construct the bosonic bath by diagonalising these contributions.</span>
+        <span class="n">contribs</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">m0_env</span><span class="p">,</span> <span class="n">m0_env</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">sort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">occup</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">contribs</span><span class="p">)</span>
+        <span class="n">occup</span> <span class="o">=</span> <span class="n">occup</span><span class="p">[</span><span class="n">sort</span><span class="p">]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">sort</span><span class="p">]</span>
+
+        <span class="n">occuprtinv</span> <span class="o">=</span> <span class="n">occup</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">coeff</span> <span class="o">=</span> <span class="n">dot</span><span class="p">((</span><span class="n">c</span> <span class="o">*</span> <span class="n">occuprtinv</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">m0_env</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">coeff</span> <span class="o">=</span> <span class="n">coeff</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">occup</span> <span class="o">=</span> <span class="n">occup</span>
+
+        <span class="k">return</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">occup</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

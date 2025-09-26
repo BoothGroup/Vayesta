@@ -1,0 +1,300 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.tools.eos &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.tools.eos</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.tools.eos</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="sd">&quot;&quot;&quot;Fitting of equations of states.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.optimize</span>
+
+<span class="n">HARTREE2JOULE</span> <span class="o">=</span> <span class="mf">4.359744e-18</span>
+<span class="n">ANGSTROM2METER</span> <span class="o">=</span> <span class="mf">1e-10</span>
+<span class="c1"># Hartree per cubic Angstrom to Giga-Pascal</span>
+<span class="n">HPCA2GPA</span> <span class="o">=</span> <span class="p">(</span><span class="n">HARTREE2JOULE</span> <span class="o">/</span> <span class="n">ANGSTROM2METER</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+
+<div class="viewcode-block" id="parabola">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.parabola">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parabola</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">e0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">b0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Quadratic equation of state.&quot;&quot;&quot;</span>
+    <span class="n">ev</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">b0</span> <span class="o">/</span> <span class="n">v0</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">v0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">e0</span>
+    <span class="k">return</span> <span class="n">ev</span></div>
+
+
+
+<div class="viewcode-block" id="birch_murnaghan">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.birch_murnaghan">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">birch_murnaghan</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">e0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">b0</span><span class="p">,</span> <span class="n">bp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Third-order Birch-Murnaghan equation of states.&quot;&quot;&quot;</span>
+    <span class="n">vr</span> <span class="o">=</span> <span class="p">(</span><span class="n">v0</span> <span class="o">/</span> <span class="n">v</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="p">(</span><span class="n">vr</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="p">(</span><span class="n">vr</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">6</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">vr</span><span class="p">)</span>
+    <span class="n">ev</span> <span class="o">=</span> <span class="n">e0</span> <span class="o">+</span> <span class="mi">9</span> <span class="o">/</span> <span class="mi">16</span> <span class="o">*</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">b0</span> <span class="o">*</span> <span class="p">(</span><span class="n">t1</span> <span class="o">*</span> <span class="n">bp</span> <span class="o">+</span> <span class="n">t2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ev</span></div>
+
+
+
+<div class="viewcode-block" id="FitResult">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.FitResult">[docs]</a>
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FitResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;DOC&quot;&quot;&quot;</span>
+
+    <span class="n">e0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">b0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">v0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">bp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">txt</span> <span class="o">=</span> <span class="s2">&quot;Fit results: E0= </span><span class="si">%.4f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">e0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">txt</span> <span class="o">+=</span> <span class="s2">&quot;  x0= </span><span class="si">%.4f</span><span class="s2"> A&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">x0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">txt</span> <span class="o">+=</span> <span class="s2">&quot;  V0= </span><span class="si">%.4f</span><span class="s2"> A^3&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">v0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">b0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">txt</span> <span class="o">+=</span> <span class="s2">&quot;  B0= </span><span class="si">%.4f</span><span class="s2"> GPa&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">b0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">txt</span> <span class="o">+=</span> <span class="s2">&quot;  B&#39;= </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">bp</span>
+        <span class="k">return</span> <span class="n">txt</span></div>
+
+
+
+<div class="viewcode-block" id="fit_eos">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.fit_eos">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fit_eos</span><span class="p">(</span><span class="n">volumes</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">fitfunc</span><span class="o">=</span><span class="n">birch_murnaghan</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">value_at</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit EOS to volumes, energies data points.&quot;&quot;&quot;</span>
+    <span class="c1"># Estimate starting parameters</span>
+    <span class="n">minidx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="n">e0</span> <span class="o">=</span> <span class="n">energies</span><span class="p">[</span><span class="n">minidx</span><span class="p">]</span>
+    <span class="n">v0</span> <span class="o">=</span> <span class="n">volumes</span><span class="p">[</span><span class="n">minidx</span><span class="p">]</span>
+    <span class="n">b0</span> <span class="o">=</span> <span class="n">bp</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">if</span> <span class="n">fitfunc</span> <span class="o">==</span> <span class="n">parabola</span><span class="p">:</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="p">(</span><span class="n">e0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">b0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="p">(</span><span class="n">e0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">b0</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
+
+    <span class="n">popt</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">curve_fit</span><span class="p">(</span><span class="n">fitfunc</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">p0</span><span class="o">=</span><span class="n">p0</span><span class="p">)</span>
+    <span class="n">e0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">b0</span> <span class="o">=</span> <span class="n">popt</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
+    <span class="n">other</span> <span class="o">=</span> <span class="n">popt</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span>
+
+    <span class="c1"># Convert to GPa</span>
+    <span class="n">b0</span> <span class="o">=</span> <span class="n">b0</span> <span class="o">*</span> <span class="n">HPCA2GPA</span>
+
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">volumes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">volumes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">fitfunc</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">*</span><span class="n">popt</span><span class="p">)</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mf">0.12</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.98</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.98</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Fit&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">volumes</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Data points&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">markeredgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">v0</span><span class="p">],</span> <span class="p">[</span><span class="n">e0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Minimum&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;C1&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">markeredgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Unit cell volume ($\mathrm{\AA}^3$)&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Unit cell energy ($E_\mathrm</span><span class="si">{H}</span><span class="s2">$)&quot;</span><span class="p">)</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">            $E_0 = </span><span class="si">% .6f</span><span class="s2">\,\mathrm</span><span class="si">{Ha}</span><span class="s2">$</span>
+<span class="s2">            $V_0 = </span><span class="si">% .6f</span><span class="s2">\,\mathrm{\AA}^3$</span>
+<span class="s2">            $B_0 = </span><span class="si">% .6f</span><span class="s2">\,\mathrm</span><span class="si">{GPa}</span><span class="s2">$</span>
+<span class="s2">            &quot;&quot;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">e0</span><span class="p">,</span>
+                <span class="n">v0</span><span class="p">,</span>
+                <span class="n">b0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">other</span><span class="p">:</span>
+                <span class="n">bp</span> <span class="o">=</span> <span class="n">other</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="s2">&quot;$B&#39;= </span><span class="si">% .6f</span><span class="s2">$</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">bp</span>
+            <span class="k">if</span> <span class="n">value_at</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">xv</span> <span class="o">=</span> <span class="n">value_at</span>
+                <span class="n">yv</span> <span class="o">=</span> <span class="n">fitfunc</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="o">*</span><span class="n">popt</span><span class="p">)</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="s2">&quot;$E(</span><span class="si">%g</span><span class="s2">\,\mathrm{\AA}^3)= </span><span class="si">%.6f</span><span class="s2">\,\mathrm</span><span class="si">{Ha}</span><span class="s2">$&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">xv</span><span class="p">],</span>
+                    <span class="p">[</span><span class="n">yv</span><span class="p">],</span>
+                    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Value at $V= </span><span class="si">%g</span><span class="s2">\,\mathrm{\AA}^3$&quot;</span> <span class="o">%</span> <span class="n">xv</span><span class="p">,</span>
+                    <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;d&quot;</span><span class="p">,</span>
+                    <span class="n">color</span><span class="o">=</span><span class="s2">&quot;C3&quot;</span><span class="p">,</span>
+                    <span class="n">markersize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                    <span class="n">markeredgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+                    <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">plot</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">plot</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error while creating plot: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">FitResult</span><span class="p">(</span><span class="n">e0</span><span class="p">,</span> <span class="n">b0</span><span class="p">,</span> <span class="n">v0</span><span class="o">=</span><span class="n">v0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">other</span><span class="p">:</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">bp</span> <span class="o">=</span> <span class="n">other</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="fit_from_file">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.fit_from_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fit_from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">xcol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ycol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">volume_func</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and fit EOS to textfile.&quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">xcol</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">ycol</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">volume_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">volume_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">fit_eos</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="cmdline_tool">
+<a class="viewcode-back" href="../../../apidoc/vayesta.tools.html#vayesta.tools.eos.cmdline_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmdline_tool</span><span class="p">():</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;file&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--lattice&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--bsse&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--xcol&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--ycol&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--no-plot&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;plot&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_false&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--value-at&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">volume_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">lattice</span> <span class="o">==</span> <span class="s2">&quot;diamond&quot;</span><span class="p">:</span>
+        <span class="n">volume_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+        <span class="n">inv_volume_func</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">lattice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">()</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">file</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Loading file </span><span class="si">%s</span><span class="s2"> using columns x= </span><span class="si">%d</span><span class="s2"> y= </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">file</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">xcol</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">ycol</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">args</span><span class="o">.</span><span class="n">xcol</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">args</span><span class="o">.</span><span class="n">ycol</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">bsse</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Loading BSSE from file </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">bsse</span><span class="p">)</span>
+        <span class="n">bsse_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">bsse</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">bsse_data</span><span class="p">[:,</span> <span class="n">args</span><span class="o">.</span><span class="n">xcol</span><span class="p">],</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">bsse_data</span><span class="p">[:,</span> <span class="n">args</span><span class="o">.</span><span class="n">ycol</span><span class="p">]</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">volume_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">fit_eos</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">plot</span><span class="p">,</span> <span class="n">value_at</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">value_at</span><span class="p">)</span>
+    <span class="n">result</span><span class="o">.</span><span class="n">x0</span> <span class="o">=</span> <span class="n">inv_volume_func</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">v0</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">cmdline_tool</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

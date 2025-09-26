@@ -1,0 +1,406 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.types.wf.rdm &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.types.wf.rdm</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.types.wf.rdm</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span><span class="p">,</span> <span class="n">callif</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">wf</span> <span class="k">as</span> <span class="n">wf_types</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types.wf.project</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">project_c1</span><span class="p">,</span>
+    <span class="n">project_c2</span><span class="p">,</span>
+    <span class="n">project_uc1</span><span class="p">,</span>
+    <span class="n">project_uc2</span><span class="p">,</span>
+    <span class="n">symmetrize_c2</span><span class="p">,</span>
+    <span class="n">symmetrize_uc2</span><span class="p">,</span>
+    <span class="n">transform_c1</span><span class="p">,</span>
+    <span class="n">transform_c2</span><span class="p">,</span>
+    <span class="n">transform_uc1</span><span class="p">,</span>
+    <span class="n">transform_uc2</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="RDM_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RDM_WaveFunction">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">RDM_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">mo</span><span class="o">.</span><span class="n">nspin</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">RRDM_WaveFunction</span>
+    <span class="k">elif</span> <span class="n">mo</span><span class="o">.</span><span class="n">nspin</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">URDM_WaveFunction</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RRDM_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RRDM_WaveFunction</span><span class="p">(</span><span class="n">wf_types</span><span class="o">.</span><span class="n">WaveFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Spin-restricted dummy wavefunction type that stores the 1- and 2-RDMs.</span>
+<span class="sd">    Allows interoperability with user-defined callback solvers which only </span>
+<span class="sd">    return the 1- and 2-RDMs.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="n">projector</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span> <span class="o">=</span> <span class="n">dm1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span> <span class="o">=</span> <span class="n">dm2</span>
+
+<div class="viewcode-block" id="RRDM_WaveFunction.make_rdm1">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.make_rdm1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">with_mf</span><span class="p">:</span>
+            <span class="n">dm1</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">)]</span> <span class="o">-=</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm1</span>
+        <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="o">.</span><span class="n">T</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="RRDM_WaveFunction.make_rdm2">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.make_rdm2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">with_dm1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">approx_cumulant</span><span class="p">:</span>
+                <span class="n">dm2</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_rdm2_non_cumulant</span><span class="p">(</span><span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  
+            <span class="k">elif</span> <span class="n">approx_cumulant</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+                <span class="n">dm1</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">)]</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">):</span>
+                    <span class="n">dm2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dm1</span>
+                    <span class="n">dm2</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dm1</span>
+                    <span class="n">dm2</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">dm1</span>
+                    <span class="n">dm2</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dm1</span>
+            <span class="k">elif</span> <span class="n">approx_cumulant</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm2</span>
+        <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="RRDM_WaveFunction.make_rdm2_non_cumulant">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.make_rdm2_non_cumulant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2_non_cumulant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">dm2</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm1</span><span class="p">)</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;iklj&quot;</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm2</span>
+        <span class="k">return</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">]))</span></div>
+
+    
+<div class="viewcode-block" id="RRDM_WaveFunction.copy">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="p">)</span>
+        <span class="n">dm2</span> <span class="o">=</span> <span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">)</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">callif</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="n">proj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RRDM_WaveFunction.project">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.project">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projector</span><span class="p">,</span> <span class="n">inplace</span><span class="p">):</span>
+        <span class="n">wf</span> <span class="o">=</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">dm1</span> <span class="o">=</span> <span class="n">project_c1</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">dm1</span><span class="p">,</span> <span class="n">projector</span><span class="p">)</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">dm2</span> <span class="o">=</span> <span class="n">project_c2</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="p">)</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">projector</span> <span class="o">=</span> <span class="n">projector</span>
+        <span class="k">return</span> <span class="n">wf</span></div>
+
+    
+<div class="viewcode-block" id="RRDM_WaveFunction.pack">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.pack">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pack into a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector</span><span class="p">)</span>
+        <span class="n">pack</span> <span class="o">=</span> <span class="n">pack_arrays</span><span class="p">(</span><span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pack</span></div>
+
+
+<div class="viewcode-block" id="RRDM_WaveFunction.unpack">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.unpack">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unpack</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">packed</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unpack from a single array of data type `dtype`.</span>
+
+<span class="sd">        Useful for communication via MPI.&quot;&quot;&quot;</span>
+        <span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span> <span class="o">=</span> <span class="n">unpack_arrays</span><span class="p">(</span><span class="n">packed</span><span class="p">)</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="n">SpatialOrbitals</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">mo</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="n">projector</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="RRDM_WaveFunction.restore">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.restore">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+    
+<div class="viewcode-block" id="RRDM_WaveFunction.as_unrestricted">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.RRDM_WaveFunction.as_unrestricted">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_unrestricted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+</div>
+
+
+<div class="viewcode-block" id="URDM_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">URDM_WaveFunction</span><span class="p">(</span><span class="n">RRDM_WaveFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Spin-unrestricted dummy wavefunction type that stores the 1- and 2-RDMs.</span>
+<span class="sd">    Allows interoperability with user-defined callback solvers which only </span>
+<span class="sd">    return the 1- and 2-RDMs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm1a</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm1b</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm2aa</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm2ab</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm2ba</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dm2bb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    
+<div class="viewcode-block" id="URDM_WaveFunction.make_rdm1">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction.make_rdm1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1a</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1b</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">with_mf</span><span class="p">:</span>
+            <span class="n">dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="n">dm1</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dm1</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dm1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">),</span>
+                <span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dm1</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">))</span></div>
+
+    
+<div class="viewcode-block" id="URDM_WaveFunction.make_rdm2">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction.make_rdm2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">nocca</span><span class="p">,</span> <span class="n">noccb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nocc</span>
+        <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1a</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1b</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> 
+        <span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2aa</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2ab</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2bb</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">with_dm1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">approx_cumulant</span><span class="p">:</span>
+                <span class="n">ncum2aa</span><span class="p">,</span> <span class="n">ncum2ab</span><span class="p">,</span> <span class="n">ncum2bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">make_rdm2_non_cumulant</span><span class="p">(</span><span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>   
+                <span class="n">dm2aa</span> <span class="o">-=</span> <span class="n">ncum2aa</span>
+                <span class="n">dm2ab</span> <span class="o">-=</span> <span class="n">ncum2ab</span>
+                <span class="n">dm2bb</span> <span class="o">-=</span> <span class="n">ncum2bb</span> 
+            <span class="k">elif</span> <span class="n">approx_cumulant</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+                <span class="n">dm1a</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="n">dm1b</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diag_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nocc</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nocca</span><span class="p">):</span>
+                    <span class="n">dm2aa</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">dm1a</span>
+                    <span class="n">dm2aa</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">dm1a</span>
+                    <span class="n">dm2aa</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">dm1a</span>
+                    <span class="n">dm2aa</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dm1a</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">dm2ab</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">dm1b</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">noccb</span><span class="p">):</span>
+                    <span class="n">dm2bb</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="n">dm1b</span>
+                    <span class="n">dm2bb</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">dm1b</span>
+                    <span class="n">dm2bb</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">dm1b</span>
+                    <span class="n">dm2bb</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dm1b</span><span class="o">.</span><span class="n">T</span>
+                    <span class="n">dm2ab</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">dm1a</span>
+
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nocca</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nocca</span><span class="p">):</span>
+                        <span class="n">dm2aa</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+                        <span class="n">dm2aa</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">noccb</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">noccb</span><span class="p">):</span>
+                        <span class="n">dm2bb</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+                        <span class="n">dm2bb</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nocca</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">noccb</span><span class="p">):</span>
+                        <span class="n">dm2ab</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+
+            <span class="k">elif</span> <span class="n">approx_cumulant</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]])),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]])),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+               <span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="URDM_WaveFunction.make_rdm2_non_cumulant">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction.make_rdm2_non_cumulant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2_non_cumulant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1a</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1b</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">dm2aa</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1a</span><span class="p">)</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;iklj&quot;</span><span class="p">,</span> <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1a</span><span class="p">)</span>
+        <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">)</span> <span class="o">-</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;iklj&quot;</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">)</span>
+        <span class="n">dm2ab</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ij,kl-&gt;ijkl&quot;</span><span class="p">,</span> <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ao_basis</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]])),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]])),</span>
+                <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijkl,ai,bj,ck,dl-&gt;abcd&quot;</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">coeff</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+               <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="URDM_WaveFunction.copy">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="p">[</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm1</span><span class="p">]</span>
+        <span class="n">dm2</span> <span class="o">=</span> <span class="p">[</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm2</span><span class="p">]</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">callif</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">dm1</span><span class="p">,</span> <span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="n">proj</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="URDM_WaveFunction.project">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.wf.html#vayesta.core.types.wf.rdm.URDM_WaveFunction.project">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">projector</span><span class="p">,</span> <span class="n">inplace</span><span class="p">):</span>
+        <span class="n">wf</span> <span class="o">=</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">dm1</span> <span class="o">=</span> <span class="n">project_uc1</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">dm1</span><span class="p">,</span> <span class="n">projector</span><span class="p">)</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">dm2</span> <span class="o">=</span> <span class="n">project_uc2</span><span class="p">(</span><span class="n">wf</span><span class="o">.</span><span class="n">dm2</span><span class="p">,</span> <span class="n">projector</span><span class="p">)</span>
+        <span class="n">wf</span><span class="o">.</span><span class="n">projector</span> <span class="o">=</span> <span class="n">projector</span>
+        <span class="k">return</span> <span class="n">wf</span></div>
+</div>
+
+
+    <span class="c1"># def pack(self, dtype=float):</span>
+    <span class="c1">#     &quot;&quot;&quot;Pack into a single array of data type `dtype`.</span>
+
+    <span class="c1">#     Useful for communication via MPI.&quot;&quot;&quot;</span>
+    <span class="c1">#     mo = self.mo.pack(dtype=dtype)</span>
+    <span class="c1">#     data = (mo, *self.dm1, *self.dm2, self.projector)</span>
+    <span class="c1">#     pack = pack_arrays(*data, dtype=dtype)</span>
+    <span class="c1">#     return pack</span>
+
+    <span class="c1"># @classmethod</span>
+    <span class="c1"># def unpack(cls, packed):</span>
+    <span class="c1">#     &quot;&quot;&quot;Unpack from a single array of data type `dtype`.</span>
+
+    <span class="c1">#     Useful for communication via MPI.&quot;&quot;&quot;</span>
+    <span class="c1">#     mo, *dm1, *dm2, projector = unpack_arrays(packed)</span>
+    <span class="c1">#     mo = SpatialOrbitals.unpack(mo)</span>
+    <span class="c1">#     return cls(mo, dm1, dm2, projector=projector)</span>
+
+    <span class="c1"># def restore(self):</span>
+    <span class="c1">#     raise NotImplementedError()</span>
+
+    
+    
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

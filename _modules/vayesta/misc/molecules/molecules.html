@@ -1,0 +1,415 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.misc.molecules.molecules &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.misc.molecules.molecules</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.misc.molecules.molecules</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os.path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_datafile</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">datafile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="n">datafile</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;atoms&quot;</span><span class="p">,</span> <span class="nb">object</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;coords&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,))])</span>
+    <span class="n">atoms</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;atoms&quot;</span><span class="p">]</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">]</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[[</span><span class="n">atoms</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">))]</span>
+    <span class="k">return</span> <span class="n">atom</span>
+
+
+<div class="viewcode-block" id="water">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.water">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">water</span><span class="p">(</span><span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">origin</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.0000</span><span class="p">,</span> <span class="mf">0.0000</span><span class="p">,</span> <span class="mf">0.1173</span><span class="p">])</span> <span class="o">-</span> <span class="n">origin</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.0000</span><span class="p">,</span> <span class="mf">0.7572</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.4692</span><span class="p">])</span> <span class="o">-</span> <span class="n">origin</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.0000</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7572</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.4692</span><span class="p">])</span> <span class="o">-</span> <span class="n">origin</span><span class="p">],</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="alkane">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.alkane">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">alkane</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">cc_bond</span><span class="o">=</span><span class="mf">1.54</span><span class="p">,</span> <span class="n">ch_bond</span><span class="o">=</span><span class="mf">1.09</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Alkane with idealized tetrahedral (sp3) coordination.&quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="n">numbering</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;atom&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">)</span>
+
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_symbol</span><span class="p">(</span><span class="n">symbol</span><span class="p">):</span>
+        <span class="k">nonlocal</span> <span class="n">index</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">numbering</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">symbol</span>
+        <span class="k">if</span> <span class="n">numbering</span> <span class="o">==</span> <span class="s2">&quot;atom&quot;</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">out</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+
+    <span class="n">dk</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="p">(</span><span class="n">numbering</span> <span class="o">==</span> <span class="s2">&quot;atom&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">cph</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span>
+    <span class="n">sph</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">dcy</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">cc_bond</span> <span class="o">*</span> <span class="n">cph</span>
+    <span class="n">dcz</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">cc_bond</span> <span class="o">*</span> <span class="n">sph</span>
+    <span class="n">dchs</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">sph</span>
+    <span class="n">dchc</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">cph</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="c1"># Carbon atoms</span>
+        <span class="n">sign</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">i</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">dcy</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">dcz</span>
+        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">get_symbol</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">]])</span>
+        <span class="c1"># Hydrogen atoms on side</span>
+        <span class="n">dy</span> <span class="o">=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">dchc</span>
+        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">get_symbol</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span> <span class="o">+</span> <span class="n">dchs</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dy</span><span class="p">,</span> <span class="n">z</span><span class="p">]])</span>
+        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">get_symbol</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span> <span class="o">-</span> <span class="n">dchs</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dy</span><span class="p">,</span> <span class="n">z</span><span class="p">]])</span>
+        <span class="c1"># Terminal hydrogen atom 1</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">get_symbol</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="n">dchc</span><span class="p">,</span> <span class="n">z</span> <span class="o">-</span> <span class="n">dchs</span><span class="p">]])</span>
+        <span class="c1"># Terminal hydrogen atom 2</span>
+        <span class="c1"># Do not use elif, since for n=1 (Methane), we need to add both terminal hydrogen atoms:</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">get_symbol</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">dchc</span><span class="p">,</span> <span class="n">z</span> <span class="o">+</span> <span class="n">dchs</span><span class="p">]])</span>
+        <span class="k">if</span> <span class="n">numbering</span> <span class="o">==</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="alkene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.alkene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">alkene</span><span class="p">(</span><span class="n">ncarbon</span><span class="p">,</span> <span class="n">cc_bond</span><span class="o">=</span><span class="mf">1.33</span><span class="p">,</span> <span class="n">ch_bond</span><span class="o">=</span><span class="mf">1.09</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Alkene with idealized trigonal planar (sp2) coordination.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">ncarbon</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+    <span class="k">if</span> <span class="n">ncarbon</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="n">cos30</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">sin30</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span>
+
+    <span class="n">r0</span> <span class="o">=</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">z0</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">x0</span> <span class="o">-</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">cos30</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">sin30</span><span class="p">,</span> <span class="n">z0</span><span class="p">))]</span>
+    <span class="k">for</span> <span class="n">nc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncarbon</span><span class="p">):</span>
+        <span class="n">sign</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">nc</span>
+        <span class="n">atom</span> <span class="o">+=</span> <span class="p">[(</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">r0</span><span class="p">)]</span>
+        <span class="n">atom</span> <span class="o">+=</span> <span class="p">[(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">-</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ch_bond</span><span class="p">,</span> <span class="n">z0</span><span class="p">))]</span>
+        <span class="k">if</span> <span class="n">nc</span> <span class="o">==</span> <span class="p">(</span><span class="n">ncarbon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">break</span>
+        <span class="n">r0</span> <span class="o">=</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">z0</span> <span class="o">=</span> <span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">cc_bond</span> <span class="o">*</span> <span class="n">cos30</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">cc_bond</span> <span class="o">*</span> <span class="n">sin30</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">+=</span> <span class="p">[(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">cos30</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ch_bond</span> <span class="o">*</span> <span class="n">sin30</span><span class="p">,</span> <span class="n">z0</span><span class="p">))]</span>
+
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="arene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.arene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">arene</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">cc_bond</span><span class="o">=</span><span class="mf">1.39</span><span class="p">,</span> <span class="n">ch_bond</span><span class="o">=</span><span class="mf">1.09</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bond length for benzene.&quot;&quot;&quot;</span>
+    <span class="n">r1</span> <span class="o">=</span> <span class="n">unit</span> <span class="o">*</span> <span class="n">cc_bond</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">n</span><span class="p">))</span>
+    <span class="n">r2</span> <span class="o">=</span> <span class="n">unit</span> <span class="o">*</span> <span class="p">(</span><span class="n">r1</span> <span class="o">+</span> <span class="n">ch_bond</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">atomidx</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span>
+        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">atoms</span><span class="p">[</span><span class="n">atomidx</span><span class="p">],</span> <span class="p">(</span><span class="n">r1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span> <span class="n">r1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)))</span>
+        <span class="n">atom</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">atoms</span><span class="p">[</span><span class="n">atomidx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">r2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span> <span class="n">r2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="no2">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.no2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">no2</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.0000</span><span class="p">,</span> <span class="mf">0.0000</span><span class="p">,</span> <span class="mf">0.0000</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.0000</span><span class="p">,</span> <span class="mf">1.0989</span><span class="p">,</span> <span class="mf">0.4653</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.0000</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0989</span><span class="p">,</span> <span class="mf">0.4653</span><span class="p">)),</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="ethanol">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.ethanol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ethanol</span><span class="p">(</span><span class="n">oh_bond</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;ethanol.dat&quot;</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">oh_bond</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pos_o</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">pos_h</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">voh</span> <span class="o">=</span> <span class="n">pos_h</span> <span class="o">-</span> <span class="n">pos_o</span>
+        <span class="n">voh</span> <span class="o">=</span> <span class="n">voh</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">voh</span><span class="p">)</span>
+        <span class="n">pos_h</span> <span class="o">=</span> <span class="n">pos_o</span> <span class="o">+</span> <span class="n">oh_bond</span> <span class="o">*</span> <span class="n">voh</span>
+        <span class="n">atom</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos_h</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="ketene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.ketene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ketene</span><span class="p">(</span><span class="n">cc_bond</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;ketene.dat&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cc_bond</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pos_c1</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">pos_c2</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">vcc</span> <span class="o">=</span> <span class="n">pos_c2</span> <span class="o">-</span> <span class="n">pos_c1</span>
+        <span class="n">vcc</span> <span class="o">=</span> <span class="n">vcc</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">vcc</span><span class="p">)</span>
+        <span class="n">new_c2</span> <span class="o">=</span> <span class="n">pos_c1</span> <span class="o">+</span> <span class="n">cc_bond</span> <span class="o">*</span> <span class="n">vcc</span>
+        <span class="n">new_o</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">new_c2</span> <span class="o">-</span> <span class="n">pos_c2</span><span class="p">)</span>
+        <span class="n">atom</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_c2</span>
+        <span class="n">atom</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_o</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="ring">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.ring">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ring</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="n">natom</span><span class="p">,</span> <span class="n">bond_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">radius</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">bond_length</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">natom</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">radius</span>
+    <span class="n">atoms</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="p">[</span><span class="n">atom</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">):</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">natom</span><span class="p">)</span>
+        <span class="n">atom_i</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">numbering</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atom_i</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">numbering</span><span class="p">)</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">atoms</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">atom_i</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">z</span><span class="p">])])</span>
+    <span class="k">return</span> <span class="n">atoms</span></div>
+
+
+
+<div class="viewcode-block" id="chain">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.chain">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">chain</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="n">natom</span><span class="p">,</span> <span class="n">bond_length</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open boundary condition version of 1D ring&quot;&quot;&quot;</span>
+    <span class="n">atoms</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">atom</span> <span class="o">=</span> <span class="p">[</span><span class="n">atom</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">):</span>
+        <span class="n">atom_i</span> <span class="o">=</span> <span class="n">atom</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">atom</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">numbering</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atom_i</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">numbering</span><span class="p">)</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">atoms</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">atom_i</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">i</span> <span class="o">*</span> <span class="n">bond_length</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])])</span>
+    <span class="k">return</span> <span class="n">atoms</span></div>
+
+
+
+<span class="c1"># --- From datafiles:</span>
+
+
+<div class="viewcode-block" id="acetic_acid">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.acetic_acid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">acetic_acid</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;acetic.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="ferrocene_b3lyp">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.ferrocene_b3lyp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ferrocene_b3lyp</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;ferrocene.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="ferrocene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.ferrocene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ferrocene</span><span class="p">(</span>
+    <span class="n">atoms</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Fe&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span> <span class="n">conformation</span><span class="o">=</span><span class="s2">&quot;eclipsed&quot;</span><span class="p">,</span> <span class="n">dFeCp</span><span class="o">=</span><span class="mf">1.648</span><span class="p">,</span> <span class="n">dCC</span><span class="o">=</span><span class="mf">1.427</span><span class="p">,</span> <span class="n">dCH</span><span class="o">=</span><span class="mf">1.079</span><span class="p">,</span> <span class="n">aCpH</span><span class="o">=</span><span class="mf">0.52</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;From https://pubs.acs.org/doi/pdf/10.1021/ct700152c&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">conformation</span> <span class="o">!=</span> <span class="s2">&quot;eclipsed&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="n">rHH</span> <span class="o">=</span> <span class="n">dCC</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">5</span><span class="p">))</span> <span class="o">+</span> <span class="n">dCH</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">aCpH</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span>
+    <span class="n">zH</span> <span class="o">=</span> <span class="n">dCH</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">aCpH</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span>
+
+    <span class="n">atom</span> <span class="o">=</span> <span class="p">[(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;1&quot;</span> <span class="k">if</span> <span class="n">numbering</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))]</span>
+    <span class="n">atom</span> <span class="o">+=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="n">dCC</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">dFeCp</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="mi">2</span> <span class="k">if</span> <span class="n">numbering</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">+=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">rHH</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">dFeCp</span> <span class="o">-</span> <span class="n">zH</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="mi">7</span> <span class="k">if</span> <span class="n">numbering</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">+=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="n">dCC</span><span class="p">,</span> <span class="n">z</span><span class="o">=-</span><span class="n">dFeCp</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="mi">12</span> <span class="k">if</span> <span class="n">numbering</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">atom</span> <span class="o">+=</span> <span class="n">ring</span><span class="p">(</span><span class="n">atoms</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">rHH</span><span class="p">,</span> <span class="n">z</span><span class="o">=-</span><span class="n">dFeCp</span> <span class="o">+</span> <span class="n">zH</span><span class="p">,</span> <span class="n">numbering</span><span class="o">=</span><span class="mi">17</span> <span class="k">if</span> <span class="n">numbering</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="propyl">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.propyl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">propyl</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;propyl.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="phenyl">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.phenyl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">phenyl</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;phenyl.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="propanol">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.propanol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">propanol</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;propanol.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="chloroethanol">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.chloroethanol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">chloroethanol</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;chloroethanol.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="neopentane">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.neopentane">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">neopentane</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Structure from B3LYP//aug-cc-pVTZ.&quot;&quot;&quot;</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;neopentane.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="boronene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.boronene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">boronene</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;boronene.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="coronene">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.coronene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">coronene</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;coronene.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+
+
+<div class="viewcode-block" id="glycine">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.misc.molecules.html#vayesta.misc.molecules.molecules.glycine">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">glycine</span><span class="p">():</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">_load_datafile</span><span class="p">(</span><span class="s2">&quot;glycine.dat&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">atom</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

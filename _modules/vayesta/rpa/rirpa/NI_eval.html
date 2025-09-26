@@ -1,0 +1,644 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.rirpa.NI_eval &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../../rpa.html">vayesta.rpa</a></li>
+          <li class="breadcrumb-item"><a href="../rirpa.html">vayesta.rpa.rirpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.rirpa.NI_eval</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.rirpa.NI_eval</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.integrate</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.optimize</span>
+
+
+<div class="viewcode-block" id="NIException">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NIException">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NIException</span><span class="p">(</span><span class="ne">BaseException</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NumericalIntegratorBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for numerical integration over semi-infinite and infinite limits.</span>
+<span class="sd">    Subclasses implementing a specific quadrature need to define</span>
+
+<span class="sd">    Subclasses implementing specific evaluations need to define:</span>
+<span class="sd">        .eval_contrib</span>
+<span class="sd">        .eval_diag_contrib</span>
+<span class="sd">        .eval_diag_deriv_contrib</span>
+<span class="sd">        .eval_diag_deriv2_contrib</span>
+<span class="sd">        .eval_diag_exact</span>
+<span class="sd">    A new .__init__ assigning any required attributes and a .fix_params may also be required, depending upon the</span>
+<span class="sd">    particular form of the integral to be approximated.</span>
+<span class="sd">    Might be able to write this as a factory class, but this&#39;ll do for now.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span> <span class="o">=</span> <span class="n">log</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_shape</span> <span class="o">=</span> <span class="n">out_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag_shape</span> <span class="o">=</span> <span class="n">diag_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">npoints</span> <span class="o">=</span> <span class="n">npoints</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_npoints</span>
+
+    <span class="nd">@npoints</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npoints</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="NumericalIntegratorBase.get_quad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_quad">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_quad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate the appropriate Clenshaw-Curtis quadrature points and weights.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate contribution to numerical integral of result at given frequency point.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate contribution to integral of diagonal approximation at given frequency point.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_deriv_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_deriv_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate gradient of contribution to integral of diagonal approximation at given frequency point,</span>
+<span class="sd">        w.r.t that frequency point.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_deriv2_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_deriv2_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate second derivative of contribution to integral of diagonal approximation at given frequency point,</span>
+<span class="sd">        w.r.t that frequency point.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_exact">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_exact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_exact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Provides an exact evaluation of the integral for the diagonal approximation.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_NI_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">res_shape</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Base function to perform numerical integration with provided quadrature grid.&quot;&quot;&quot;</span>
+        <span class="n">quadrature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">res_shape</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">point</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">quadrature</span><span class="p">):</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="n">evaluator</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">contrib</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">res_shape</span>
+            <span class="n">integral</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">contrib</span>
+
+        <span class="k">return</span> <span class="n">integral</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_NI_eval_w_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;Error estimation only available with naturally nested quadratures (current just Clenshaw-Curtis).&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_NI_eval_deriv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">res_shape</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Base function to perform numerical integration with provided quadrature grid.&quot;&quot;&quot;</span>
+        <span class="n">quadrature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">res_shape</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">point</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">quadrature</span><span class="p">):</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="n">evaluator</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">contrib</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">res_shape</span>
+            <span class="n">integral</span> <span class="o">+=</span> <span class="n">contrib</span>
+        <span class="k">return</span> <span class="n">integral</span>
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_NI_approx">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_NI_approx">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_NI_approx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the NI approximation of the integral with a provided quadrature.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NI_eval</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">),</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_NI_approx">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_NI_approx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the NI approximation to the diagonal approximation of the integral.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NI_eval</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_contrib</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_NI_approx_grad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx_grad">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_NI_approx_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the gradient w.r.t a of NI diagonal expression.</span>
+<span class="sd">        Note that for all quadratures the weights and quadrature point positions are proportional to the arbitrary</span>
+<span class="sd">        parameter `a&#39;, so we can use the same expressions for the derivatives.&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_grad_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">weight</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">contrib</span> <span class="o">+</span> <span class="n">weight</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">deriv</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NI_eval_deriv</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_shape</span><span class="p">,</span> <span class="n">get_grad_contrib</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.eval_diag_NI_approx_deriv2">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.eval_diag_NI_approx_deriv2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_diag_NI_approx_deriv2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the second derivative w.r.t a of NI diagonal expression.</span>
+<span class="sd">        Note that for all quadratures the weights and quadrature point positions are proportional to the arbitrary</span>
+<span class="sd">        parameter `a&#39;, so we can use the same expressions for the derivatives.&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_deriv2_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+            <span class="n">deriv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="n">deriv2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">weight</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">deriv</span> <span class="o">+</span> <span class="n">weight</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">deriv2</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NI_eval_deriv</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_shape</span><span class="p">,</span> <span class="n">get_deriv2_contrib</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.test_diag_derivs">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.test_diag_derivs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_diag_derivs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+        <span class="n">freq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Testing gradients w.r.t variation of omega at random frequency point=</span><span class="si">%8.6e</span><span class="s2">:&quot;</span><span class="p">,</span>
+            <span class="n">freq</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">grad_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">deriv2_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv2_contrib</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+        <span class="n">grad_2</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_contrib</span><span class="p">(</span><span class="n">freq</span> <span class="o">+</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_contrib</span><span class="p">(</span><span class="n">freq</span> <span class="o">-</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">delta</span>
+        <span class="n">deriv2_2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span> <span class="o">+</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_deriv_contrib</span><span class="p">(</span><span class="n">freq</span> <span class="o">-</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="n">delta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Max Grad Error=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">grad_1</span> <span class="o">-</span> <span class="n">grad_2</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Max Deriv2 Error=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">deriv2_1</span> <span class="o">-</span> <span class="n">deriv2_2</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Testing ensemble gradients w.r.t variation of a:&quot;</span><span class="p">)</span>
+        <span class="n">grad_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_grad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">deriv2_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_deriv2</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">grad_2</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">delta</span>
+        <span class="n">deriv2_2</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_grad</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_grad</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="n">delta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Max Grad Error=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">grad_1</span> <span class="o">-</span> <span class="n">grad_2</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Max Deriv2 Error=</span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">deriv2_1</span> <span class="o">-</span> <span class="n">deriv2_2</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.opt_quadrature_diag">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.opt_quadrature_diag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">opt_quadrature_diag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Optimise the quadrature to exactly integrate a diagonal approximation to the integral&quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_val</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_exact</span><span class="p">())</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">val</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_grad</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_grad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_deriv2</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_diag_NI_approx_deriv2</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">find_good_start</span><span class="p">(</span><span class="n">ainit</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">scale_fac</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">maxval</span><span class="o">=</span><span class="mf">1e8</span><span class="p">,</span> <span class="n">relevance_factor</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Using a quick exponential search, find the lowest value of the penalty function and from this obtain</span>
+<span class="sd">            good guesses for the optimum and a good bound on either side.</span>
+<span class="sd">            Note that the size of resulting bracket will be proportional to both the optimal value and the scaling</span>
+<span class="sd">            factor.&quot;&quot;&quot;</span>
+            <span class="n">max_exp</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">maxval</span> <span class="o">/</span> <span class="n">ainit</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">scale_fac</span><span class="p">))</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ainit</span> <span class="o">*</span> <span class="n">scale_fac</span><span class="o">**</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_exp</span><span class="p">)])</span>
+            <span class="n">fvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">abs</span><span class="p">(</span><span class="n">get_val</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">vals</span><span class="p">])</span>
+            <span class="n">optarg</span> <span class="o">=</span> <span class="n">fvals</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+            <span class="n">optval</span> <span class="o">=</span> <span class="n">fvals</span><span class="p">[</span><span class="n">optarg</span><span class="p">]</span>
+            <span class="c1"># Now find the values which are within reach of lowest value</span>
+            <span class="n">relevant</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fvals</span> <span class="o">&lt;</span> <span class="n">relevance_factor</span> <span class="o">*</span> <span class="n">optval</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">minarg</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">relevant</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">optarg</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">maxarg</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">relevant</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">optarg</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">ainit</span> <span class="o">*</span> <span class="n">scale_fac</span><span class="o">**</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">optarg</span><span class="p">,</span> <span class="n">minarg</span><span class="p">,</span> <span class="n">maxarg</span><span class="p">)]</span>
+
+        <span class="n">solve</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">ainit</span><span class="p">,</span> <span class="n">mini</span><span class="p">,</span> <span class="n">maxi</span> <span class="o">=</span> <span class="n">find_good_start</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">solve</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">newton</span><span class="p">(</span>
+                <span class="n">get_val</span><span class="p">,</span>
+                <span class="n">x0</span><span class="o">=</span><span class="n">ainit</span><span class="p">,</span>
+                <span class="n">fprime</span><span class="o">=</span><span class="n">get_grad</span><span class="p">,</span>
+                <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
+                <span class="n">maxiter</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                <span class="n">fprime2</span><span class="o">=</span><span class="n">get_deriv2</span><span class="p">,</span>
+                <span class="n">full_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="n">NIException</span><span class="p">):</span>
+            <span class="n">opt_min</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Did we find a root?</span>
+            <span class="n">opt_min</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">res</span><span class="o">.</span><span class="n">converged</span>
+        <span class="k">if</span> <span class="n">opt_min</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize_scalar</span><span class="p">(</span><span class="k">lambda</span> <span class="n">freq</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">get_val</span><span class="p">(</span><span class="n">freq</span><span class="p">)),</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">mini</span><span class="p">,</span> <span class="n">maxi</span><span class="p">),</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;bounded&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Could not optimise `a&#39; value.&quot;</span><span class="p">)</span>
+            <span class="n">solve</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">x</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Used minimisation to optimise quadrature grid: a= </span><span class="si">%.2e</span><span class="s2">  penalty value= </span><span class="si">%.2e</span><span class="s2"> &quot;</span> <span class="s2">&quot;(smaller is better)&quot;</span><span class="p">,</span>
+                <span class="n">solve</span><span class="p">,</span>
+                <span class="n">res</span><span class="o">.</span><span class="n">fun</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Used newton optimisation to find optimal quadrature grid: a= </span><span class="si">%.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">solve</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">solve</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.fix_params">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.fix_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fix_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;If required set parameters within ansatz; defined to ensure hook for functionality in future, will</span>
+<span class="sd">        not always be needed.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.get_offset">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_offset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_offset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_shape</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.kernel">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">opt_quad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform numerical integration. Put simply, fix any arbitrary parameters in the integral to be evaluated,</span>
+<span class="sd">        optimise the quadrature grid to ensure a diagonal approximation is exactly integrated then evaluate full</span>
+<span class="sd">        expression.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fix_params</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">opt_quad</span><span class="p">:</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opt_quadrature_diag</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;A value for the quadrature scaling parameter a must be provided if optimisation is not&quot;</span>
+                    <span class="s2">&quot;permitted.&quot;</span>
+                <span class="p">)</span>
+        <span class="n">integral</span><span class="p">,</span> <span class="n">errors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_NI_approx</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">integral</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(),</span> <span class="n">errors</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.kernel_adaptive">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.kernel_adaptive">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_adaptive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fix_params</span><span class="p">()</span>
+        <span class="n">integral</span><span class="p">,</span> <span class="n">err</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">integrate</span><span class="o">.</span><span class="n">quad_vec</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">,</span>
+            <span class="n">a</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">b</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+            <span class="n">norm</span><span class="o">=</span><span class="s2">&quot;max&quot;</span><span class="p">,</span>
+            <span class="n">epsabs</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+            <span class="n">epsrel</span><span class="o">=</span><span class="mf">1e-200</span><span class="p">,</span>
+            <span class="n">full_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">info</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Adaptive gaussian quadrature could not compute integral.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Successfully computed integral via adaptive quadrature using </span><span class="si">%d</span><span class="s2"> evaluations with estimated error of </span><span class="si">%6.4e</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">info</span><span class="o">.</span><span class="n">neval</span><span class="p">,</span>
+                <span class="n">err</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">integral</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(),</span> <span class="n">err</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.l2_scan">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.l2_scan">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2_scan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freqs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">freqs</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.max_scan">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.max_scan">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">max_scan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freqs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">freqs</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorBase.get_quad_vals">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorBase.get_quad_vals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_quad_vals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">l2norm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">quadrature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">getnorm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span> <span class="k">if</span> <span class="n">l2norm</span> <span class="k">else</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">quadrature</span><span class="p">]</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">getnorm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">(</span><span class="n">p</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">vals</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NumericalIntegratorClenCur">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NumericalIntegratorClenCur</span><span class="p">(</span><span class="n">NumericalIntegratorBase</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_npoints</span>
+
+    <span class="nd">@npoints</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">-</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">4</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Npoints increased to next multiple of 4 (</span><span class="si">%d</span><span class="s2">) to allow error estimation.&quot;</span><span class="p">,</span>
+                <span class="n">value</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npoints</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_NI_eval_w_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">res_shape</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Base function to perform numerical integration with provided quadrature grid.</span>
+<span class="sd">        Since Clenshaw-Curtis quadrature is naturally nested, we can generate an error estimate straightforwardly.&quot;&quot;&quot;</span>
+        <span class="n">quadrature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quad</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">res_shape</span><span class="p">)</span>
+        <span class="n">integral_half</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">res_shape</span><span class="p">)</span>
+        <span class="n">integral_quarter</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">res_shape</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">quadrature</span><span class="p">)):</span>
+            <span class="n">contrib</span> <span class="o">=</span> <span class="n">evaluator</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">contrib</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">res_shape</span>
+            <span class="n">integral</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">contrib</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">integral_half</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">contrib</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">integral_quarter</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">contrib</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">integral_quarter</span> <span class="o">-</span> <span class="n">integral</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">integral_half</span> <span class="o">-</span> <span class="n">integral</span><span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_error</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Numerical Integration performed with estimated L2 norm error </span><span class="si">%6.4e</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="p">,</span> <span class="n">error</span>
+
+<div class="viewcode-block" id="NumericalIntegratorClenCur.calculate_error">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.calculate_error">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate error by solving cubic equation to model convergence as \alpha e^{-\beta n_p}.</span>
+<span class="sd">        This relies upon the Cauchy-Schwartz inequality, and assumes all errors are at their maximum values, so</span>
+<span class="sd">        generally overestimates the resulting error, which suits us well.</span>
+<span class="sd">        This also overestimates the error since it doesn&#39;t account for the effect of quadrature grid optimisation, which</span>
+<span class="sd">        leads to our actual estimates converging more rapidly than they would with a static grid spacing parameter.</span>
+
+<span class="sd">        This approach is detailed in Appendix B of https://arxiv.org/abs/2301.09107, Eqs. 100-104.</span>
+
+<span class="sd">        To understand the general behaviour of this approach, we can instead consider the simpler approximation that</span>
+<span class="sd">        the magnitude of a given difference is dominated by the least accurate estimate. This leads to the estimate of</span>
+<span class="sd">        the error resulting from our most accurate estimate as</span>
+<span class="sd">           error = b ** 3 / a ** 2</span>
+<span class="sd">        with the error in this approximation given by</span>
+<span class="sd">           error_error = b ** 2 / a ** 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RIRPA error numerically zero.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="c1"># This is Eq. 103 from https://arxiv.org/abs/2301.09107</span>
+        <span class="n">roots</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roots</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">),</span> <span class="o">-</span><span class="n">b</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)])</span>
+        <span class="c1"># From physical considerations require real root between zero and one, since this is value of e^{-\beta n_p}.</span>
+        <span class="c1"># If there are multiple (if this is even possible) we take the largest.</span>
+        <span class="n">real_roots</span> <span class="o">=</span> <span class="n">roots</span><span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="n">roots</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">]</span><span class="o">.</span><span class="n">real</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">real_roots</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Nested quadrature error estimation gives </span><span class="si">%d</span><span class="s2"> real roots. Taking smallest positive root.&quot;</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">real_roots</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Nested quadrature error estimation gives </span><span class="si">%d</span><span class="s2"> real root.&quot;</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">real_roots</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">any</span><span class="p">((</span><span class="n">real_roots</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">real_roots</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">))):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;No real root found between 0 and 1 in NI error estimation; returning nan.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This defines the values of e^{-\beta n_p}, where we seek the value of \alpha e^{-4 \beta n_p}</span>
+            <span class="n">wanted_root</span> <span class="o">=</span> <span class="n">real_roots</span><span class="p">[</span><span class="n">real_roots</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="c1"># We could go via the steps</span>
+        <span class="c1">#   exp_beta_4n = wanted_root ** 4</span>
+        <span class="c1">#   alpha = a * (exp_beta_n + exp_beta_4n**(1/4))**(-1)</span>
+        <span class="c1"># But instead go straight for</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">b</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">wanted_root</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">error</span></div>
+
+
+<div class="viewcode-block" id="NumericalIntegratorClenCur.eval_NI_approx">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCur.eval_NI_approx">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_NI_approx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the NI approximation of the integral with a provided quadrature.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NI_eval_w_error</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_contrib</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NumericalIntegratorClenCurInfinite">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NumericalIntegratorClenCurInfinite</span><span class="p">(</span><span class="n">NumericalIntegratorClenCur</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">even</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">even</span> <span class="o">=</span> <span class="n">even</span>
+
+<div class="viewcode-block" id="NumericalIntegratorClenCurInfinite.get_quad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurInfinite.get_quad">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_quad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="c1"># Don&#39;t care about negative values, since grid should be symmetric about x=0.</span>
+        <span class="k">return</span> <span class="n">gen_ClenCur_quad_inf</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">npoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">even</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NumericalIntegratorClenCurSemiInfinite">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NumericalIntegratorClenCurSemiInfinite</span><span class="p">(</span><span class="n">NumericalIntegratorClenCur</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NumericalIntegratorClenCurSemiInfinite.get_quad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorClenCurSemiInfinite.get_quad">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_quad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Negative quadrature scaling factor not permitted.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">gen_ClenCur_quad_semiinf</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">npoints</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NumericalIntegratorGaussianSemiInfinite">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NumericalIntegratorGaussianSemiInfinite</span><span class="p">(</span><span class="n">NumericalIntegratorBase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">diag_shape</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_points</span><span class="p">)</span>
+
+    <span class="nd">@npoints</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">npoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;For Gaussian quadrature recalculating the points and weights every time won&#39;t be performant;</span>
+<span class="sd">        instead lets cache them each time npoints is changed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Gauss-Laguerre quadrature with degree over 100 may be problematic due to numerical &quot;</span>
+                <span class="s2">&quot;ill-conditioning in the quadrature construction. Watch out for floating-point overflows!&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polynomial</span><span class="o">.</span><span class="n">laguerre</span><span class="o">.</span><span class="n">laggauss</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">w</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span><span class="p">)])</span>
+
+<div class="viewcode-block" id="NumericalIntegratorGaussianSemiInfinite.get_quad">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NumericalIntegratorGaussianSemiInfinite.get_quad">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_quad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIException</span><span class="p">(</span><span class="s2">&quot;Negative quadrature scaling factor not permitted.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="gen_ClenCur_quad_inf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.gen_ClenCur_quad_inf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_ClenCur_quad_inf</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">even</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate quadrature points and weights for Clenshaw-Curtis quadrature over infinite range (-inf to +inf)&quot;&quot;&quot;</span>
+    <span class="n">symfac</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">even</span>
+    <span class="c1"># If even we only want points up to t &lt;= pi/2</span>
+    <span class="n">tvals</span> <span class="o">=</span> <span class="p">[(</span><span class="n">j</span> <span class="o">/</span> <span class="n">npoints</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">symfac</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">npoints</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+
+    <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tvals</span><span class="p">]</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">symfac</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">npoints</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tvals</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">even</span><span class="p">:</span>
+        <span class="n">weights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/=</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">weights</span></div>
+
+
+
+<div class="viewcode-block" id="gen_ClenCur_quad_semiinf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.gen_ClenCur_quad_semiinf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gen_ClenCur_quad_semiinf</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">npoints</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate quadrature points and weights for Clenshaw-Curtis quadrature over semiinfinite range (0 to +inf)&quot;&quot;&quot;</span>
+    <span class="n">tvals</span> <span class="o">=</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">j</span> <span class="o">/</span> <span class="p">(</span><span class="n">npoints</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">npoints</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tvals</span><span class="p">]</span>
+    <span class="n">jsums</span> <span class="o">=</span> <span class="p">[</span><span class="nb">sum</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">j</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">/</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">npoints</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tvals</span><span class="p">]</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="n">npoints</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">s</span> <span class="k">for</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tvals</span><span class="p">,</span> <span class="n">jsums</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">points</span><span class="p">,</span> <span class="n">weights</span></div>
+
+
+
+<div class="viewcode-block" id="NICheckInf">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NICheckInf</span><span class="p">(</span><span class="n">NumericalIntegratorClenCurInfinite</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exponent</span><span class="p">,</span> <span class="n">npoints</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">((),</span> <span class="p">(),</span> <span class="n">npoints</span><span class="p">,</span> <span class="n">even</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exponent</span> <span class="o">=</span> <span class="n">exponent</span>
+
+<div class="viewcode-block" id="NICheckInf.eval_contrib">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.NI_eval.NICheckInf.eval_contrib">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_contrib</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+        <span class="c1"># return np.array(np.exp(-freq*self.exponent))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">freq</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">exponent</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

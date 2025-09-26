@@ -1,0 +1,490 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.ao2mo &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.core.bath" href="vayesta.core.bath.html" />
+    <link rel="prev" title="vayesta.core" href="vayesta.core.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.html">vayesta.core</a></li>
+      <li class="breadcrumb-item active">vayesta.core.ao2mo</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.core.ao2mo.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-core-ao2mo">
+<h1>vayesta.core.ao2mo<a class="headerlink" href="#vayesta-core-ao2mo" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.core.ao2mo.helper">
+<span id="vayesta-core-ao2mo-helper"></span><h2>vayesta.core.ao2mo.helper<a class="headerlink" href="#module-vayesta.core.ao2mo.helper" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_kconserv">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_kconserv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kpts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nk</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_kconserv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_kconserv" title="Link to this definition"></a></dt>
+<dd><p>Get the momentum conservation array for a set of k-points.</p>
+<p>Given k-point indices (k, l, m) the array kconserv[k,l,m] returns
+the index n that satifies momentum conservation,</p>
+<dl class="simple">
+<dt>nk=1:</dt><dd><p>(k(k) - k(n)) dot a = 2npi</p>
+</dd>
+<dt>nk=2:</dt><dd><p>(k(k) - k(l) - k(n)) dot a = 2npi</p>
+</dd>
+<dt>nk=3:</dt><dd><p>(k(k) - k(l) + k(m) - k(n)) dot a = 2npi</p>
+</dd>
+<dt>This is used for symmetry e.g. integrals of the form</dt><dd><p>[phi*[k](1) phi[l](1) | phi*[m](2) phi[n](2)]</p>
+</dd>
+</dl>
+<p>are zero unless n satisfies the above.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_full_array">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_full_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_full_array"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_full_array" title="Link to this definition"></a></dt>
+<dd><p>Get dense ERI array from CCSD _ChemistEris object.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_full_array_rhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_full_array_rhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_full_array_rhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_full_array_rhf" title="Link to this definition"></a></dt>
+<dd><p>Get dense ERI array from CCSD _ChemistEris object.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_full_array_uhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_full_array_uhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_full_array_uhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_full_array_uhf" title="Link to this definition"></a></dt>
+<dd><p>Get dense ERI array from CCSD _ChemistEris object.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_ovvv">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_ovvv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ovvv'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_ovvv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_ovvv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_ovVV">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_ovVV</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ovVV'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_ovVV"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_ovVV" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_vvvv">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_vvvv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'vvvv'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_vvvv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_vvvv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_vvVV">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_vvVV</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'vvVV'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_vvVV"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_vvVV" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.get_block">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">get_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#get_block"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.get_block" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.pack_ovvv">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">pack_ovvv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ovvv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#pack_ovvv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.pack_ovvv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.pack_vvvv">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">pack_vvvv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vvvv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#pack_vvvv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.pack_vvvv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.contract_dm2_eris">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">contract_dm2_eris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#contract_dm2_eris"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.contract_dm2_eris" title="Link to this definition"></a></dt>
+<dd><p>Contracts _ChemistsERIs with the two-body density matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dm2</strong> (<em>ndarry</em><em> or </em><em>(</em><em>ndarray</em><em>, </em><em>ndarray</em><em>, </em><em>ndarray</em><em>)</em>) – Two-body density matrix or tuple of alpha-alpha, alpha-beta, beta-beta spin blocks for UHF.</p></li>
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>e2</strong> – Two-body energy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.contract_dm2_eris_rhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">contract_dm2_eris_rhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#contract_dm2_eris_rhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.contract_dm2_eris_rhf" title="Link to this definition"></a></dt>
+<dd><p>Contracts _ChemistsERIs with the two-body density matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dm2</strong> (<em>ndarry</em>) – Two-body density matrix.</p></li>
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>e2</strong> – Two-body energy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.contract_dm2_eris_uhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">contract_dm2_eris_uhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#contract_dm2_eris_uhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.contract_dm2_eris_uhf" title="Link to this definition"></a></dt>
+<dd><p>Contracts _ChemistsERIs with the two-body density matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dm2</strong> (<em>tuple</em><em>(</em><em>ndarray</em><em>, </em><em>ndarray</em><em>, </em><em>ndarray</em><em>)</em>) – Two-body density matrix as a tuple of alpha-alpha, alpha-beta, beta-beta spin blocks.</p></li>
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>e2</strong> – Two-body energy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">contract_dm2intermeds_eris_rhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">destroy_dm2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#contract_dm2intermeds_eris_rhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf" title="Link to this definition"></a></dt>
+<dd><p>Contracts _ChemistsERIs with the two-body density matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dm2</strong> (<em>tuple</em>) – Intermediates of spin-restricted two-body density matrix.</p></li>
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>e2</strong> – Two-body energy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">contract_dm2intermeds_eris_uhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">destroy_dm2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#contract_dm2intermeds_eris_uhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf" title="Link to this definition"></a></dt>
+<dd><p>Contracts _ChemistsERIs with the two-body density matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dm2</strong> (<em>tuple</em>) – Intermediates of spin-unrestricted two-body density matrix.</p></li>
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>e2</strong> – Two-body energy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.helper.project_ccsd_eris">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.helper.</span></span><span class="sig-name descname"><span class="pre">project_ccsd_eris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nocc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ovlp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_subspace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/helper.html#project_ccsd_eris"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.helper.project_ccsd_eris" title="Link to this definition"></a></dt>
+<dd><p>Project CCSD ERIs to a subset of orbital coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>eris</strong> (<em>_ChemistERIs</em>) – PySCF ERIs object</p></li>
+<li><p><strong>mo_coeff</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>MO</em><em>)</em><em>) </em><em>array</em>) – New subspace MO coefficients.</p></li>
+<li><p><strong>nocc</strong> (<em>int</em>) – Number of occupied orbitals.</p></li>
+<li><p><strong>ovlp</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>AO</em><em>)</em><em>) </em><em>array</em>) – AO overlap matrix.</p></li>
+<li><p><strong>check_subspace</strong> (<em>bool</em><em>, </em><em>optional</em>) – Check if c_occ and c_vir span a subspace of eris.mo_coeff.
+Return None if Not. Default: True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – ERIs with transformed integral values, as well as transformed attributes
+<cite>mo_coeff</cite>, <cite>fock</cite>, and <cite>mo_energy</cite>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_ChemistERIs or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.ao2mo.kao2gmo">
+<span id="vayesta-core-ao2mo-kao2gmo"></span><h2>vayesta.core.ao2mo.kao2gmo<a class="headerlink" href="#module-vayesta.core.ao2mo.kao2gmo" title="Link to this heading"></a></h2>
+<p>AO to MO transformation from k-space (AOs) to supercell real space (MOs)</p>
+<p>Author: Max Nusspickel
+Email:  <a class="reference external" href="mailto:max&#46;nusspickel&#37;&#52;&#48;gmail&#46;com">max<span>&#46;</span>nusspickel<span>&#64;</span>gmail<span>&#46;</span>com</a></p>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.kao2gmo.kao2gmo_cderi">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.kao2gmo.</span></span><span class="sig-name descname"><span class="pre">kao2gmo_cderi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeffs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">make_real</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tril_kij</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">driver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/kao2gmo.html#kao2gmo_cderi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.kao2gmo.kao2gmo_cderi" title="Link to this definition"></a></dt>
+<dd><p>Transform density-fitted ERIs from primtive cell k-AO, to Gamma-point MOs.</p>
+<p>(L|ka,k’b) * C1_(Ra)i * C2_(R’b)j -&gt; (R’’L|Ri,R’j)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gdf</strong> (<em>pyscf.pbc.df.GDF</em>) – Gaussian density-fitting object of primitive unit cell.</p></li>
+<li><p><strong>mo_coeffs</strong> (<em>array</em><em> or </em><em>tuple</em><em>(</em><em>2</em><em>) of </em><em>arrays</em>) – MO coefficients C1_(Ra)i and C2_(R’b)j for the transformation. If only one coefficient matrix is
+passed, it will be used for both C1 and C2.</p></li>
+<li><p><strong>make_real</strong> (<em>bool</em><em>, </em><em>optional</em>) – Fourier-transform the auxiliary DF dimension, such that the final three-center integrals are real.
+Default: True.</p></li>
+<li><p><strong>blksize</strong> (<em>int</em><em>, </em><em>optional</em>) – Blocksize for the auxiliary dimension.</p></li>
+<li><p><strong>tril_kij</strong> (<em>bool</em><em>, </em><em>optional</em>) – Only load k-point pairs k &gt;= k’, and use the symmetry (L|ka,k’b) = (L|k’b,ka)*.
+Default: True.</p></li>
+<li><p><strong>driver</strong> (<em>{None</em><em>, </em><em>'c'</em><em>, </em><em>'python'}</em>) – Use Python or C driver for the transformation. If None, use C if compiled library is present,
+if so use C, else use python. Default: None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>cderi_mo</strong> (<em>array</em>) – Density-fitted supercell three-center integrals in MO basis.</p></li>
+<li><p><strong>cderi_mo_neg</strong> (<em>array or None</em>) – Negative part of density-fitted supercell three-center integrals in MO basis.
+None for 3D systems.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.ao2mo.postscf_ao2mo">
+<span id="vayesta-core-ao2mo-postscf-ao2mo"></span><h2>vayesta.core.ao2mo.postscf_ao2mo<a class="headerlink" href="#module-vayesta.core.ao2mo.postscf_ao2mo" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.postscf_ao2mo.postscf_ao2mo">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.postscf_ao2mo.</span></span><span class="sig-name descname"><span class="pre">postscf_ao2mo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postscf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_hf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/postscf_ao2mo.html#postscf_ao2mo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.postscf_ao2mo.postscf_ao2mo" title="Link to this definition"></a></dt>
+<dd><p>AO to MO transformation of ERIs for post-SCF calculations.</p>
+<p>Use this as postscf_ao2mo(cc,…) instead of cc.ao2mo(…) to allow control
+of eris.fock, eris.mo_energy, and eris.e_hf.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>postscf</strong> (<em>PySCF Post-SCF method</em>) – Instance of MP2, DFMP2, CCSD, RCCSD, or DFCCSD, with attribute mo_coeff set.</p></li>
+<li><p><strong>mo_coeff</strong> (<em>array</em><em>, </em><em>optional</em>) – MO coefficients for the AO to MO transformation. If None, PySCF uses postscf.mo_coeff.
+Default: None.</p></li>
+<li><p><strong>fock</strong> (<em>array</em><em>, </em><em>optional</em>) – Fock matrix in AO representation. If None, PySCF uses postscf._scf.get_fock(). Default: None.</p></li>
+<li><p><strong>mo_energy</strong> (<em>array</em><em>, </em><em>optional</em>) – Active MO energies. If None, PySCF uses fock.diagonal(). Default: None.</p></li>
+<li><p><strong>e_hf</strong> (<em>float</em><em>, </em><em>optional</em>) – Mean-field energy. If None, PySCF calculates this as postscf._scf.energy_tot(). Default: None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – PySCF ERIs object which can be used for the respective post-SCF calculation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_ChemistsERIs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.postscf_ao2mo.postscf_kao2gmo">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.postscf_ao2mo.</span></span><span class="sig-name descname"><span class="pre">postscf_kao2gmo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postscf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_energy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_hf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/postscf_ao2mo.html#postscf_kao2gmo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.postscf_ao2mo.postscf_kao2gmo" title="Link to this definition"></a></dt>
+<dd><p>k-AO to Gamma-MO transformation of ERIs for post-SCF calculations of supercells.</p>
+<p>This can be used to avoid performing the expensive density-fitting in the supercell,
+if a smaller primitive unit cell exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>postscf</strong> (<em>PySCF Post-SCF method</em>) – Instance of MP2, DFMP2, CCSD, RCCSD, or DFCCSD, with attribute mo_coeff set.</p></li>
+<li><p><strong>gdf</strong> (<em>PySCF Gaussian density-fitting object</em>) – Density-fitting object of the primitive unit cell.</p></li>
+<li><p><strong>fock</strong> (<em>array</em>) – Fock matrix in AO representation.</p></li>
+<li><p><strong>mo_energy</strong> (<em>array</em>) – Active MO energies.</p></li>
+<li><p><strong>e_hf</strong> (<em>float</em>) – Mean-field energy.</p></li>
+<li><p><strong>mo_coeff</strong> (<em>array</em><em>, </em><em>optional</em>) – MO coefficients for the AO to MO transformation. If None, PySCF uses postscf.mo_coeff.
+Default: None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – PySCF ERIs object which can be used for the respective supercell post-SCF calculation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_ChemistsERIs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.postscf_ao2mo.postscf_kao2gmo_uhf">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.postscf_ao2mo.</span></span><span class="sig-name descname"><span class="pre">postscf_kao2gmo_uhf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postscf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_energy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_hf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_coeff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/postscf_ao2mo.html#postscf_kao2gmo_uhf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.postscf_ao2mo.postscf_kao2gmo_uhf" title="Link to this definition"></a></dt>
+<dd><p>k-AO to Gamma-MO transformation of ERIs for unrestricted post-SCF calculations of supercells.</p>
+<p>This can be used to avoid performing the expensive density-fitting in the supercell,
+if a smaller primitive unit cell exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>postscf</strong> (<em>PySCF Post-SCF method</em>) – Instance of UMP2 or UCCSD, with attribute mo_coeff set.</p></li>
+<li><p><strong>gdf</strong> (<em>PySCF Gaussian density-fitting object</em>) – Density-fitting object of the primitive unit cell.</p></li>
+<li><p><strong>fock</strong> (<em>tuple</em><em>(</em><em>2</em><em>) of </em><em>arrays</em>) – Fock matrix in AO representation (alpha, beta).</p></li>
+<li><p><strong>mo_energy</strong> (<em>tuple</em><em>(</em><em>2</em><em>) or </em><em>arrays</em>) – Active MO energies (alpha, beta).</p></li>
+<li><p><strong>e_hf</strong> (<em>float</em>) – Mean-field energy.</p></li>
+<li><p><strong>mo_coeff</strong> (<em>tuple</em><em>(</em><em>2</em><em>) of </em><em>arrays</em><em>, </em><em>optional</em>) – MO coefficients for the AO to MO transformation (alpha, beta).
+If None, PySCF uses postscf.mo_coeff. Default: None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – PySCF ERIs object which can be used for the respective supercell post-SCF calculation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_ChemistsERIs</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.ao2mo.pyscf_eris">
+<span id="vayesta-core-ao2mo-pyscf-eris"></span><h2>vayesta.core.ao2mo.pyscf_eris<a class="headerlink" href="#module-vayesta.core.ao2mo.pyscf_eris" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.pyscf_eris.make_ccsd_eris">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.pyscf_eris.</span></span><span class="sig-name descname"><span class="pre">make_ccsd_eris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nocc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/pyscf_eris.html#make_ccsd_eris"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.pyscf_eris.make_ccsd_eris" title="Link to this definition"></a></dt>
+<dd><p>Generate _ChemistERIs object for pyscf.cc.ccsd.CCSD.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fock</strong> (<em>array</em>) – Fock matrix in MO basis.</p></li>
+<li><p><strong>eris</strong> (<em>array</em>) – Electron-repulsion integrals in MO basis.</p></li>
+<li><p><strong>nocc</strong> (<em>int</em>) – Number of occupied orbitals.</p></li>
+<li><p><strong>mo_energy</strong> (<em>array</em><em>, </em><em>optional</em>) – MO energies. Used for the initial guess and preconditioning.
+Default: fock.diagonal().</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – ERI object as used by pyscf.cc.ccsd.CCSD.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pyscf.cc.ccsd._ChemistERIs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.ao2mo.pyscf_eris.make_uccsd_eris">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.ao2mo.pyscf_eris.</span></span><span class="sig-name descname"><span class="pre">make_uccsd_eris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nocc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mo_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/ao2mo/pyscf_eris.html#make_uccsd_eris"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.ao2mo.pyscf_eris.make_uccsd_eris" title="Link to this definition"></a></dt>
+<dd><p>Generate _ChemistERIs object for pyscf.cc.uccsd.UCCSD.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fock</strong> (<em>tuple</em><em>(</em><em>2</em><em>) of </em><em>arrays</em>) – Fock matrix in MO basis.</p></li>
+<li><p><strong>eris</strong> (<em>tuple</em><em>(</em><em>3</em><em>) of </em><em>arrays</em>) – Electron-repulsion integrals in MO basis.</p></li>
+<li><p><strong>nocc</strong> (<em>tuple</em><em>(</em><em>2</em><em>) of </em><em>ints</em>) – Number of occupied orbitals.</p></li>
+<li><p><strong>mo_energy</strong> (<em>tuple</em><em>(</em><em>2</em><em>) of </em><em>arrays</em><em>, </em><em>optional</em>) – MO energies. Used for the initial guess and preconditioning.
+Default: fock.diagonal().</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>eris</strong> – ERI object as used by pyscf.cc.uccsd.UCCSD.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pyscf.cc.uccsd._ChemistERIs</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.ao2mo">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.core.ao2mo" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.core.html" class="btn btn-neutral float-left" title="vayesta.core" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.core.bath.html" class="btn btn-neutral float-right" title="vayesta.core.bath" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

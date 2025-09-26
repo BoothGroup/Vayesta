@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.mpi.scf &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../mpi.html">vayesta.mpi</a></li>
+      <li class="breadcrumb-item active">vayesta.mpi.scf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.mpi.scf</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.df</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.df</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_time</span>
+
+
+<div class="viewcode-block" id="scf_with_mpi">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.scf.scf_with_mpi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scf_with_mpi</span><span class="p">(</span><span class="n">mpi</span><span class="p">,</span> <span class="n">mf</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use to run SCF only on the master node and broadcast result afterwards.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">mpi</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">mf</span>
+
+    <span class="n">kernel_orig</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">kernel</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">mpi</span><span class="o">.</span><span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">mpi_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;with_df&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="n">mpi_rank</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MPI rank= </span><span class="si">%3d</span><span class="s2"> is running SCF&quot;</span><span class="p">,</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for SCF: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">kernel_orig</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MPI rank= </span><span class="si">%3d</span><span class="s2"> finished SCF&quot;</span><span class="p">,</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># Generate auxiliary cell, compensation basis etc,..., but not 3c integrals:</span>
+            <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Molecules</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;auxmol&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">df</span><span class="o">.</span><span class="n">auxmol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">addons</span><span class="o">.</span><span class="n">make_auxmol</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">mol</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">auxbasis</span><span class="p">)</span>
+                <span class="c1"># Solids</span>
+                <span class="k">elif</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;auxcell&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">df</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">with_j3c</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;MPI rank= </span><span class="si">%3d</span><span class="s2"> is waiting for SCF results&quot;</span><span class="p">,</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+        <span class="c1"># Broadcast results</span>
+        <span class="n">bcast</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">mpi</span><span class="o">.</span><span class="n">bcast</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">mpi_rank</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">log_time</span><span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">timing</span><span class="p">,</span> <span class="s2">&quot;Time for MPI broadcast of SCF results: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">df</span><span class="o">.</span><span class="n">_cderi</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">_cderi</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converged</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_energy</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_occ</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span> <span class="o">=</span> <span class="n">bcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="n">mf</span><span class="o">.</span><span class="n">kernel</span> <span class="o">=</span> <span class="n">mpi_kernel</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+    <span class="n">mf</span><span class="o">.</span><span class="n">with_mpi</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">return</span> <span class="n">mf</span></div>
+
+
+
+<div class="viewcode-block" id="gdf_with_mpi">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.scf.gdf_with_mpi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gdf_with_mpi</span><span class="p">(</span><span class="n">mpi</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">mpi</span><span class="o">.</span><span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="n">build_orig</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">build</span>
+
+    <span class="n">pbc</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">GDF</span><span class="p">)</span>
+
+    <span class="n">cderi_file</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">cderi_file</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">mpi_rank</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;df._cderi_to_save= </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">mpi_build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="n">mpi_rank</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">build_orig</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">build_orig</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">with_j3c</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="n">pbc</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">_cderi</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">_cderi_to_save</span>
+        <span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="n">df</span><span class="o">.</span><span class="n">build</span> <span class="o">=</span> <span class="n">mpi_build</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">with_mpi</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

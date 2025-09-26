@@ -1,0 +1,380 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.rpa.rirpa.RIdRRPA &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../../rpa.html">vayesta.rpa</a></li>
+          <li class="breadcrumb-item"><a href="../rirpa.html">vayesta.rpa.rirpa</a></li>
+      <li class="breadcrumb-item active">vayesta.rpa.rirpa.RIdRRPA</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.rpa.rirpa.RIdRRPA</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa.RIRPA</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRIRRPA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa.momzero_NI</span><span class="w"> </span><span class="kn">import</span> <span class="n">MomzeroOffsetCalcGaussLag</span><span class="p">,</span> <span class="n">MomzeroDeductHigherOrder_dRHF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa.rirpa.energy_NI</span><span class="w"> </span><span class="kn">import</span> <span class="n">NITrRootMP_dRHF</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">time_string</span><span class="p">,</span> <span class="n">timer</span><span class="p">,</span> <span class="n">with_doc</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">lib</span>
+
+
+<div class="viewcode-block" id="ssRIdRRPA">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ssRIdRRPA</span><span class="p">(</span><span class="n">ssRIRRPA</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for computing direct RPA correlated quantites with a restricted reference state.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ssRIdRRPA.kernel_moms">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_moms">[docs]</a>
+    <span class="nd">@with_doc</span><span class="p">(</span><span class="n">ssRIRRPA</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_moms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_moment</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_spatial</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running specialised dRPA RHF code.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">target_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Warning; generating full moment rather than local component. Will scale as O(N^5).&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">return_spatial</span><span class="p">:</span>
+                <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">)</span>
+
+        <span class="n">ri_decomps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">()</span>
+        <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="n">ri_decomps</span>
+        <span class="c1"># First need to calculate zeroth moment. This only generates the spin-independent contribution in a single</span>
+        <span class="c1"># spin channel; the spin-dependent contribution is just the identity rotated to our target rotation.</span>
+        <span class="n">mom0</span><span class="p">,</span> <span class="n">err0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_mom0</span><span class="p">(</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">ri_decomps</span><span class="o">=</span><span class="n">ri_decomps</span><span class="p">,</span> <span class="n">return_spatial</span><span class="o">=</span><span class="n">return_spatial</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">moments</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">max_moment</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,)</span> <span class="o">+</span> <span class="n">mom0</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">mom0</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">mom0</span>
+
+        <span class="n">t_start_higher</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">moments</span><span class="p">,</span> <span class="n">err0</span>
+
+        <span class="n">eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span>
+
+        <span class="k">if</span> <span class="n">return_spatial</span><span class="p">:</span>
+            <span class="c1"># Must have spatial target rotation.</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">gen_new_moment</span><span class="p">(</span><span class="n">prev_mom</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">prev_mom</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span><span class="o">**</span><span class="mi">2</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dot</span><span class="p">(</span><span class="n">prev_mom</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+            <span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_rot</span> <span class="o">*</span> <span class="n">eps</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">gen_new_moment</span><span class="p">(</span><span class="n">prev_mom</span><span class="p">):</span>
+                <span class="n">prev_aa</span><span class="p">,</span> <span class="n">prev_bb</span> <span class="o">=</span> <span class="n">prev_mom</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">],</span> <span class="n">prev_mom</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]</span>
+                <span class="n">spat_vv</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">prev_aa</span> <span class="o">+</span> <span class="n">prev_bb</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">new_aa</span> <span class="o">=</span> <span class="n">spat_vv</span> <span class="o">+</span> <span class="n">prev_aa</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span><span class="o">**</span><span class="mi">2</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span>
+                <span class="n">new_bb</span> <span class="o">=</span> <span class="n">spat_vv</span> <span class="o">+</span> <span class="n">prev_bb</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps</span><span class="o">**</span><span class="mi">2</span><span class="p">)[</span><span class="kc">None</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">new_aa</span><span class="p">,</span> <span class="n">new_bb</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">:</span>
+                <span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_rot</span> <span class="o">*</span> <span class="n">eps</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">moments</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_rot</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_moment</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">moments</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">gen_new_moment</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">max_moment</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;RIRPA Higher Moments wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start_higher</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Overall RIRPA Moments wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">moments</span><span class="p">,</span> <span class="n">err0</span></div>
+
+
+    <span class="nd">@with_doc</span><span class="p">(</span><span class="n">ssRIRRPA</span><span class="o">.</span><span class="n">_kernel_mom0</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_kernel_mom0</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">target_rot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span>
+        <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">integral_deduct</span><span class="o">=</span><span class="s2">&quot;HO&quot;</span><span class="p">,</span>
+        <span class="n">opt_quad</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">adaptive_quad</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">ri_decomps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">return_niworker</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">analytic_lower_bound</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">return_spatial</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">analytic_lower_bound</span> <span class="ow">or</span> <span class="n">adaptive_quad</span> <span class="ow">or</span> <span class="n">integral_deduct</span> <span class="o">!=</span> <span class="s2">&quot;HO&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only core functionality is implemented in dRPA specific code.&quot;</span><span class="p">)</span>
+        <span class="c1"># If we have a rotation in the spinorbital basis we need to stack the different spin channels as additional</span>
+        <span class="c1"># spatial rotations and then sum at the end.</span>
+        <span class="n">target_rot</span><span class="p">,</span> <span class="n">stack_spin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_target_rot</span><span class="p">(</span><span class="n">target_rot</span><span class="p">)</span>
+        <span class="n">trrot</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># We can then compress the spatial rotation.</span>
+        <span class="k">if</span> <span class="n">stack_spin</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">return_spatial</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Requested spatially integrated calculation, but target_rot is spin-dependent.&quot;</span><span class="p">)</span>
+            <span class="n">target_rot</span><span class="p">,</span> <span class="n">trrot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_target_rot</span><span class="p">(</span><span class="n">target_rot</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ri_decomps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="n">ri_decomps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+
+        <span class="n">offset_niworker</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">npoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+
+        <span class="c1"># We are computing our values using spatial quantities, but relating our calculations to the spinorbital</span>
+        <span class="c1"># resolved basis. As such, we need to be careful to ensure we know which terms are spin-diagonal and which are</span>
+        <span class="c1"># spin-invariant.</span>
+
+        <span class="n">niworker</span> <span class="o">=</span> <span class="n">MomzeroDeductHigherOrder_dRHF</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">offset_niworker</span> <span class="o">=</span> <span class="n">MomzeroOffsetCalcGaussLag</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">return_niworker</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">niworker</span><span class="p">,</span> <span class="n">offset_niworker</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+
+        <span class="n">integral</span><span class="p">,</span> <span class="n">upper_bound</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">ainit</span><span class="p">,</span> <span class="n">opt_quad</span><span class="o">=</span><span class="n">opt_quad</span><span class="p">)</span>  <span class="c1"># This contribution is spin-invariant.</span>
+        <span class="n">integral</span> <span class="o">+=</span> <span class="n">offset_niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># As is this one.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+
+        <span class="c1"># Free memory.</span>
+        <span class="k">del</span> <span class="n">ri_mp</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">niworker</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+
+        <span class="c1"># Construct A+B inverse.</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span>
+        <span class="n">epsinv</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Factor of two from different spin channels.</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dot</span><span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">epsinv</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">u</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record_memory</span><span class="p">()</span>
+
+        <span class="c1"># First, compute contribution which is spin-dependent (diagonal in both the integrated value, and (A+B)^-1).</span>
+        <span class="n">mom0_spinindependent</span> <span class="o">=</span> <span class="n">integral</span> <span class="o">*</span> <span class="n">epsinv</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+
+        <span class="c1"># Factor of two from sum over spin channels.</span>
+        <span class="n">mom0_spinindependent</span> <span class="o">-=</span> <span class="n">dot</span><span class="p">(</span>
+            <span class="n">dot</span><span class="p">(</span><span class="n">dot</span><span class="p">(</span><span class="n">target_rot</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">integral</span><span class="p">,</span> <span class="p">(</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">epsinv</span><span class="p">[</span><span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="n">u</span><span class="p">),</span>
+            <span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">epsinv</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;RIRPA Zeroth Moment wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">trrot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">trrot</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">)</span>
+            <span class="n">mom0_spinindependent</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">trrot</span><span class="p">,</span> <span class="n">mom0_spinindependent</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">return_spatial</span><span class="p">:</span>
+            <span class="n">mom0</span> <span class="o">=</span> <span class="n">target_rot</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">mom0_spinindependent</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Want to return quantities in spin-orbital basis.</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">stack_spin</span><span class="p">:</span>
+                <span class="c1"># Half of target rot are actually other spin.</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">n</span> <span class="o">//</span> <span class="mi">2</span>
+            <span class="n">mom0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">stack_spin</span><span class="p">:</span>
+                <span class="n">mom0</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">target_rot</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span> <span class="o">+</span> <span class="n">mom0_spinindependent</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span> <span class="o">+</span> <span class="n">mom0_spinindependent</span><span class="p">[</span><span class="n">n</span><span class="p">:]</span>
+                <span class="p">)</span>  <span class="c1"># Has aa and ab interactions.</span>
+                <span class="n">mom0</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">target_rot</span><span class="p">[</span><span class="n">n</span><span class="p">:]</span> <span class="o">+</span> <span class="n">mom0_spinindependent</span><span class="p">[</span><span class="n">n</span><span class="p">:]</span> <span class="o">+</span> <span class="n">mom0_spinindependent</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+                <span class="p">)</span>  <span class="c1"># Has bb and ba interactions.</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mom0</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_rot</span> <span class="o">+</span> <span class="n">mom0_spinindependent</span>
+                <span class="n">mom0</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">mom0_spinindependent</span>
+
+        <span class="k">return</span> <span class="n">mom0</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ssRIdRRPA.kernel_trMPrt">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_trMPrt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_trMPrt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate Tr((MP)^(1/2)).&quot;&quot;&quot;</span>
+        <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_compressed_MP</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">,</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">npoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+
+        <span class="n">niworker</span> <span class="o">=</span> <span class="n">NITrRootMP_dRHF</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">integral</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">niworker</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">ainit</span><span class="p">,</span> <span class="n">opt_quad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Compute offset; possible analytically in N^3 for diagonal.</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">ri_mp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">ri_mp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">offset</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+<div class="viewcode-block" id="ssRIdRRPA.kernel_energy">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.kernel_energy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kernel_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">ainit</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">correction</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">):</span>
+        <span class="n">t_start</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">e1</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel_trMPrt</span><span class="p">(</span><span class="n">npoints</span><span class="p">,</span> <span class="n">ainit</span><span class="p">)</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">cderi</span><span class="p">,</span> <span class="n">cderi_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cderi</span><span class="p">()</span>
+        <span class="n">cderi</span> <span class="o">=</span> <span class="n">cderi</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">cderi_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cderi_neg</span> <span class="o">=</span> <span class="n">cderi_neg</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">))</span>
+        <span class="c1"># Note that eri contribution to A and B is equal, so can get trace over one by dividing by two</span>
+        <span class="n">e3</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">cderi</span><span class="p">,</span> <span class="n">cderi</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))))</span>
+        <span class="k">if</span> <span class="n">cderi_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">e3</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">cderi_neg</span><span class="p">,</span> <span class="n">cderi_neg</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="n">err</span> <span class="o">/=</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span> <span class="o">-</span> <span class="n">e3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Total RIRPA Energy Calculation wall time:  </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">time_string</span><span class="p">(</span><span class="n">timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">t_start</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">e_corr_ss</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+<div class="viewcode-block" id="ssRIdRRPA.get_compressed_MP">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.get_compressed_MP">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_compressed_MP</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="n">lov</span><span class="p">,</span> <span class="n">lov_neg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cderi</span><span class="p">()</span>
+
+        <span class="n">lov</span> <span class="o">=</span> <span class="n">lov</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">lov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+        <span class="n">ri_apb</span> <span class="o">=</span> <span class="p">[</span><span class="n">lov</span><span class="p">,</span> <span class="n">lov</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">lov_neg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lov_neg</span> <span class="o">=</span> <span class="n">lov_neg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">lov_neg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+
+            <span class="n">ri_apb</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">lov</span><span class="p">,</span> <span class="n">lov_neg</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">lov</span><span class="p">,</span> <span class="o">-</span><span class="n">lov_neg</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">ri_apb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_apb</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;A+B&quot;</span><span class="p">)</span>
+
+        <span class="n">ri_apb</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ri_apb</span><span class="p">]</span>
+        <span class="n">ri_amb</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">lov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))]</span> <span class="o">*</span> <span class="mi">2</span>
+
+        <span class="n">ri_mp</span> <span class="o">=</span> <span class="p">[</span><span class="n">ri_apb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span> <span class="n">ri_apb</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ri_mp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compress_low_rank</span><span class="p">(</span><span class="o">*</span><span class="n">ri_mp</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;(A-B)(A+B)&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ri_mp</span><span class="p">,</span> <span class="n">ri_apb</span><span class="p">,</span> <span class="n">ri_amb</span></div>
+
+
+<div class="viewcode-block" id="ssRIdRRPA.check_target_rot">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.check_target_rot">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_target_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">):</span>
+        <span class="n">stack_spins</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">target_rot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Warning; generating full moment rather than local component. Will scale as O(N^5).&quot;</span><span class="p">)</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov_tot</span><span class="p">:</span>
+            <span class="c1"># Provided rotation is in spinorbital space. We want to convert to spatial, but record that we&#39;ve done this</span>
+            <span class="c1"># so we can convert back later.</span>
+            <span class="n">target_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">target_rot</span><span class="p">[:,</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span><span class="p">],</span> <span class="n">target_rot</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ov</span> <span class="p">:]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">stack_spins</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">stack_spins</span></div>
+
+
+<div class="viewcode-block" id="ssRIdRRPA.compress_target_rot">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.rpa.rirpa.html#vayesta.rpa.rirpa.RIdRRPA.ssRIdRRPA.compress_target_rot">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compress_target_rot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+        <span class="n">inner_prod</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">target_rot</span><span class="p">,</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">inner_prod</span><span class="p">)</span>
+        <span class="n">want</span> <span class="o">=</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="n">tol</span>
+        <span class="n">rot</span> <span class="o">=</span> <span class="n">c</span><span class="p">[:,</span> <span class="n">want</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_rot</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">target_rot</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">dot</span><span class="p">(</span><span class="n">rot</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">target_rot</span><span class="p">),</span> <span class="n">rot</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

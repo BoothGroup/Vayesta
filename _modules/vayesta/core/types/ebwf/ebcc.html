@@ -1,0 +1,493 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.types.ebwf.ebcc &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.types.ebwf.ebcc</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.types.ebwf.ebcc</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;WaveFunction for interaction with ebcc solvers for arbitrary ansatzes.</span>
+<span class="sd">We subclass existing CCSD wavefunction functionality for the various utility functions (projection, symmetrisation etc),</span>
+<span class="sd">but don&#39;t implement these for higher-order terms for now.</span>
+<span class="sd">Where ebcc and pyscf have different conventions, we store quantities following the ebcc convention and return values</span>
+<span class="sd">by pyscf convention for consistency and compatibility with existing interfaces.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types.ebwf</span><span class="w"> </span><span class="kn">import</span> <span class="n">EBWavefunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">RCCSD_WaveFunction</span><span class="p">,</span> <span class="n">UCCSD_WaveFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">spinalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">callif</span><span class="p">,</span> <span class="n">replace_attr</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">ebcc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+
+
+<div class="viewcode-block" id="EBCC_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.EBCC_WaveFunction">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">EBCC_WaveFunction</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">mo</span><span class="o">.</span><span class="n">nspin</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">REBCC_WaveFunction</span>
+    <span class="k">elif</span> <span class="n">mo</span><span class="o">.</span><span class="n">nspin</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">UEBCC_WaveFunction</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;EBCC WaveFunction is only implemented for mo.spin of 1 or 2.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Subclass existing CC methods only for the various utility functions (projection, symmetrisation etc).</span>
+<span class="c1"># Just need to set properties to correctly interact with the ebcc storage objects.</span>
+<span class="c1"># Notable convention differences between ebcc and pyscf:</span>
+<span class="c1"># - ebcc includes an additional factor of 1/2 in the definition of T2aaaa, T2bbbb, L2aaaa, L2bbbb etc.</span>
+<span class="c1"># - ebcc stores lambda amplitudes ai, abij while pyscf stores them ia, ijab.</span>
+<div class="viewcode-block" id="REBCC_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">REBCC_WaveFunction</span><span class="p">(</span><span class="n">EBWavefunction</span><span class="p">,</span> <span class="n">RCCSD_WaveFunction</span><span class="p">):</span>
+    <span class="n">_spin_type</span> <span class="o">=</span> <span class="s2">&quot;R&quot;</span>
+    <span class="n">_driver</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">REBCC</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">ansatz</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mbos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projector</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mo</span><span class="p">,</span> <span class="n">mbos</span><span class="p">,</span> <span class="n">projector</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span> <span class="o">=</span> <span class="n">amplitudes</span>
+        <span class="k">if</span> <span class="n">lambdas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">lambdas</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">lambdas</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="o">=</span> <span class="n">lambdas</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ansatz</span><span class="p">,</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">Ansatz</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ansatz</span> <span class="o">=</span> <span class="n">ansatz</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ansatz</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">Ansatz</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">ansatz</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_eqns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ansatz</span><span class="o">.</span><span class="n">_get_eqns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spin_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xi</span> <span class="o">=</span> <span class="n">xi</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">options</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">(</span><span class="n">shift</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">xi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nbos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;s1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">s1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a string representation of the method name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spin_type</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ansatz</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span>
+
+    <span class="nd">@t1</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span>
+
+    <span class="nd">@t2</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="nd">@l1</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">transpose</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="nd">@l2</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">transpose</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_amps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_lams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">_load_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pack_codegen_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_kwargs</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pack all the possible keyword arguments for generated code</span>
+<span class="sd">        into a dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eris</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># This is always accessed but never used for any density matrix calculation.</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="n">g</span><span class="p">[</span><span class="s2">&quot;boo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;bov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;bvo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;bvv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nbos</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">v</span><span class="o">=</span><span class="n">eris</span><span class="p">,</span>
+            <span class="n">g</span><span class="o">=</span><span class="n">g</span><span class="p">,</span>
+            <span class="n">nocc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span>
+            <span class="n">nvir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span>
+            <span class="n">nbos</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbos</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">kw</span> <span class="ow">in</span> <span class="n">extra_kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">kwargs</span>
+
+<div class="viewcode-block" id="REBCC_WaveFunction.make_rdm1">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_mf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">t_as_lambda</span> <span class="ow">and</span> <span class="n">with_mf</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ao_basis</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_rdm1_f</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.make_rdm2">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">t_as_lambda</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">with_dm1</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ao_basis</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">approx_cumulant</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">t_as_lambda</span> <span class="ow">and</span> <span class="n">with_dm1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ao_basis</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">approx_cumulant</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_rdm2_f</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="n">hermitise</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.make_rdm1_b">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm1_b">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1_b</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_rdm1_b</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="n">hermitise</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.make_sing_b_dm">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_sing_b_dm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_sing_b_dm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_sing_b_dm</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="n">hermitise</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.make_rdm_eb">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.make_rdm_eb">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm_eb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dmeb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_eb_coup_rdm</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="n">hermitise</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">dmeb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dmeb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+    <span class="n">make_rdm1_f</span> <span class="o">=</span> <span class="n">make_rdm1</span>
+    <span class="n">make_rdm2_f</span> <span class="o">=</span> <span class="n">make_rdm2</span>
+
+<div class="viewcode-block" id="REBCC_WaveFunction.copy">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">callif</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ansatz</span><span class="p">),</span>
+            <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">),</span>
+            <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">),</span>
+            <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mbos</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">mbos</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="n">proj</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.as_ccsd">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.as_ccsd">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_ccsd</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">callif</span><span class="p">(</span><span class="n">spinalg</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="s2">&quot;CCSD&quot;</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">),</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">mbos</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">proj</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="REBCC_WaveFunction.rotate_ov">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.REBCC_WaveFunction.rotate_ov">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rotate_ov</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Note that this is slightly dodgy until we implement rotation of the coupled amplitudes.</span>
+        <span class="k">if</span> <span class="s2">&quot;t3&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">:</span>
+            <span class="c1"># can&#39;t access log within wavefunction classes currently; this should be a warning.</span>
+            <span class="k">pass</span>
+            <span class="c1"># raise NotImplementedError(&quot;Only rotation of CCSD components is implemented.&quot;)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">rotate_ov</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UEBCC_WaveFunction">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UEBCC_WaveFunction</span><span class="p">(</span><span class="n">REBCC_WaveFunction</span><span class="p">,</span> <span class="n">UCCSD_WaveFunction</span><span class="p">):</span>
+    <span class="n">_spin_type</span> <span class="o">=</span> <span class="s2">&quot;U&quot;</span>
+    <span class="n">_driver</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">UEBCC</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1a</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span><span class="o">.</span><span class="n">aa</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1b</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span><span class="o">.</span><span class="n">bb</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t1a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t1b</span><span class="p">)</span>
+
+    <span class="nd">@t1</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span><span class="o">.</span><span class="n">aa</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t1</span><span class="o">.</span><span class="n">bb</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2aa</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">aaaa</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2ab</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">abab</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2ba</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">abab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2ba</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;baba&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">baba</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">t2ab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2bb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">bbbb</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t2aa</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t2ab</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t2bb</span><span class="p">)</span>
+
+    <span class="nd">@t2</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">t2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">aaaa</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">abab</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">bbbb</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">value</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">t2</span><span class="o">.</span><span class="n">baba</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1a</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">aa</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1b</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">bb</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">l1a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">l1b</span><span class="p">)</span>
+
+    <span class="nd">@l1</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">aa</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l1</span><span class="o">.</span><span class="n">bb</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2aa</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">aaaa</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2ab</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">abab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2ba</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;baba&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">baba</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2ab</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2bb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">bbbb</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">l2aa</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2ab</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">l2bb</span><span class="p">)</span>
+
+    <span class="nd">@l2</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">aaaa</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">abab</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">bbbb</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="o">.</span><span class="n">l2</span><span class="o">.</span><span class="n">baba</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pack_codegen_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">extra_kwargs</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pack all the possible keyword arguments for generated code</span>
+<span class="sd">        into a dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eris</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># This is always accessed but never used for any density matrix calculation.</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ebcc</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+        <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">][</span><span class="s2">&quot;boo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">][</span><span class="s2">&quot;bov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">][</span><span class="s2">&quot;bvo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">][</span><span class="s2">&quot;bvv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nbos</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">g</span><span class="p">[</span><span class="s2">&quot;bb&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">&quot;aa&quot;</span><span class="p">]</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">v</span><span class="o">=</span><span class="n">eris</span><span class="p">,</span>
+            <span class="n">g</span><span class="o">=</span><span class="n">g</span><span class="p">,</span>
+            <span class="n">nocc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">nocc</span><span class="p">,</span>
+            <span class="n">nvir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mo</span><span class="o">.</span><span class="n">nvir</span><span class="p">,</span>
+            <span class="n">nbos</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nbos</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">kw</span> <span class="ow">in</span> <span class="n">extra_kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kw</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">kwargs</span>
+
+<div class="viewcode-block" id="UEBCC_WaveFunction.make_rdm1">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm1">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dm1</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm1</span><span class="o">.</span><span class="n">aa</span><span class="p">,</span> <span class="n">dm1</span><span class="o">.</span><span class="n">bb</span></div>
+
+
+<div class="viewcode-block" id="UEBCC_WaveFunction.make_rdm2">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dm2</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">make_rdm2</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dm2</span><span class="o">.</span><span class="n">aaaa</span><span class="p">,</span> <span class="n">dm2</span><span class="o">.</span><span class="n">aabb</span><span class="p">,</span> <span class="n">dm2</span><span class="o">.</span><span class="n">bbbb</span></div>
+
+
+<div class="viewcode-block" id="UEBCC_WaveFunction.make_rdm_eb">
+<a class="viewcode-back" href="../../../../../apidoc/vayesta.core.types.ebwf.html#vayesta.core.types.ebwf.ebcc.UEBCC_WaveFunction.make_rdm_eb">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rdm_eb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dmeb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">make_eb_coup_rdm</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">eris</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">amplitudes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">lambdas</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">hermitise</span><span class="o">=</span><span class="n">hermitise</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">dmeb</span><span class="o">.</span><span class="n">aa</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dmeb</span><span class="o">.</span><span class="n">bb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

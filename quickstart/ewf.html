@@ -1,0 +1,308 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wave Function Based Embedding (EWF) &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Defining Fragments" href="fragmentation.html" />
+    <link rel="prev" title="Density-Matrix Embbeding Theory (DMET)" href="dmet.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quickstart</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dmet.html">Density-Matrix Embbeding Theory (DMET)</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Wave Function Based Embedding (EWF)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#water-molecule">Water Molecule</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cubic-boron-nitride-cbn">Cubic Boron Nitride (cBN)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fragmentation.html">Defining Fragments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpi.html">Parallel Computing with MPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Quickstart</a></li>
+      <li class="breadcrumb-item active">Wave Function Based Embedding (EWF)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/ewf.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="wave-function-based-embedding-ewf">
+<span id="ewf"></span><h1>Wave Function Based Embedding (EWF)<a class="headerlink" href="#wave-function-based-embedding-ewf" title="Link to this heading"></a></h1>
+<p>This introduces the <code class="docutils literal notranslate"><span class="pre">EWF</span></code> class to perform a more generalized wave function based quantum embedding that
+improves on DMET for <em>ab initio</em> systems, as presented in <a class="reference external" href="https://journals.aps.org/prx/abstract/10.1103/PhysRevX.12.011046">Phys. Rev. X 12, 011046</a> <a class="footnote-reference brackets" href="#id3" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
+<section id="water-molecule">
+<h2>Water Molecule<a class="headerlink" href="#water-molecule" title="Link to this heading"></a></h2>
+<p>An embedded wave function calculation of a simple water molecule can be performed with the following code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+<span class="linenos"> 5</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 6</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.ewf</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span>
+<span class="linenos"> 9</span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="linenos">10</span><span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">11</span><span class="s2">O  0.0000   0.0000   0.1173</span>
+<span class="linenos">12</span><span class="s2">H  0.0000   0.7572  -0.4692</span>
+<span class="linenos">13</span><span class="s2">H  0.0000  -0.7572  -0.4692</span>
+<span class="linenos">14</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">15</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pVDZ&quot;</span>
+<span class="linenos">16</span><span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf.txt&quot;</span>
+<span class="linenos">17</span><span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">18</span>
+<span class="linenos">19</span><span class="c1"># Hartree-Fock</span>
+<span class="linenos">20</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">21</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">22</span>
+<span class="linenos">23</span><span class="c1"># Embedded CCSD</span>
+<span class="linenos">24</span><span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="linenos">25</span><span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">26</span>
+<span class="linenos">27</span><span class="c1"># Reference full system CCSD:</span>
+<span class="linenos">28</span><span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">29</span><span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">30</span>
+<span class="linenos">31</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF)=            </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">32</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=          </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">33</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)[WF]= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">34</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)[DM]= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_dm_energy</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>There are two main differences in setup compared to the <a class="reference internal" href="dmet.html#dmet"><span class="std std-ref">DMET embedding class</span></a> in the definition of the <code class="docutils literal notranslate"><span class="pre">EWF</span></code> class (<strong>lines 24–25</strong>).</p>
+<ul class="simple">
+<li><p>The keyword argument <code class="code highlight python docutils literal highlight-python"><span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span></code> defines the threshold for the MP2 bath natural orbitals
+(the variable <span class="math notranslate nohighlight">\(\eta\)</span> in Ref. <a class="reference internal" href="#id3">1</a>) <a class="footnote-reference brackets" href="#id4" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>.</p></li>
+<li><p>No fragmentation scheme is explicitly provided, which by default results in the system being fully fragmented
+into simple atomic fragments as defined by <a class="reference external" href="https://pubs.acs.org/doi/10.1021/ct400687b">intrinsic atomic orbitals</a> (IAOs).
+This is equivalent to adding the following lines before calling the embedding kernel method:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">emb</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">add_all_atomic_fragments</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>which, in turn, is equivalent to</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">emb</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">atom</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mol</span><span class="o">.</span><span class="n">natm</span><span class="p">):</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="n">atom</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Other <a class="reference internal" href="fragmentation.html#fragments"><span class="std std-ref">fragmentations schemes</span></a> can still be used, but have to be specified manually.</p>
+</section>
+<section id="cubic-boron-nitride-cbn">
+<h2>Cubic Boron Nitride (cBN)<a class="headerlink" href="#cubic-boron-nitride-cbn" title="Link to this heading"></a></h2>
+<p>In this example we calculate cubic boron nitride (Zinc Blende structure):</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The basis set, auxiliary (density-fitting) basis set, and <strong>k</strong>-point sampling in this example are much too small
+for accurate results and only chosen for demonstration.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.scf</span>
+<span class="linenos"> 5</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.pbc.cc</span>
+<span class="linenos"> 6</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 7</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.ewf</span>
+<span class="linenos"> 8</span>
+<span class="linenos"> 9</span>
+<span class="linenos">10</span><span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+<span class="linenos">11</span><span class="n">a</span> <span class="o">=</span> <span class="mf">3.615</span>
+<span class="linenos">12</span><span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;B 0 0 0 ; N </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2"> </span><span class="si">%f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span>
+<span class="linenos">13</span><span class="n">cell</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]])</span>
+<span class="linenos">14</span><span class="n">cell</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;sto-6g&quot;</span>
+<span class="linenos">15</span><span class="n">cell</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf.out&quot;</span>
+<span class="linenos">16</span><span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">17</span>
+<span class="linenos">18</span><span class="c1"># Hartree-Fock with k-points</span>
+<span class="linenos">19</span><span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="linenos">20</span><span class="n">kpts</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">make_kpts</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+<span class="linenos">21</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">KRHF</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+<span class="linenos">22</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s2">&quot;sto-6g&quot;</span><span class="p">)</span>
+<span class="linenos">23</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">24</span>
+<span class="linenos">25</span><span class="c1"># Full system CCSD</span>
+<span class="linenos">26</span><span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">KCCSD</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">27</span><span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">28</span>
+<span class="linenos">29</span><span class="c1"># Embedded calculation will automatically fold the k-point sampled mean-field to the supercell</span>
+<span class="linenos">30</span><span class="c1"># solve_lambda=True is required, if density-matrix is needed!</span>
+<span class="linenos">31</span><span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">),</span> <span class="n">solver_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">solve_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="linenos">32</span><span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">33</span>
+<span class="linenos">34</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF)=             </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">35</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)=      </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">36</span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=           </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">37</span>
+<span class="linenos">38</span><span class="c1"># One-body density matrix in the supercell AO-basis</span>
+<span class="linenos">39</span><span class="n">dm1</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">(</span><span class="n">ao_basis</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">40</span><span class="c1"># Population analysis (q: charge, s: spin)</span>
+<span class="linenos">41</span><span class="c1"># Possible options for local_orbitals: &#39;mulliken&#39;, &#39;lowdin&#39;, &#39;iao+pao&#39;, or custom N(AO) x N(AO) coefficient matrix</span>
+<span class="linenos">42</span><span class="c1"># orbital_resolved=True is used to print orbital resolved (rather than only atom resolved) analysis</span>
+<span class="linenos">43</span><span class="n">emb</span><span class="o">.</span><span class="n">pop_analysis</span><span class="p">(</span><span class="n">dm1</span><span class="p">,</span> <span class="n">local_orbitals</span><span class="o">=</span><span class="s2">&quot;iao+pao&quot;</span><span class="p">,</span> <span class="n">orbital_resolved</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In <strong>line 34</strong> the setup of the embedding class is performed in the same way as for molecules.
+Vayesta will detect if the mean field object <code class="docutils literal notranslate"><span class="pre">mf</span></code> has <strong>k</strong>-points defined. If these are found, then
+the <strong>k</strong>-point sampled mean-field will automatically be folded to the <span class="math notranslate nohighlight">\(\Gamma\)</span>-point of the equivalent
+(in this case <span class="math notranslate nohighlight">\(2\times2\times2\)</span>) Born–von Karman supercell.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Only Monkhorst-pack <strong>k</strong>-point meshes which include the <span class="math notranslate nohighlight">\(\Gamma\)</span>-point are currently supported.</p>
+</div>
+<p>Note that instantiating the embedding class with a <strong>k</strong>-point sampled mean-field object
+will automatically add the translational symmetry to the symmetry group stored in <code class="code highlight python docutils literal highlight-python"><span class="n">emb</span><span class="o">.</span><span class="n">symmetry</span></code>.
+This assumes that the user will only define fragments within the original primitive unit cell,
+which are then copied throughout the supercell using the translational symmetry (and this symmetry will be exploited
+to avoid the cost of solving embedded fragments which are symmetrically equivalent to others).
+For calculations of fragments across multiple primitive cells or where the primitive cell has not been explicitly
+enlarged to encompass the full fragment space,
+the translational symmetry should be removed by calling <code class="code highlight python docutils literal highlight-python"><span class="n">emb</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">clear_translations</span><span class="p">()</span></code>
+or overwritten via  <code class="code highlight python docutils literal highlight-python"><span class="n">emb</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">set_translations</span><span class="p">(</span><span class="n">nimages</span><span class="p">)</span></code>, as demonstrated in
+for the 1D Hubbard model <a class="reference internal" href="dmet.html#dmet-hub1d"><span class="std std-ref">here</span></a>.</p>
+<p>Performing the embedding in the supercell allows for optimal utilization of the locality of electron correlation,
+as the embedding problems are only restricted to have the periodicity of the supercell, rather than the <strong>k</strong>-point sampled
+primitive cell.
+Properties, such as density-matrix calculated in <strong>line 42</strong>, will recover the full, primitive cell symmetry,
+since they are obtained from a summation over all symmetry equivalent fragments in the supercell.
+This is confirmed by the population analysis, which shows that the boron atom 2 has the same population than
+boron atom 0, despite being part of a different primitive cell within the supercell:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Population analysis</span>
+<span class="go">-------------------</span>
+<span class="go">    0 B:       q=  0.17325874  s=  0.00000000</span>
+<span class="go">         0 0 B 1s          =  1.98971008</span>
+<span class="go">         1 0 B 2s          =  0.76417671</span>
+<span class="go">         2 0 B 2px         =  0.69095149</span>
+<span class="go">         3 0 B 2py         =  0.69095149</span>
+<span class="go">         4 0 B 2pz         =  0.69095149</span>
+<span class="go">    1 N:       q= -0.17325874  s=  0.00000000</span>
+<span class="go">         5 1 N 1s          =  1.99053993</span>
+<span class="go">         6 1 N 2s          =  1.17403392</span>
+<span class="go">         7 1 N 2px         =  1.33622830</span>
+<span class="go">         8 1 N 2py         =  1.33622830</span>
+<span class="go">         9 1 N 2pz         =  1.33622830</span>
+<span class="go">    2 B:       q=  0.17325874  s=  0.00000000</span>
+<span class="go">        10 2 B 1s          =  1.98971008</span>
+<span class="go">        11 2 B 2s          =  0.76417671</span>
+<span class="go">        12 2 B 2px         =  0.69095149</span>
+<span class="go">        13 2 B 2py         =  0.69095149</span>
+<span class="go">        14 2 B 2pz         =  0.69095149</span>
+<span class="go">    3 N:       q= -0.17325874  s=  0.00000000</span>
+<span class="go">        15 3 N 1s          =  1.99053993</span>
+<span class="go">        16 3 N 2s          =  1.17403392</span>
+<span class="go">        17 3 N 2px         =  1.33622830</span>
+<span class="go">        18 3 N 2py         =  1.33622830</span>
+<span class="go">        19 3 N 2pz         =  1.33622830</span>
+<span class="go">    ...</span>
+</pre></div>
+</div>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>Max Nusspickel and George H. Booth, Phys. Rev. X 12, 011046 (2022).</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>The definition of <span class="math notranslate nohighlight">\(\eta\)</span> in Vayesta differs from Ref. 1 by a factor of <span class="math notranslate nohighlight">\(1/2\)</span>. In Ref. 1 the
+occupation numbers of the spin traced density matrix (between 0 and 2) are compared against <span class="math notranslate nohighlight">\(\eta\)</span>, whereas in Vayesta the eigenvalues of
+the spinned density-matrix (between 0 and 1) are used. The latter definition allows for a more natural comparison between spin-restricted
+and unrestricted calculations with the same value of <span class="math notranslate nohighlight">\(\eta\)</span>.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dmet.html" class="btn btn-neutral float-left" title="Density-Matrix Embbeding Theory (DMET)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fragmentation.html" class="btn btn-neutral float-right" title="Defining Fragments" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

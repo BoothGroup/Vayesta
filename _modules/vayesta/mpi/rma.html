@@ -1,0 +1,392 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.mpi.rma &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../mpi.html">vayesta.mpi</a></li>
+      <li class="breadcrumb-item active">vayesta.mpi.rma</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.mpi.rma</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="RMA_Dict">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RMA_Dict</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mpi</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span> <span class="o">=</span> <span class="n">mpi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="RMA_Dict.from_dict">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mpi</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">):</span>
+        <span class="n">rma_dict</span> <span class="o">=</span> <span class="n">RMA_Dict</span><span class="p">(</span><span class="n">mpi</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">rma_dict</span><span class="o">.</span><span class="n">writable</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">dictionary</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">rma_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">return</span> <span class="n">rma_dict</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">RMA_DictElement</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">collection</span> <span class="o">=</span> <span class="n">collection</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">location</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">shape</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+
+            <span class="c1"># Allocate RMA Window and put data</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">win</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">local_init</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">remote_init</span><span class="p">()</span>
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.local_init">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.local_init">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">local_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+            <span class="c1"># if data is not None:</span>
+            <span class="c1">#    winsize = (data.size * data.dtype.itemsize)</span>
+            <span class="c1"># else:</span>
+            <span class="c1">#    winsize = 0</span>
+            <span class="c1"># self.win = self.mpi.MPI.Win.Allocate(winsize, comm=self.mpi.world)</span>
+            <span class="c1"># self.win = self.mpi.MPI.Win.Create(data, comm=self.mpi.world)</span>
+            <span class="c1"># if data is None:</span>
+            <span class="c1">#    return</span>
+
+            <span class="n">winsize</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">size</span> <span class="o">*</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">itemsize</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">win</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">MPI</span><span class="o">.</span><span class="n">Win</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">winsize</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_lock</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_put</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_unlock</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.remote_init">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.remote_init">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">remote_init</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="c1"># if self.dtype == type(None):</span>
+            <span class="c1">#    return</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">win</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">MPI</span><span class="o">.</span><span class="n">Win</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="p">)</span></div>
+
+            <span class="c1"># self.win = self.mpi.MPI.Win.Create(None, comm=self.mpi.world)</span>
+            <span class="c1"># buf = np.empty(self.shape, dtype=self.dtype)</span>
+            <span class="c1"># self.win = self.mpi.MPI.Win.Create(buf, comm=self.mpi.world)</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># @property</span>
+        <span class="c1"># def itemsize(self):</span>
+        <span class="c1">#    if self.dtype is type(None):</span>
+        <span class="c1">#        return 0</span>
+        <span class="c1">#    return self.dtype.itemsize</span>
+
+        <span class="c1"># @property</span>
+        <span class="c1"># def winsize(self):</span>
+        <span class="c1">#    return self.size * self.itemsize</span>
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.get">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.get">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shared_lock</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">buf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_lock</span><span class="p">(</span><span class="n">shared_lock</span><span class="o">=</span><span class="n">shared_lock</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_get</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rma_unlock</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">buf</span></div>
+
+
+        <span class="nd">@property</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">mpi</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection</span><span class="o">.</span><span class="n">mpi</span>
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.rma_lock">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.rma_lock">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rma_lock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shared_lock</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">shared_lock</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Lock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="n">lock_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">MPI</span><span class="o">.</span><span class="n">LOCK_SHARED</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Lock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.rma_unlock">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.rma_unlock">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rma_unlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Unlock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.rma_put">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.rma_put">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rma_put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Put</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">target_rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.rma_get">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.rma_get">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rma_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">target_rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.RMA_DictElement.free">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.RMA_DictElement.free">[docs]</a>
+        <span class="k">def</span><span class="w"> </span><span class="nf">free</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">win</span><span class="o">.</span><span class="n">Free</span><span class="p">()</span></div>
+</div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">readable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">readable</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Cannot read from ArrayCollection from inside with-statement.&quot;</span><span class="p">)</span>
+        <span class="c1"># Is local access without going via MPI.Get safe?</span>
+        <span class="c1"># if key in self.local_data:</span>
+        <span class="c1">#    return self.local_data[key]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">disabled</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">element</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debugv</span><span class="p">(</span>
+            <span class="s2">&quot;RMA: origin= </span><span class="si">%d</span><span class="s2">, target= </span><span class="si">%d</span><span class="s2">, key= </span><span class="si">%r</span><span class="s2">, shape= </span><span class="si">%r</span><span class="s2">, dtype= </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">,</span>
+            <span class="n">element</span><span class="o">.</span><span class="n">location</span><span class="p">,</span>
+            <span class="n">key</span><span class="p">,</span>
+            <span class="n">element</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+            <span class="n">element</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Cannot write to ArrayCollection outside of with-statement.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))):</span>
+            <span class="c1"># value = np.asarray(value)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type= </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">disabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Cannot write to ArrayCollection outside of with-statement.&quot;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writable</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+
+<div class="viewcode-block" id="RMA_Dict.clear">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.clear">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">item</span><span class="o">.</span><span class="n">free</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.writable">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.writable">[docs]</a>
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">writable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get shapes and datatypes of local data.&quot;&quot;&quot;</span>
+        <span class="c1"># return {key: (getattr(val, &#39;shape&#39;, None), getattr(val, &#39;dtype&#39;, type(None))) for key, val in self.local_data.items()}</span>
+        <span class="n">mdata</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;dtype&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+            <span class="n">mdata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mdata</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+<div class="viewcode-block" id="RMA_Dict.keys">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.keys">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">readable</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot access keys inside of with-statement.&quot;</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.values">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">readable</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot access values inside of with-statement.&quot;</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="o">.</span><span class="n">values</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.get_location">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.get_location">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">location</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.get_shape">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.get_shape">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.get_dtype">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.get_dtype">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span></div>
+
+
+<div class="viewcode-block" id="RMA_Dict.synchronize">
+<a class="viewcode-back" href="../../../apidoc/vayesta.mpi.html#vayesta.mpi.rma.RMA_Dict.synchronize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">synchronize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Synchronize keys and metadata over all MPI ranks.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">disabled</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+        <span class="n">mdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">()</span>
+        <span class="n">allmdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">allgather</span><span class="p">(</span><span class="n">mdata</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">allmdata</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="p">)</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">allmdata</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">mdata</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># print(&quot;Rank %d has key: %r&quot; % (rank, key))</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Key &#39;</span><span class="si">%s</span><span class="s2">&#39; used multiple times. Keys need to be unique.&quot;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+                <span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">mdata</span>
+                <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">:</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RMA_DictElement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="n">rank</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">elements</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RMA_DictElement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="o">=</span><span class="n">rank</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elements</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mpi</span><span class="o">.</span><span class="n">world</span><span class="o">.</span><span class="n">Barrier</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_data</span> <span class="o">=</span> <span class="p">{}</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,218 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parallel Computing with MPI &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Dumping Cluster Hamiltonians" href="dumpcluster.html" />
+    <link rel="prev" title="Defining Fragments" href="fragmentation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quickstart</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dmet.html">Density-Matrix Embbeding Theory (DMET)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ewf.html">Wave Function Based Embedding (EWF)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fragmentation.html">Defining Fragments</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Parallel Computing with MPI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#running-an-mpi-job">Running an MPI Job</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#additional-considerations">Additional Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Quickstart</a></li>
+      <li class="breadcrumb-item active">Parallel Computing with MPI</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/quickstart/mpi.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parallel-computing-with-mpi">
+<span id="sec-mpi"></span><h1>Parallel Computing with MPI<a class="headerlink" href="#parallel-computing-with-mpi" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> can construct and solve multiple quantum embedding problems (as defined by the fragmentation) in parallel
+over distributed memory architecture,
+using the <a class="reference external" href="https://www.mpi-forum.org/">Message Passing Interface (MPI)</a> and the Python bindings provided by <a class="reference external" href="https://mpi4py.readthedocs.io/en/stable/">mpi4py</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Not all functions have been tested in combinations with MPI.
+It is always adviced to perform a smaller test run, in order to verify that parallel and serial excecution yield the same results.
+Please open an issue on the <a class="reference external" href="https://github.com/BoothGroup/Vayesta/issues">GitHub page</a> to report any bugs or unexpected behavior.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">mpi4py</span></code> can be installed using pip: <code class="code highlight console docutils literal highlight-console"><span class="gp">[~]$ </span>pip<span class="w"> </span>install<span class="w"> </span>mpi4py</code></p>
+</div>
+<section id="running-an-mpi-job">
+<h2>Running an MPI Job<a class="headerlink" href="#running-an-mpi-job" title="Link to this heading"></a></h2>
+<p>Running a calculation in parallel is as simple as excecuting <code class="code highlight console docutils literal highlight-console"><span class="gp">[~]$ </span>mpirun<span class="w"> </span>-np<span class="w"> </span>N<span class="w"> </span>jobscript.py</code>
+in the console, where <code class="docutils literal notranslate"><span class="pre">N</span></code> is the desired number of MPI processes.
+For the best possible parallelization, use as many MPI processes as there are fragments
+(for example three for an atomic fragmentation of a water molecule), for which the scaling
+with number of MPI processes should be favourable.
+When it is necessary to use fewer MPI processes than fragments, the processes will then
+calculate their assigned set of embedding problems sequentially.
+It is never advised to use more MPI processes than there are fragments; the additional processes
+will simply be idle.</p>
+<p>Note that if a multithreaded BLAS library is linked, then the embedding
+problems assigned to each MPI rank will in general still be solved in a multithreaded fashion.
+Therefore, a good strategy is to assign the MPI ranks to separate nodes (ideally equal to the number
+of fragments) and use a multithreaded (e.g. OpenBLAS) library with multiple threads over the cores of the node for the solution and
+manipulation of each embedded problems.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Many multithreaded libraries do not scale well beyond 16 or so threads for typical problem sizes.
+For modern CPUs the number of cores can be significantly higher than this and, unless memory is a bottleneck,
+it can be beneficial to assign multiple MPI ranks to each node.</p>
+</div>
+</section>
+<section id="additional-considerations">
+<h2>Additional Considerations<a class="headerlink" href="#additional-considerations" title="Link to this heading"></a></h2>
+<p>While any job script should in principle also work in parallel,
+there are some additional considerations, which mainly concern file IO and logging.
+They are demonstrated at this example, which can be found at <code class="docutils literal notranslate"><span class="pre">examples/ewf/molecules/90-mpi.py</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="c1"># Run with: mpirun -n 3 python 90-mpi.py</span>
+<span class="linenos"> 2</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf</span>
+<span class="linenos"> 3</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.gto</span>
+<span class="linenos"> 4</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.scf</span>
+<span class="linenos"> 5</span><span class="kn">import</span><span class="w"> </span><span class="nn">pyscf.cc</span>
+<span class="linenos"> 6</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta</span>
+<span class="linenos"> 7</span><span class="kn">import</span><span class="w"> </span><span class="nn">vayesta.ewf</span>
+<span class="linenos"> 8</span><span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span>
+<span class="linenos"> 9</span>
+<span class="linenos">10</span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="linenos">11</span><span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">12</span><span class="s2">O  0.0000   0.0000   0.1173</span>
+<span class="linenos">13</span><span class="s2">H  0.0000   0.7572  -0.4692</span>
+<span class="linenos">14</span><span class="s2">H  0.0000  -0.7572  -0.4692</span>
+<span class="linenos">15</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="linenos">16</span><span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s2">&quot;cc-pVDZ&quot;</span>
+<span class="linenos">17</span><span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;pyscf-mpi</span><span class="si">%d</span><span class="s2">.out&quot;</span> <span class="o">%</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span>
+<span class="linenos">18</span><span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="linenos">19</span>
+<span class="linenos">20</span><span class="c1"># Hartree-Fock</span>
+<span class="linenos">21</span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="linenos">22</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">()</span>
+<span class="linenos">23</span><span class="n">mf</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">scf</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">24</span><span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">25</span>
+<span class="linenos">26</span><span class="c1"># Embedded CCSD</span>
+<span class="linenos">27</span><span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="linenos">28</span><span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">29</span>
+<span class="linenos">30</span><span class="c1"># Reference full system CCSD</span>
+<span class="linenos">31</span><span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+<span class="linenos">32</span>    <span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="linenos">33</span>    <span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+<span class="linenos">34</span>
+<span class="linenos">35</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF)=        </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">36</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=      </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="linenos">37</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Vayesta will generate a separate logging file for each MPI rank, but <a class="reference external" href="https://pyscf.org/">PySCF</a> does not. To avoid
+chaotic logging, it is adviced to give the <code class="docutils literal notranslate"><span class="pre">mol</span></code> object of each MPI process a unique output name (see <strong>line 17</strong>).</p></li>
+<li><p>PySCF does not support MPI by default. The mean-field calculation will thus simple be performed on each MPI process individually,
+and Vayesta will discard all solutions, except that obtained on the master process (rank 0).
+To save electricy, the  function <code class="docutils literal notranslate"><span class="pre">vayesta.mpi.mpi.scf(mf)</span></code> can be used to restrict the mean-field calculation to
+the master process from the beginning (see <strong>line 22</strong>). Alternatively, for a more efficient workflow in situations with significant mean-field
+overheads, the initial mean-field calculation can be performed separately, and the mean-field read in. See the <a class="reference external" href="https://pyscf.org/">PySCF</a> documentation
+for how this can be done.</p></li>
+<li><p>Output should only be printed on the master process.
+The property <code class="docutils literal notranslate"><span class="pre">mpi.is_master</span></code> (identical to <code class="docutils literal notranslate"><span class="pre">mpi.rank</span> <span class="pre">==</span> <span class="pre">0</span></code>) can be used to check if the current MPI process is the master process (see <strong>line 30</strong>)</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fragmentation.html" class="btn btn-neutral float-left" title="Defining Fragments" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dumpcluster.html" class="btn btn-neutral float-right" title="Dumping Cluster Hamiltonians" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

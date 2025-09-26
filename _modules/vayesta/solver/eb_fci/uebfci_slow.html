@@ -1,0 +1,920 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.solver.eb_fci.uebfci_slow &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+          <li class="breadcrumb-item"><a href="../../solver.html">vayesta.solver</a></li>
+      <li class="breadcrumb-item active">vayesta.solver.eb_fci.uebfci_slow</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.solver.eb_fci.uebfci_slow</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Module for slow, exact diagonalisation-based coupled electron-boson FCI code.</span>
+<span class="sd">Based on the fci_slow.py code within pyscf.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">ao2mo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf</span><span class="w"> </span><span class="kn">import</span> <span class="n">lib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.fci</span><span class="w"> </span><span class="kn">import</span> <span class="n">cistring</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.fci</span><span class="w"> </span><span class="kn">import</span> <span class="n">direct_uhf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.fci</span><span class="w"> </span><span class="kn">import</span> <span class="n">rdm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyscf.fci.direct_spin1</span><span class="w"> </span><span class="kn">import</span> <span class="n">_unpack_nelec</span>
+
+
+<div class="viewcode-block" id="contract_all">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_all">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_all</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">norbs</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">ecore</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="c1"># ci1  = contract_1e(h1e, ci0, norbs, nelec, nbosons, max_occ)</span>
+    <span class="n">contrib1</span> <span class="o">=</span> <span class="n">contract_2e</span><span class="p">(</span><span class="n">g2e</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">norbs</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">incbosons</span> <span class="o">=</span> <span class="n">nbosons</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">max_occ</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">incbosons</span><span class="p">:</span>
+        <span class="n">contrib2</span> <span class="o">=</span> <span class="n">contract_ep</span><span class="p">(</span><span class="n">hep</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">norbs</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="n">adj_zero_pho</span><span class="p">)</span>
+        <span class="n">contrib3</span> <span class="o">=</span> <span class="n">contract_pp</span><span class="p">(</span><span class="n">hpp</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">norbs</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">contrib1</span> <span class="o">+</span> <span class="n">contrib2</span> <span class="o">+</span> <span class="n">contrib3</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">contrib1</span></div>
+
+
+
+<div class="viewcode-block" id="make_shape">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_shape">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_shape</span><span class="p">(</span><span class="n">norbs</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct the shape of a single FCI vector in the coupled electron-boson space.&quot;&quot;&quot;</span>
+    <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">_unpack_nelec</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norbs</span><span class="p">,</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norbs</span><span class="p">,</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="c1"># print(na,nb,max_occ,nbosons)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="n">nb</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">nbosons</span></div>
+
+
+
+<span class="c1"># Contract 1-electron integrals with fcivec.</span>
+<div class="viewcode-block" id="contract_1e">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_1e">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_1e</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+        <span class="s2">&quot;1 electron contraction is currently&quot;</span>
+        <span class="s2">&quot;bugged for coupled electron-boson systems.&quot;</span>
+        <span class="s2">&quot;This should instead be folded into a two-body operator.&quot;</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nelec</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">neleca</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">-</span> <span class="n">nelecb</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">fcinew</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fcivec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span> <span class="o">*</span> <span class="n">h1e</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">fcinew</span><span class="p">[:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">]</span> <span class="o">*</span> <span class="n">h1e</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">fcinew</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fcivec</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Contract 2-electron integrals with fcivec.</span>
+<div class="viewcode-block" id="contract_2e">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_2e">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_2e</span><span class="p">(</span><span class="n">eri</span><span class="p">,</span> <span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nelec</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">neleca</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">-</span> <span class="n">nelecb</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="o">+</span> <span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fcivec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1a</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">]</span>
+
+    <span class="c1"># t1 = lib.einsum(&#39;bjai,aiAB...-&gt;bjAB...&#39;, eri.reshape([norb]*4), t1)</span>
+    <span class="n">t1a_</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">eri</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">norb</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span> <span class="n">t1a</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">eri</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">norb</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span> <span class="n">t1b</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">t1b_</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">eri</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">norb</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span> <span class="n">t1b</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span>
+        <span class="n">eri</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">norb</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span> <span class="n">t1a</span><span class="p">,</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+    <span class="p">)</span>
+    <span class="n">t1a</span><span class="p">,</span> <span class="n">t1b</span> <span class="o">=</span> <span class="n">t1a_</span><span class="p">,</span> <span class="n">t1b_</span>
+
+    <span class="n">fcinew</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ci0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">t1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">fcinew</span><span class="p">[:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">t1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="n">str0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">fcinew</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fcivec</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Contract electron-phonon portion of the Hamiltonian.</span>
+<div class="viewcode-block" id="contract_ep">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_ep">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_ep</span><span class="p">(</span><span class="n">heb</span><span class="p">,</span> <span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nelec</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">neleca</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">-</span> <span class="n">nelecb</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="o">+</span> <span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fcivec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="o">+</span> <span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fcivec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">adj_zero_pho</span><span class="p">:</span>
+        <span class="n">zfac</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">neleca</span> <span class="o">+</span> <span class="n">nelecb</span><span class="p">)</span> <span class="o">/</span> <span class="n">norb</span>
+        <span class="c1"># print(&quot;Zfac=&quot;,zfac)</span>
+        <span class="n">adj_val</span> <span class="o">=</span> <span class="n">zfac</span> <span class="o">*</span> <span class="n">ci0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">):</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">adj_val</span>
+            <span class="n">t1b</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="n">adj_val</span>
+
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">]</span>
+    <span class="c1"># Now have contribution to a particular state via given excitation</span>
+    <span class="c1"># channel; just need to apply bosonic (de)excitations.</span>
+    <span class="c1"># Note that while the contribution {a^{+} i p} and {i a^{+} p^{+}}</span>
+    <span class="c1"># are related via the Hermiticity of the Hamiltonian, no other properties</span>
+    <span class="c1"># are guaranteed, so we cannot write this as p + p^{+}.</span>
+
+    <span class="c1"># Contract intermediate with the electron-boson coupling.</span>
+    <span class="c1"># If we need to remove zero phonon mode also need factor of -&lt;N&gt;</span>
+    <span class="n">heb_a</span><span class="p">,</span> <span class="n">heb_b</span> <span class="o">=</span> <span class="n">heb</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">heb</span><span class="p">)</span> <span class="o">==</span> <span class="nb">tuple</span> <span class="k">else</span> <span class="p">(</span><span class="n">heb</span><span class="p">,</span> <span class="n">heb</span><span class="p">)</span>
+    <span class="c1"># First, bosonic excitations.</span>
+    <span class="n">tex</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">heb_a</span><span class="p">,</span> <span class="n">t1a</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">heb_b</span><span class="p">,</span> <span class="n">t1b</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="c1"># tex = numpy.einsum(&quot;nai,ai...-&gt;n...&quot;, g, t1)</span>
+    <span class="c1"># Then bosonic deexcitations.</span>
+    <span class="n">tdex</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">heb_a</span><span class="p">,</span> <span class="n">t1a</span><span class="p">,</span> <span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span> <span class="o">+</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">heb_b</span><span class="p">,</span> <span class="n">t1b</span><span class="p">,</span> <span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+    <span class="c1"># tdex = numpy.einsum(&quot;nia,ai...-&gt;n...&quot;, g, t1)</span>
+
+    <span class="c1"># print(norb,nelec, nbosons)</span>
+    <span class="c1"># print(tex.shape,&quot;Ex:&quot;,numpy.sum(tex**2))</span>
+    <span class="c1"># print(tex)</span>
+    <span class="c1"># print(tdex.shape, &quot;Deex:&quot;,numpy.sum(tdex**2))</span>
+    <span class="c1"># print(tdex)</span>
+    <span class="c1"># The leading index tells us which bosonic degree of freedom is coupled</span>
+    <span class="c1"># to in each case.</span>
+    <span class="n">fcinew</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ci0</span><span class="p">)</span>
+
+    <span class="n">bos_cre</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">ibos</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">iocc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+            <span class="n">ex_slice</span> <span class="o">=</span> <span class="n">slices_for_cre</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="n">norm_slice</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="c1"># NB bos_cre[iocc] = sqrt(iocc+1)</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">ex_slice</span><span class="p">]</span> <span class="o">+=</span> <span class="n">tex</span><span class="p">[</span><span class="n">ibos</span><span class="p">][</span><span class="n">norm_slice</span><span class="p">]</span> <span class="o">*</span> <span class="n">bos_cre</span><span class="p">[</span><span class="n">iocc</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">iocc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">dex_slice</span> <span class="o">=</span> <span class="n">slices_for_des</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="n">norm_slice</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="c1"># NB bos_cre[iocc] = sqrt(iocc+1)</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">dex_slice</span><span class="p">]</span> <span class="o">+=</span> <span class="n">tdex</span><span class="p">[</span><span class="n">ibos</span><span class="p">][</span><span class="n">norm_slice</span><span class="p">]</span> <span class="o">*</span> <span class="n">bos_cre</span><span class="p">[</span><span class="n">iocc</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">fcinew</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fcivec</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Contract phonon-phonon portion of the Hamiltonian.</span>
+
+
+<div class="viewcode-block" id="contract_pp">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_pp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_pp</span><span class="p">(</span><span class="n">hpp</span><span class="p">,</span> <span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Arbitrary phonon-phonon coupling.&quot;&quot;&quot;</span>
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">fcinew</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ci0</span><span class="p">)</span>
+
+    <span class="n">phonon_cre</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># t1 = numpy.zeros((nbosons,)+cishape, dtype=fcivec.dtype)</span>
+    <span class="c1"># for psite_id in range(nbosons):</span>
+    <span class="c1">#    for i in range(max_occ):</span>
+    <span class="c1">#        slices1 = slices_for_cre(psite_id, nbosons, i)</span>
+    <span class="c1">#        slices0 = slices_for    (psite_id, nbosons, i)</span>
+    <span class="c1">#        t1[(psite_id,)+slices0] += ci0[slices1] * phonon_cre[i]     # annihilation</span>
+
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">apply_bos_annihilation</span><span class="p">(</span><span class="n">ci0</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">hpp</span><span class="p">,</span> <span class="n">t1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nbosons</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">t1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">psite_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_occ</span><span class="p">):</span>
+            <span class="n">slices1</span> <span class="o">=</span> <span class="n">slices_for_cre</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">slices0</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">slices1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">t1</span><span class="p">[(</span><span class="n">psite_id</span><span class="p">,)</span> <span class="o">+</span> <span class="n">slices0</span><span class="p">]</span> <span class="o">*</span> <span class="n">phonon_cre</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># creation</span>
+    <span class="k">return</span> <span class="n">fcinew</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fcivec</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="apply_bos_annihilation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.apply_bos_annihilation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_bos_annihilation</span><span class="p">(</span><span class="n">ci0</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+    <span class="n">phonon_cre</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nbosons</span><span class="p">,)</span> <span class="o">+</span> <span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ci0</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">psite_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_occ</span><span class="p">):</span>
+            <span class="n">slices1</span> <span class="o">=</span> <span class="n">slices_for_cre</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">slices0</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">res</span><span class="p">[(</span><span class="n">psite_id</span><span class="p">,)</span> <span class="o">+</span> <span class="n">slices0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ci0</span><span class="p">[</span><span class="n">slices1</span><span class="p">]</span> <span class="o">*</span> <span class="n">phonon_cre</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># annihilation</span>
+    <span class="k">return</span> <span class="n">res</span></div>
+
+
+
+<div class="viewcode-block" id="apply_bos_creation">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.apply_bos_creation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_bos_creation</span><span class="p">(</span><span class="n">ci0</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+    <span class="n">phonon_cre</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nbosons</span><span class="p">,)</span> <span class="o">+</span> <span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ci0</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">psite_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_occ</span><span class="p">):</span>
+            <span class="n">slices1</span> <span class="o">=</span> <span class="n">slices_for_cre</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">slices0</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">psite_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">res</span><span class="p">[(</span><span class="n">psite_id</span><span class="p">,)</span> <span class="o">+</span> <span class="n">slices1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ci0</span><span class="p">[</span><span class="n">slices0</span><span class="p">]</span> <span class="o">*</span> <span class="n">phonon_cre</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># creation</span>
+    <span class="k">return</span> <span class="n">res</span></div>
+
+
+
+<div class="viewcode-block" id="contract_pp_for_future">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.contract_pp_for_future">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">contract_pp_for_future</span><span class="p">(</span><span class="n">hpp</span><span class="p">,</span> <span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Our bosons are decoupled; only have diagonal couplings,</span>
+<span class="sd">    ie. to the boson number.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">fcinew</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ci0</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">ibos</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">iocc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">slice1</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="c1"># This may need a sign change?</span>
+            <span class="c1"># Two factors sqrt(iocc) from annihilation then creation.</span>
+            <span class="n">fcinew</span><span class="p">[</span><span class="n">slice1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ci0</span><span class="p">[</span><span class="n">slice1</span><span class="p">]</span> <span class="o">*</span> <span class="n">iocc</span> <span class="o">*</span> <span class="n">hpp</span><span class="p">[</span><span class="n">ibos</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">fcinew</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">fcivec</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="slices_for">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.slices_for">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slices_for</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">occ</span><span class="p">):</span>
+    <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">nbos</span><span class="p">)</span>  <span class="c1"># +2 for electron indices</span>
+    <span class="n">slices</span><span class="p">[</span><span class="mi">2</span> <span class="o">+</span> <span class="n">b_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">occ</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="slices_for_cre">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.slices_for_cre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slices_for_cre</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">occ</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="slices_for_des">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.slices_for_des">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slices_for_des</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">occ</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">occ</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="slices_for_occ_reduction">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.slices_for_occ_reduction">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slices_for_occ_reduction</span><span class="p">(</span><span class="n">nbos</span><span class="p">,</span> <span class="n">new_max_occ</span><span class="p">):</span>
+    <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="n">slices</span> <span class="o">+=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">new_max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">*</span> <span class="n">nbos</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">slices</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_hdiag">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_hdiag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_hdiag</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+    <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">_unpack_nelec</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="n">occslista</span> <span class="o">=</span> <span class="p">[</span><span class="n">tab</span><span class="p">[:</span><span class="n">neleca</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">tab</span> <span class="ow">in</span> <span class="n">link_indexa</span><span class="p">]</span>
+    <span class="n">occslistb</span> <span class="o">=</span> <span class="p">[</span><span class="n">tab</span><span class="p">[:</span><span class="n">nelecb</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">tab</span> <span class="ow">in</span> <span class="n">link_indexb</span><span class="p">]</span>
+
+    <span class="n">nelec_tot</span> <span class="o">=</span> <span class="n">neleca</span> <span class="o">+</span> <span class="n">nelecb</span>
+
+    <span class="c1"># electron part</span>
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">hdiag</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">g2e_aa</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g2e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">norb</span><span class="p">)</span>
+    <span class="n">g2e_ab</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g2e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">norb</span><span class="p">)</span>
+    <span class="n">g2e_bb</span> <span class="o">=</span> <span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">g2e</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">norb</span><span class="p">)</span>
+
+    <span class="n">diagj_aa</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iijj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">g2e_aa</span><span class="p">)</span>
+    <span class="n">diagj_ab</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iijj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">g2e_ab</span><span class="p">)</span>
+    <span class="n">diagj_bb</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iijj-&gt;ij&quot;</span><span class="p">,</span> <span class="n">g2e_bb</span><span class="p">)</span>
+
+    <span class="n">diagk_aa</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijji-&gt;ij&quot;</span><span class="p">,</span> <span class="n">g2e_aa</span><span class="p">)</span>
+    <span class="n">diagk_bb</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ijji-&gt;ij&quot;</span><span class="p">,</span> <span class="n">g2e_bb</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">ia</span><span class="p">,</span> <span class="n">aocc</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">occslista</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ib</span><span class="p">,</span> <span class="n">bocc</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">occslistb</span><span class="p">):</span>
+            <span class="n">e1</span> <span class="o">=</span> <span class="n">h1e</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">aocc</span><span class="p">,</span> <span class="n">aocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">h1e</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">bocc</span><span class="p">,</span> <span class="n">bocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">e2</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">diagj_aa</span><span class="p">[</span><span class="n">aocc</span><span class="p">][:,</span> <span class="n">aocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="o">+</span> <span class="n">diagj_ab</span><span class="p">[</span><span class="n">aocc</span><span class="p">][:,</span> <span class="n">bocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="o">+</span> <span class="n">diagj_ab</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="n">bocc</span><span class="p">][:,</span> <span class="n">aocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="o">+</span> <span class="n">diagj_bb</span><span class="p">[</span><span class="n">bocc</span><span class="p">][:,</span> <span class="n">bocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="o">-</span> <span class="n">diagk_aa</span><span class="p">[</span><span class="n">aocc</span><span class="p">][:,</span> <span class="n">aocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="o">-</span> <span class="n">diagk_bb</span><span class="p">[</span><span class="n">bocc</span><span class="p">][:,</span> <span class="n">bocc</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">hdiag</span><span class="p">[</span><span class="n">ia</span><span class="p">,</span> <span class="n">ib</span><span class="p">]</span> <span class="o">+=</span> <span class="n">e1</span> <span class="o">+</span> <span class="n">e2</span> <span class="o">*</span> <span class="mf">0.5</span>
+
+    <span class="c1"># No electron-phonon part?</span>
+
+    <span class="c1"># phonon part</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hpp</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">hpp</span> <span class="o">=</span> <span class="n">hpp</span><span class="o">.</span><span class="n">diagonal</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">b_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">slices0</span> <span class="o">=</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">hdiag</span><span class="p">[</span><span class="n">slices0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">hpp</span><span class="p">[</span><span class="n">b_id</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span>
+
+    <span class="k">return</span> <span class="n">hdiag</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="kernel">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.kernel">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kernel</span><span class="p">(</span>
+    <span class="n">h1e</span><span class="p">,</span>
+    <span class="n">g2e</span><span class="p">,</span>
+    <span class="n">hep</span><span class="p">,</span>
+    <span class="n">hpp</span><span class="p">,</span>
+    <span class="n">norb</span><span class="p">,</span>
+    <span class="n">nelec</span><span class="p">,</span>
+    <span class="n">nbosons</span><span class="p">,</span>
+    <span class="n">max_occ</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
+    <span class="n">max_cycle</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">ecore</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">returnhop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">adj_zero_pho</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">h2e</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">ao2mo</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">direct_uhf</span><span class="o">.</span><span class="n">absorb_h1e</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)])</span>
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="c1"># Add noise for initial guess, remove it if problematic</span>
+    <span class="n">ci0</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-10</span>
+    <span class="n">ci0</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span> <span class="o">*</span> <span class="n">nbosons</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">hop</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+        <span class="n">hc</span> <span class="o">=</span> <span class="n">contract_all</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">h2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="n">adj_zero_pho</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hc</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">hdiag</span> <span class="o">=</span> <span class="n">make_hdiag</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">precond</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">x</span> <span class="o">/</span> <span class="p">(</span><span class="n">hdiag</span> <span class="o">-</span> <span class="n">e</span> <span class="o">+</span> <span class="mf">1e-4</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">returnhop</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">hop</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">hdiag</span>
+
+    <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">davidson</span><span class="p">(</span><span class="n">hop</span><span class="p">,</span> <span class="n">ci0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">precond</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">max_cycle</span><span class="o">=</span><span class="n">max_cycle</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">e</span> <span class="o">+</span> <span class="n">ecore</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="kernel_multiroot">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.kernel_multiroot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kernel_multiroot</span><span class="p">(</span>
+    <span class="n">h1e</span><span class="p">,</span>
+    <span class="n">g2e</span><span class="p">,</span>
+    <span class="n">hep</span><span class="p">,</span>
+    <span class="n">hpp</span><span class="p">,</span>
+    <span class="n">norb</span><span class="p">,</span>
+    <span class="n">nelec</span><span class="p">,</span>
+    <span class="n">nbosons</span><span class="p">,</span>
+    <span class="n">max_occ</span><span class="p">,</span>
+    <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
+    <span class="n">max_cycle</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">ecore</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">nroots</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">returnhop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">adj_zero_pho</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="n">nroots</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">kernel</span><span class="p">(</span>
+            <span class="n">h1e</span><span class="p">,</span>
+            <span class="n">g2e</span><span class="p">,</span>
+            <span class="n">hep</span><span class="p">,</span>
+            <span class="n">hpp</span><span class="p">,</span>
+            <span class="n">norb</span><span class="p">,</span>
+            <span class="n">nelec</span><span class="p">,</span>
+            <span class="n">nbosons</span><span class="p">,</span>
+            <span class="n">max_occ</span><span class="p">,</span>
+            <span class="n">tol</span><span class="p">,</span>
+            <span class="n">max_cycle</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="p">,</span>
+            <span class="n">ecore</span><span class="p">,</span>
+            <span class="n">returnhop</span><span class="p">,</span>
+            <span class="n">adj_zero_pho</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">h2e</span> <span class="o">=</span> <span class="n">direct_uhf</span><span class="o">.</span><span class="n">absorb_h1e</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">ci0</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span> <span class="o">*</span> <span class="n">nbosons</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># Add noise for initial guess, remove it if problematic</span>
+    <span class="n">ci0</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ci0</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-6</span>
+    <span class="n">ci0</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ci0</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-6</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">hop</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+        <span class="n">hc</span> <span class="o">=</span> <span class="n">contract_all</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">h2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="n">adj_zero_pho</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hc</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">hdiag</span> <span class="o">=</span> <span class="n">make_hdiag</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">g2e</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">precond</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">x</span> <span class="o">/</span> <span class="p">(</span><span class="n">hdiag</span> <span class="o">-</span> <span class="n">e</span> <span class="o">+</span> <span class="mf">1e-4</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">returnhop</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">hop</span><span class="p">,</span> <span class="n">ci0</span><span class="p">,</span> <span class="n">hdiag</span>
+
+    <span class="n">es</span><span class="p">,</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">davidson</span><span class="p">(</span>
+        <span class="n">hop</span><span class="p">,</span>
+        <span class="n">ci0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+        <span class="n">precond</span><span class="p">,</span>
+        <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span>
+        <span class="n">max_cycle</span><span class="o">=</span><span class="n">max_cycle</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span>
+        <span class="n">max_space</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">es</span><span class="p">,</span> <span class="n">cs</span></div>
+
+
+
+<span class="c1"># dm_pq = &lt;|p^+ q|&gt;</span>
+<div class="viewcode-block" id="make_rdm1">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_rdm1">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_rdm1</span><span class="p">(</span><span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;1-electron density matrix dm_pq = &lt;|p^+ q|&gt;&quot;&quot;&quot;</span>
+    <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">_unpack_nelec</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">rdm1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">))</span>
+    <span class="n">rdm1b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">rdm1a</span><span class="p">)</span>
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">rdm1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">ci0</span><span class="p">[</span><span class="n">str1</span><span class="p">],</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">])</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="n">nb</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">rdm1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ax,ax-&gt;&quot;</span><span class="p">,</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str1</span><span class="p">],</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">rdm1a</span><span class="p">,</span> <span class="n">rdm1b</span></div>
+
+
+
+<div class="viewcode-block" id="make_rdm12">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_rdm12">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_rdm12</span><span class="p">(</span><span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;1-electron and 2-electron density matrices</span>
+<span class="sd">    dm_qp = &lt;|q^+ p|&gt;</span>
+<span class="sd">    dm_{pqrs} = &lt;|p^+ r^+ s q|&gt;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">_unpack_nelec</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="n">nb</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">rdm1</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">))</span>
+    <span class="n">rdm2</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">str0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">na</span><span class="p">):</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nb</span><span class="p">)</span> <span class="o">+</span> <span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">link_indexa</span><span class="p">[</span><span class="n">str0</span><span class="p">]:</span>
+            <span class="n">t1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str1</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+                <span class="n">t1</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span>
+
+        <span class="n">rdm1</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;mp,ijmp-&gt;ij&quot;</span><span class="p">,</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">],</span> <span class="n">t1</span><span class="p">)</span>
+        <span class="c1"># i^+ j|0&gt; =&gt; &lt;0|j^+ i, so swap i and j</span>
+        <span class="c1">#:rdm2 += numpy.einsum(&#39;ijmp,klmp-&gt;jikl&#39;, t1, t1)</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">t1</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">rdm2</span> <span class="o">+=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">rdm1</span><span class="p">,</span> <span class="n">rdm2</span> <span class="o">=</span> <span class="n">rdm</span><span class="o">.</span><span class="n">reorder_rdm</span><span class="p">(</span><span class="n">rdm1</span><span class="p">,</span> <span class="n">rdm2</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rdm1</span><span class="p">,</span> <span class="n">rdm2</span></div>
+
+
+
+<div class="viewcode-block" id="make_rdm12s">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_rdm12s">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_rdm12s</span><span class="p">(</span><span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">reorder</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;1-electron and 2-electron spin-resolved density matrices</span>
+<span class="sd">    dm_qp = &lt;|q^+ p|&gt;</span>
+<span class="sd">    dm_{pqrs} = &lt;|p^+ r^+ s q|&gt;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">_unpack_nelec</span><span class="p">(</span><span class="n">nelec</span><span class="p">)</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">num_strings</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="n">nb</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">nbos_dof</span> <span class="o">=</span> <span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="n">dm1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">))</span>
+    <span class="n">dm1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dm1a</span><span class="p">)</span>
+
+    <span class="n">dm2aa</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">))</span>
+    <span class="n">dm2ab</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">)</span>
+    <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dm2aa</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">str0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">na</span><span class="p">):</span>
+        <span class="c1"># Alpha excitation.</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nb</span><span class="p">,</span> <span class="n">nbos_dof</span><span class="p">))</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1a</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">link_indexa</span><span class="p">[</span><span class="n">str0</span><span class="p">]:</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="c1"># Beta excitation.</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+                <span class="n">t1b</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span>
+        <span class="c1"># Generate our spin-resolved 1rdm contribution. do fast as over the full FCI space.</span>
+        <span class="n">dm1a</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nb</span><span class="p">,</span> <span class="n">nbos_dof</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">dm1b</span> <span class="o">+=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">t1b</span><span class="p">,</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">nb</span><span class="p">,</span> <span class="n">nbos_dof</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># rdm1 += numpy.einsum(&#39;mp,ijmp-&gt;ij&#39;, ci0[str0], t1)</span>
+        <span class="c1"># t1[i,a] = a^+ i |0&gt;</span>
+        <span class="c1"># i^+ j|0&gt; =&gt; &lt;0|j^+ i, so swap i and j</span>
+        <span class="c1">#:rdm2 += numpy.einsum(&#39;ijmp,klmp-&gt;jikl&#39;, t1, t1)</span>
+        <span class="c1"># Calc &lt;0|i^+ a b^+ j |0&gt;</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">t1a</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">t1b</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">dm2aa</span> <span class="o">+=</span> <span class="n">lib</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">t1a</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">dm2ab</span> <span class="o">+=</span> <span class="n">lib</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1a</span><span class="p">,</span> <span class="n">t1b</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">dm2bb</span> <span class="o">+=</span> <span class="n">lib</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">t1b</span><span class="p">,</span> <span class="n">t1b</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">reorder</span><span class="p">:</span>
+        <span class="n">dm1a</span><span class="p">,</span> <span class="n">dm2aa</span> <span class="o">=</span> <span class="n">rdm</span><span class="o">.</span><span class="n">reorder_rdm</span><span class="p">(</span><span class="n">dm1a</span><span class="p">,</span> <span class="n">dm2aa</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">dm1b</span><span class="p">,</span> <span class="n">dm2bb</span> <span class="o">=</span> <span class="n">rdm</span><span class="o">.</span><span class="n">reorder_rdm</span><span class="p">(</span><span class="n">dm1b</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">dm1a</span><span class="p">,</span> <span class="n">dm1b</span><span class="p">),</span> <span class="p">(</span><span class="n">dm2aa</span><span class="p">,</span> <span class="n">dm2ab</span><span class="p">,</span> <span class="n">dm2bb</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_eb_rdm">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.make_eb_rdm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_eb_rdm</span><span class="p">(</span><span class="n">fcivec</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    We calculate the value &lt;0|b^+ p^+ q|0&gt; and return this in value P[p,q,b]</span>
+<span class="sd">    :param fcivec:</span>
+<span class="sd">    :param norb:</span>
+<span class="sd">    :param nelec:</span>
+<span class="sd">    :param max_occ:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nelec</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">neleca</span> <span class="o">=</span> <span class="n">nelec</span> <span class="o">-</span> <span class="n">nelecb</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nelec</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">)</span>
+    <span class="n">nspinorb</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">norb</span>
+
+    <span class="c1"># Just so we get a sensible result in pure fermionic case.</span>
+    <span class="k">if</span> <span class="n">nbosons</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nspinorb</span><span class="p">,</span> <span class="n">nspinorb</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="n">ci0</span> <span class="o">=</span> <span class="n">fcivec</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cishape</span><span class="p">)</span>
+    <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="o">+</span> <span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">fcivec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1a</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">link_indexa</span><span class="p">[</span><span class="n">str0</span><span class="p">]:</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">link_indexb</span><span class="p">[</span><span class="n">str0</span><span class="p">]:</span>
+            <span class="n">t1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">]</span>
+    <span class="n">bos_cre</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_occ</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">tempa</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">)</span> <span class="o">+</span> <span class="n">ci0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">tempb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tempa</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ibos</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbosons</span><span class="p">):</span>
+        <span class="c1"># We could tidy this up with nicer slicing and einsum, but it works for now.</span>
+        <span class="k">for</span> <span class="n">iocc</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">):</span>
+            <span class="n">ex_slice</span> <span class="o">=</span> <span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">ibos</span><span class="p">,)</span> <span class="o">+</span> <span class="n">slices_for_cre</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="n">norm_slice</span> <span class="o">=</span> <span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">slices_for</span><span class="p">(</span><span class="n">ibos</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">iocc</span><span class="p">)</span>
+            <span class="n">tempa</span><span class="p">[</span><span class="n">ex_slice</span><span class="p">]</span> <span class="o">+=</span> <span class="n">t1a</span><span class="p">[</span><span class="n">norm_slice</span><span class="p">]</span> <span class="o">*</span> <span class="n">bos_cre</span><span class="p">[</span><span class="n">iocc</span><span class="p">]</span>
+            <span class="n">tempb</span><span class="p">[</span><span class="n">ex_slice</span><span class="p">]</span> <span class="o">+=</span> <span class="n">t1b</span><span class="p">[</span><span class="n">norm_slice</span><span class="p">]</span> <span class="o">*</span> <span class="n">bos_cre</span><span class="p">[</span><span class="n">iocc</span><span class="p">]</span>
+    <span class="n">rdm_fba</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">tempa</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">nbosons</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">ci0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">))</span>
+    <span class="n">rdm_fbb</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">tempb</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">nbosons</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">ci0</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">rdm_fba</span><span class="p">,</span> <span class="n">rdm_fbb</span></div>
+
+
+
+<div class="viewcode-block" id="calc_dd_resp_mom">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.calc_dd_resp_mom">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_dd_resp_mom</span><span class="p">(</span>
+    <span class="n">ci0</span><span class="p">,</span> <span class="n">e0</span><span class="p">,</span> <span class="n">max_mom</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nel</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hbb</span><span class="p">,</span> <span class="n">heb</span><span class="p">,</span> <span class="n">max_boson_occ</span><span class="p">,</span> <span class="n">rdm1</span><span class="p">,</span> <span class="n">trace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace</span>
+<span class="sd">    preceding function.</span>
+<span class="sd">    :param m: maximum moment order of response to return.</span>
+<span class="sd">    :param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying</span>
+<span class="sd">            orthogonal basis hfbas is specified in (defaults to False).</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Note that we must stay in the same spin sector in this approach; if we want to get the nonzero components of the</span>
+    <span class="c1"># spin-density response (rather than charge-density) we&#39;ll need to use commutation relations to relate to the</span>
+    <span class="c1"># equivalent charge-density response.</span>
+    <span class="n">hop</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">heb</span><span class="p">,</span> <span class="n">hbb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nel</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">max_boson_occ</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nel</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nel</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">neleca</span> <span class="o">=</span> <span class="n">nel</span> <span class="o">-</span> <span class="n">nelecb</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">neleca</span><span class="p">,</span> <span class="n">nelecb</span> <span class="o">=</span> <span class="n">nel</span>
+    <span class="n">link_indexa</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">neleca</span><span class="p">)</span>
+    <span class="n">link_indexb</span> <span class="o">=</span> <span class="n">cistring</span><span class="o">.</span><span class="n">gen_linkstr_index</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">norb</span><span class="p">),</span> <span class="n">nelecb</span><span class="p">)</span>
+    <span class="n">cishape</span> <span class="o">=</span> <span class="n">make_shape</span><span class="p">(</span><span class="n">norb</span><span class="p">,</span> <span class="n">nel</span><span class="p">,</span> <span class="n">nbos</span><span class="p">,</span> <span class="n">max_boson_occ</span><span class="p">)</span>
+
+    <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">)</span> <span class="o">+</span> <span class="n">cishape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+    <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1a</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexa</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1a</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[</span><span class="n">str0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">str0</span><span class="p">,</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">link_indexb</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">str1</span><span class="p">,</span> <span class="n">sign</span> <span class="ow">in</span> <span class="n">tab</span><span class="p">:</span>
+            <span class="n">t1b</span><span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="n">str1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">ci0</span><span class="p">[:,</span> <span class="n">str0</span><span class="p">]</span>
+    <span class="c1"># If we want not in HF basis we can perform transformation at this stage.</span>
+    <span class="n">t1a</span> <span class="o">=</span> <span class="n">t1a</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">t1b</span> <span class="o">=</span> <span class="n">t1b</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">norb</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="n">nb</span> <span class="o">=</span> <span class="n">norb</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span> <span class="o">==</span> <span class="nb">tuple</span><span class="p">:</span>
+            <span class="n">coeffsa</span><span class="p">,</span> <span class="n">coeffsb</span> <span class="o">=</span> <span class="n">coeffs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">coeffsa</span> <span class="o">=</span> <span class="n">coeffsb</span> <span class="o">=</span> <span class="n">coeffs</span>
+        <span class="n">na</span><span class="p">,</span> <span class="n">nb</span> <span class="o">=</span> <span class="n">coeffsa</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">coeffsb</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia...,ip,aq-&gt;pq...&quot;</span><span class="p">,</span> <span class="n">t1a</span><span class="p">,</span> <span class="n">coeffsa</span><span class="p">,</span> <span class="n">coeffsa</span><span class="p">)</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ia...,ip,aq-&gt;pq...&quot;</span><span class="p">,</span> <span class="n">t1b</span><span class="p">,</span> <span class="n">coeffsb</span><span class="p">,</span> <span class="n">coeffsb</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">trace</span><span class="p">:</span>
+        <span class="n">t1a</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ii...-&gt;i...&quot;</span><span class="p">,</span> <span class="n">t1a</span><span class="p">)</span>
+        <span class="n">t1b</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;ii...-&gt;i...&quot;</span><span class="p">,</span> <span class="n">t1b</span><span class="p">)</span>
+    <span class="c1"># From this we&#39;ll obtain our moments through dot products, thanks to the Hermiticity of our expression.</span>
+    <span class="n">max_intermed</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">max_mom</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">aintermeds</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">t1a</span><span class="p">}</span>
+    <span class="n">bintermeds</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">t1b</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">iinter</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_intermed</span><span class="p">):</span>
+        <span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1a</span><span class="p">)</span>
+        <span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t1b</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">na</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">trace</span><span class="p">:</span>
+                <span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">hop</span><span class="p">(</span><span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">e0</span> <span class="o">*</span> <span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">na</span><span class="p">):</span>
+                    <span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">hop</span><span class="p">(</span><span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">e0</span> <span class="o">*</span> <span class="n">aintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+                    <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nb</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">trace</span><span class="p">:</span>
+                <span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">hop</span><span class="p">(</span><span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">e0</span> <span class="o">*</span> <span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nb</span><span class="p">):</span>
+                    <span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">hop</span><span class="p">(</span><span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">e0</span> <span class="o">*</span> <span class="n">bintermeds</span><span class="p">[</span><span class="n">iinter</span><span class="p">][</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+                    <span class="p">)</span>
+
+    <span class="c1"># Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by</span>
+    <span class="c1"># deducting the reference energy.</span>
+    <span class="c1"># Now take appropriate dot products to get moments.</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">imom</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_mom</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">r_ind</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">imom</span><span class="p">,</span> <span class="n">max_intermed</span><span class="p">)</span>
+        <span class="n">l_ind</span> <span class="o">=</span> <span class="n">imom</span> <span class="o">-</span> <span class="n">r_ind</span>
+
+        <span class="n">aintermed_r</span> <span class="o">=</span> <span class="n">aintermeds</span><span class="p">[</span><span class="n">r_ind</span><span class="p">]</span>
+        <span class="n">bintermed_r</span> <span class="o">=</span> <span class="n">bintermeds</span><span class="p">[</span><span class="n">r_ind</span><span class="p">]</span>
+        <span class="n">aintermed_l</span> <span class="o">=</span> <span class="n">aintermeds</span><span class="p">[</span><span class="n">l_ind</span><span class="p">]</span>
+        <span class="n">bintermed_l</span> <span class="o">=</span> <span class="n">bintermeds</span><span class="p">[</span><span class="n">l_ind</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">trace</span><span class="p">:</span>
+            <span class="n">moments</span><span class="p">[</span><span class="n">imom</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">aintermed_l</span><span class="p">,</span> <span class="n">aintermed_r</span><span class="o">.</span><span class="n">T</span><span class="p">),</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">aintermed_l</span><span class="p">,</span> <span class="n">bintermed_r</span><span class="o">.</span><span class="n">T</span><span class="p">),</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bintermed_l</span><span class="p">,</span> <span class="n">bintermed_r</span><span class="o">.</span><span class="n">T</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">moments</span><span class="p">[</span><span class="n">imom</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">aintermed_l</span><span class="p">,</span> <span class="n">aintermed_r</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">aintermed_l</span><span class="p">,</span> <span class="n">bintermed_r</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                <span class="n">numpy</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">bintermed_l</span><span class="p">,</span> <span class="n">bintermed_r</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+            <span class="p">)</span>
+    <span class="c1"># Need to add additional adjustment for zeroth moment, as there is a nonzero ground state</span>
+    <span class="c1"># contribution in this case (the current value is in fact the double occupancy &lt;0|n_{pq} n_{sr}|0&gt;).</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">rdm1</span><span class="p">)</span> <span class="o">==</span> <span class="nb">tuple</span><span class="p">:</span>
+        <span class="n">rdma</span><span class="p">,</span> <span class="n">rdmb</span> <span class="o">=</span> <span class="n">rdm1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rdma</span> <span class="o">=</span> <span class="n">rdmb</span> <span class="o">=</span> <span class="n">rdm1</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">rdma</span> <span class="o">=</span> <span class="n">coeffsa</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">rdma</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coeffsa</span><span class="p">)</span>
+        <span class="n">rdmb</span> <span class="o">=</span> <span class="n">coeffsb</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">rdmb</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">coeffsb</span><span class="p">)</span>
+
+    <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">trace</span><span class="p">:</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pp,qq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">rdma</span><span class="p">,</span> <span class="n">rdma</span><span class="p">)</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pp,qq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">rdma</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">)</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pp,qq-&gt;pq&quot;</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,rs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">rdma</span><span class="p">,</span> <span class="n">rdma</span><span class="p">)</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,rs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">rdma</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">)</span>
+        <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">numpy</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pq,rs-&gt;pqrs&quot;</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">,</span> <span class="n">rdmb</span><span class="p">)</span>
+    <span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">moments</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">moments</span></div>
+
+
+
+<div class="viewcode-block" id="run">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.run">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">nelec</span><span class="p">,</span> <span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;run a calculation using a pyscf mf object.&quot;&quot;&quot;</span>
+    <span class="n">norb</span> <span class="o">=</span> <span class="n">h1e</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">nbosons</span> <span class="o">=</span> <span class="n">hpp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">returnhop</span><span class="p">:</span>
+        <span class="n">hop0</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># hop1 = fci_slow.kernel(h1e, eri, norb, nelec)#, returnhop=True)</span>
+        <span class="k">return</span> <span class="n">hop0</span>  <span class="c1"># , hop1</span>
+    <span class="k">if</span> <span class="n">nroots</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">es</span><span class="p">,</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">kernel_multiroot</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="n">nroots</span><span class="o">=</span><span class="n">nroots</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">es</span><span class="p">,</span> <span class="n">cs</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">res0</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">norb</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nbosons</span><span class="p">,</span> <span class="n">max_occ</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">res0</span></div>
+
+
+
+<div class="viewcode-block" id="run_hub_test">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.run_hub_test">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_hub_test</span><span class="p">(</span><span class="n">returnhop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">run_ep_hubbard</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">g</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pp</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">nsite</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">nelec</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">nphonon</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="n">returnhop</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="run_ep_hubbard">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.solver.eb_fci.html#vayesta.solver.eb_fci.uebfci_slow.run_ep_hubbard">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_ep_hubbard</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nphonon</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a calculation using a hubbard model coupled to some phonon modes.&quot;&quot;&quot;</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nsite</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># 1 electron interactions.</span>
+    <span class="n">h1e</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">))</span>
+    <span class="n">h1e</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">h1e</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">t</span>
+    <span class="c1"># Phonon coupling.</span>
+    <span class="n">hpp</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nsite</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.3</span> <span class="o">+</span> <span class="n">pp</span><span class="p">)</span>
+    <span class="n">hpp</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">hpp</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">pp</span>
+    <span class="c1"># 2 electron interactions.</span>
+    <span class="n">eri</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsite</span><span class="p">):</span>
+        <span class="n">eri</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span>
+    <span class="c1"># Electron-phonon coupling.</span>
+    <span class="n">hep</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nsite</span><span class="p">))</span>  <span class="c1"># (phonon, orb, orb)</span>
+    <span class="c1"># Only have onsite coupling; so only couple .</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsite</span><span class="p">):</span>
+        <span class="n">hep</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span>
+    <span class="n">res0</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">h1e</span><span class="p">,</span> <span class="n">eri</span><span class="p">,</span> <span class="n">hep</span><span class="p">,</span> <span class="n">hpp</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nelec</span><span class="p">,</span> <span class="n">nsite</span><span class="p">,</span> <span class="n">nphonon</span><span class="p">,</span> <span class="n">adj_zero_pho</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">returnhop</span><span class="o">=</span><span class="n">returnhop</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">res0</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

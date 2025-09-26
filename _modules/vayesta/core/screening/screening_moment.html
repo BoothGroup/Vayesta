@@ -1,0 +1,394 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.screening.screening_moment &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../apidoc/modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../../vayesta.html">vayesta</a></li>
+      <li class="breadcrumb-item active">vayesta.core.screening.screening_moment</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for vayesta.core.screening.screening_moment</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.linalg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.rpa</span><span class="w"> </span><span class="kn">import</span> <span class="n">ssRIRPA</span><span class="p">,</span> <span class="n">ssRPA</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.core.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dot</span><span class="p">,</span> <span class="n">einsum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vayesta.mpi</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpi</span>
+
+
+<div class="viewcode-block" id="build_screened_eris">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_moment.build_screened_eris">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_screened_eris</span><span class="p">(</span><span class="n">emb</span><span class="p">,</span> <span class="n">fragments</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cderi_ov</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">store_m0</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates renormalised coulomb interactions for use in local cluster calculations.</span>
+<span class="sd">    Currently requires unrestricted system.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    emb : Embedding</span>
+<span class="sd">        Embedding instance.</span>
+<span class="sd">    fragments : list of vayesta.qemb.Fragment subclasses, optional</span>
+<span class="sd">        List of fragments for the calculation, used to define local interaction spaces.</span>
+<span class="sd">        If None, `emb.get_fragments(sym_parent=None)` is used. Default: None.</span>
+<span class="sd">    cderi_ov : np.array or tuple of np.array, optional.</span>
+<span class="sd">        Cholesky-decomposed ERIs in the particle-hole basis of mf. If mf is unrestricted</span>
+<span class="sd">        this should be a list of arrays corresponding to the different spin channels.</span>
+<span class="sd">    store_m0 : bool, optional.</span>
+<span class="sd">        Whether to store the local zeroth moment in the fragment class for use later.</span>
+<span class="sd">    npoints : int, optional</span>
+<span class="sd">        Number of points for numerical integration. Default: 48.</span>
+<span class="sd">    log : logging.Logger, optional</span>
+<span class="sd">        Logger object. If None, the logger of the `emb` object is used. Default: None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    seris_ov : list of tuples of np.array</span>
+<span class="sd">        List of spin-dependent screened (ov|ov), for each fragment provided.</span>
+<span class="sd">    erpa: float</span>
+<span class="sd">        Delta RPA correction computed as difference between full system RPA energy and</span>
+<span class="sd">        cluster correlation energies; currently only functional in CAS fragmentations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">log</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">emb</span><span class="o">.</span><span class="n">log</span> <span class="ow">or</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Calculating screened Coulomb interactions&quot;</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;-----------------------------------------&quot;</span><span class="p">)</span>
+
+    <span class="c1"># --- Setup</span>
+    <span class="k">if</span> <span class="n">fragments</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fragments</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">get_fragments</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sym_parent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mpi_rank</span><span class="o">=</span><span class="n">mpi</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
+    <span class="n">fragments</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fragments</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">screening</span> <span class="o">==</span> <span class="s2">&quot;mrpa&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">emb</span><span class="o">.</span><span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Screened interactions require density-fitting.&quot;</span><span class="p">)</span>
+    <span class="n">r_occs</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;mo[occ]|cluster[occ]&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">]</span>
+    <span class="n">r_virs</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">get_overlap</span><span class="p">(</span><span class="s2">&quot;mo[vir]|cluster[vir]&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fragments</span><span class="p">]</span>
+    <span class="n">target_rots</span><span class="p">,</span> <span class="n">ovs_active</span> <span class="o">=</span> <span class="n">_get_target_rot</span><span class="p">(</span><span class="n">r_occs</span><span class="p">,</span> <span class="n">r_virs</span><span class="p">)</span>
+
+    <span class="c1"># target_rots is a list of transformations to the local ph space, with alpha and beta blocked in the same matrix</span>
+    <span class="n">local_moments</span> <span class="o">=</span> <span class="n">calc_moms_RIRPA</span><span class="p">(</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="p">,</span> <span class="n">target_rots</span><span class="p">,</span> <span class="n">ovs_active</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">cderi_ov</span><span class="p">,</span> <span class="n">npoints</span><span class="p">)</span>
+    <span class="c1"># Could generate moments using N^6 moments instead, but just for debugging.</span>
+    <span class="c1"># local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, npoints)</span>
+
+    <span class="c1"># Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.</span>
+    <span class="n">no</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_occ</span><span class="o">.</span><span class="n">T</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">no</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">no</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">no</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">no</span><span class="p">)])</span>
+    <span class="n">norb</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">mo_coeff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">norb</span> <span class="o">-</span> <span class="n">no</span>
+
+    <span class="n">mo_e</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">mf</span><span class="o">.</span><span class="n">mo_energy</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mo_e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">mo_e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mo_e</span><span class="p">,</span> <span class="n">mo_e</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_eps_singlespin</span><span class="p">(</span><span class="n">no_</span><span class="p">,</span> <span class="n">nv_</span><span class="p">,</span> <span class="n">mo_energy</span><span class="p">):</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">no_</span><span class="p">,</span> <span class="n">nv_</span><span class="p">))</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">+</span> <span class="n">mo_energy</span><span class="p">[</span><span class="n">no_</span><span class="p">:]</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="n">mo_energy</span><span class="p">[:</span><span class="n">no_</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eps</span>
+
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">get_eps_singlespin</span><span class="p">(</span><span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mo_e</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">get_eps_singlespin</span><span class="p">(</span><span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">mo_e</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span>
+
+    <span class="c1"># And use this to perform inversion to calculate interaction in cluster.</span>
+    <span class="n">seris_ov</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">mom</span><span class="p">,</span> <span class="p">(</span><span class="n">ova</span><span class="p">,</span> <span class="n">ovb</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">fragments</span><span class="p">,</span> <span class="n">target_rots</span><span class="p">,</span> <span class="n">local_moments</span><span class="p">,</span> <span class="n">ovs_active</span><span class="p">)):</span>
+        <span class="n">amb</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,qn,n-&gt;pq&quot;</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>  <span class="c1"># O(N^2 N_clus^4)</span>
+        <span class="c1"># Everything from here on is independent of system size, scaling at most as O(N_clus^6)</span>
+        <span class="c1"># (arrays have side length equal to number of cluster single-particle excitations).</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">mom</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Small eigenvalue of local rpa moment in </span><span class="si">%s</span><span class="s2">: </span><span class="si">%e</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+        <span class="n">mominv</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;pn,n,qn-&gt;pq&quot;</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">e</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">c</span><span class="p">)</span>
+        <span class="n">apb</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">mominv</span><span class="p">,</span> <span class="n">amb</span><span class="p">,</span> <span class="n">mominv</span><span class="p">)</span>
+
+        <span class="c1"># This is the renormalised coulomb kernel in the cluster.</span>
+        <span class="c1"># Note that this is only defined in the particle-hole space, but has the same 8-fold symmetry</span>
+        <span class="c1"># as the (assumed real) coulomb interaction.</span>
+        <span class="n">kc</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">apb</span> <span class="o">-</span> <span class="n">amb</span><span class="p">)</span>
+        <span class="c1"># Now need to strip out spin components of the renormalised interaction, and change to 4 orbital</span>
+        <span class="c1"># indices.</span>
+        <span class="n">no</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nocc_active</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">cluster</span><span class="o">.</span><span class="n">nvir_active</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)):</span>
+            <span class="n">no</span> <span class="o">=</span> <span class="p">(</span><span class="n">no</span><span class="p">,</span> <span class="n">no</span><span class="p">)</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;no: </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">no</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">no</span><span class="p">)))</span>
+        <span class="n">kcaa</span> <span class="o">=</span> <span class="n">kc</span><span class="p">[:</span><span class="n">ova</span><span class="p">,</span> <span class="p">:</span><span class="n">ova</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">kcab</span> <span class="o">=</span> <span class="n">kc</span><span class="p">[:</span><span class="n">ova</span><span class="p">,</span> <span class="n">ova</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">no</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">kcbb</span> <span class="o">=</span> <span class="n">kc</span><span class="p">[</span><span class="n">ova</span><span class="p">:,</span> <span class="n">ova</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">no</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="n">kc</span> <span class="o">=</span> <span class="p">(</span><span class="n">kcaa</span><span class="p">,</span> <span class="n">kcab</span><span class="p">,</span> <span class="n">kcbb</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">_seris_ov</span> <span class="o">=</span> <span class="p">(</span><span class="n">kc</span><span class="p">,</span> <span class="n">mom</span><span class="p">,</span> <span class="n">amb</span><span class="p">)</span> <span class="k">if</span> <span class="n">store_m0</span> <span class="k">else</span> <span class="p">(</span><span class="n">kc</span><span class="p">,)</span>
+        <span class="n">seris_ov</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kc</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="calc_moms_RIRPA">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_moment.calc_moms_RIRPA">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_moms_RIRPA</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">target_rots</span><span class="p">,</span> <span class="n">ovs_active</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">cderi_ov</span><span class="p">,</span> <span class="n">npoints</span><span class="p">):</span>
+    <span class="n">rpa</span> <span class="o">=</span> <span class="n">ssRIRPA</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">,</span> <span class="n">lov</span><span class="o">=</span><span class="n">cderi_ov</span><span class="p">)</span>
+    <span class="n">tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">target_rots</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">ovs_active</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Computation scales as O(N^4)</span>
+        <span class="n">moms_interact</span><span class="p">,</span> <span class="n">est_errors</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">kernel_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">npoints</span><span class="o">=</span><span class="n">npoints</span><span class="p">)</span>
+        <span class="n">momzero_interact</span> <span class="o">=</span> <span class="n">moms_interact</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">momzero_interact</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">tr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="c1"># Now need to separate into local contributions</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">local_moments</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">nov</span><span class="p">,</span> <span class="n">rot</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ovs_active</span><span class="p">,</span> <span class="n">target_rots</span><span class="p">):</span>
+        <span class="c1"># Computation costs O(N^2 N_clus^2)</span>
+        <span class="c1"># Get corresponding section of overall moment, then project to just local contribution.</span>
+        <span class="n">mom</span> <span class="o">=</span> <span class="n">dot</span><span class="p">(</span><span class="n">momzero_interact</span><span class="p">[</span><span class="n">n</span> <span class="p">:</span> <span class="n">n</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nov</span><span class="p">)],</span> <span class="n">rot</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="c1"># This isn&#39;t exactly symmetric due to numerical integration, so enforce here.</span>
+        <span class="n">mom</span> <span class="o">=</span> <span class="p">(</span><span class="n">mom</span> <span class="o">+</span> <span class="n">mom</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">local_moments</span> <span class="o">+=</span> <span class="p">[</span><span class="n">mom</span><span class="p">]</span>
+        <span class="n">n</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nov</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">local_moments</span></div>
+
+
+
+<div class="viewcode-block" id="calc_moms_RPA">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_moment.calc_moms_RPA">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calc_moms_RPA</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">target_rots</span><span class="p">,</span> <span class="n">ovs_active</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">cderi_ov</span><span class="p">,</span> <span class="n">npoints</span><span class="p">):</span>
+    <span class="n">rpa</span> <span class="o">=</span> <span class="n">ssRPA</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="n">log</span><span class="p">)</span>
+    <span class="n">erpa</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+    <span class="n">mom0</span> <span class="o">=</span> <span class="n">rpa</span><span class="o">.</span><span class="n">gen_moms</span><span class="p">(</span><span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">local_moments</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rot</span> <span class="ow">in</span> <span class="n">target_rots</span><span class="p">:</span>
+        <span class="n">local_moments</span> <span class="o">+=</span> <span class="p">[</span><span class="n">dot</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="n">mom0</span><span class="p">,</span> <span class="n">rot</span><span class="o">.</span><span class="n">T</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">local_moments</span><span class="p">,</span> <span class="n">erpa</span></div>
+
+
+
+<div class="viewcode-block" id="get_screened_eris_full">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_moment.get_screened_eris_full">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_screened_eris_full</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">seris_ov</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build full array of screened ERIs, given the bare ERIs and screening.&quot;&quot;&quot;</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating screened interaction to conserve zeroth moment of the dd response.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">replace_ov</span><span class="p">(</span><span class="n">full</span><span class="p">,</span> <span class="n">ov</span><span class="p">,</span> <span class="n">spins</span><span class="p">):</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">full</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">copy</span> <span class="k">else</span> <span class="n">full</span>
+        <span class="n">no1</span><span class="p">,</span> <span class="n">no2</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">o1</span><span class="p">,</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">no1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">no1</span><span class="p">:]</span>
+        <span class="n">o2</span><span class="p">,</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[:</span><span class="n">no2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">s_</span><span class="p">[</span><span class="n">no2</span><span class="p">:]</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">o1</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">v2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ov</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">v2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">o1</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">o2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">o2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ov</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">eris</span> <span class="o">=</span> <span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">eris</span><span class="p">,</span> <span class="n">eris</span><span class="p">)</span>
+
+    <span class="n">seris</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">replace_ov</span><span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">seris_ov</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;aa&quot;</span><span class="p">),</span>
+        <span class="n">replace_ov</span><span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">seris_ov</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;ab&quot;</span><span class="p">),</span>
+        <span class="n">replace_ov</span><span class="p">(</span><span class="n">eris</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">seris_ov</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;bb&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">seris</span></div>
+
+
+
+<div class="viewcode-block" id="get_screened_eris_ccsd">
+<a class="viewcode-back" href="../../../../apidoc/vayesta.core.screening.html#vayesta.core.screening.screening_moment.get_screened_eris_ccsd">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_screened_eris_ccsd</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">seris_ov</span><span class="p">,</span> <span class="n">add_restore_bare</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">add_restore_bare</span><span class="p">:</span>
+        <span class="n">gaa</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span><span class="p">[:]</span>
+        <span class="n">gab</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">ovOV</span><span class="p">[:]</span>
+        <span class="n">gbb</span> <span class="o">=</span> <span class="n">eris</span><span class="o">.</span><span class="n">OVOV</span><span class="p">[:]</span>
+
+    <span class="n">saa</span><span class="p">,</span> <span class="n">sab</span><span class="p">,</span> <span class="n">sbb</span> <span class="o">=</span> <span class="n">seris_ov</span>
+    <span class="c1"># Alpha-alpha</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">ovov</span> <span class="o">=</span> <span class="n">saa</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">ovvo</span> <span class="o">=</span> <span class="n">saa</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="c1"># Alpha-beta</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">ovOV</span> <span class="o">=</span> <span class="n">sab</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">ovVO</span> <span class="o">=</span> <span class="n">sab</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="c1"># Beta-beta</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">OVOV</span> <span class="o">=</span> <span class="n">sbb</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">OVVO</span> <span class="o">=</span> <span class="n">sbb</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="c1"># Beta-alpha</span>
+    <span class="n">eris</span><span class="o">.</span><span class="n">OVvo</span> <span class="o">=</span> <span class="n">sab</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Add restore_bare function to remove screening later on</span>
+    <span class="k">if</span> <span class="n">add_restore_bare</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_bare</span><span class="p">(</span><span class="n">eris</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">gaa</span><span class="p">,</span> <span class="n">gab</span><span class="p">,</span> <span class="n">gbb</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">restore_bare</span><span class="p">(</span><span class="n">eris</span><span class="p">):</span>
+            <span class="n">eris</span> <span class="o">=</span> <span class="n">get_screened_eris_ccsd</span><span class="p">(</span><span class="n">eris</span><span class="p">,</span> <span class="n">eris</span><span class="o">.</span><span class="n">get_bare</span><span class="p">(),</span> <span class="n">add_restore_bare</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">eris</span><span class="o">.</span><span class="n">get_bare</span><span class="p">,</span> <span class="n">eris</span><span class="o">.</span><span class="n">restore_bare</span>
+            <span class="k">return</span> <span class="n">eris</span>
+
+        <span class="n">eris</span><span class="o">.</span><span class="n">get_bare</span> <span class="o">=</span> <span class="n">get_bare</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+        <span class="n">eris</span><span class="o">.</span><span class="n">restore_bare</span> <span class="o">=</span> <span class="n">restore_bare</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">eris</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">eris</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_target_rot</span><span class="p">(</span><span class="n">r_active_occs</span><span class="p">,</span> <span class="n">r_active_virs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual</span>
+<span class="sd">    orbitals, define the equivalent rotation of the full-system particle-hole excitation space.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mf : pyscf.scf.SCF</span>
+<span class="sd">        PySCF mean-field object.</span>
+<span class="sd">    fragments : list of vayesta.qemb.Fragment subclasses</span>
+<span class="sd">        List of fragments for the calculation, used to define local interaction spaces.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    target_rots : list of np.array</span>
+<span class="sd">        Rotations of particle-hole excitation space defining clusters.</span>
+<span class="sd">    ovs_active : list of int</span>
+<span class="sd">        Total number of local particle-hole excitations for each cluster.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_target_rot_spat</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span> <span class="n">rv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ro : list of tuples of np.array</span>
+<span class="sd">            List of occupied orbital rotations defining clusters, with separate spin channels.</span>
+<span class="sd">        rv : list of tuples of np.array</span>
+<span class="sd">            List of virtual orbital rotations defining clusters, with separate spin channels.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rot : np.array</span>
+<span class="sd">            Rotation of system particle-hole excitation space into cluster particle-hole excitation space.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">no</span> <span class="o">=</span> <span class="n">ro</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">rv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">ov_active</span> <span class="o">=</span> <span class="n">no</span> <span class="o">*</span> <span class="n">nv</span>
+        <span class="k">if</span> <span class="n">ov_active</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="n">ro</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">rv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">einsum</span><span class="p">(</span><span class="s2">&quot;iJ,aB-&gt;JBia&quot;</span><span class="p">,</span> <span class="n">ro</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">ov_active</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">rot</span><span class="p">,</span> <span class="n">ov_active</span>
+
+    <span class="n">nfrag</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">r_active_occs</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">nfrag</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">r_active_virs</span><span class="p">)</span>
+    <span class="n">ovs_active</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">nfrag</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">target_rots</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">r_o</span><span class="p">,</span> <span class="n">r_v</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">r_active_occs</span><span class="p">,</span> <span class="n">r_active_virs</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r_o</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">r_o</span> <span class="o">=</span> <span class="p">(</span><span class="n">r_o</span><span class="p">,</span> <span class="n">r_o</span><span class="p">)</span>
+            <span class="n">r_v</span> <span class="o">=</span> <span class="p">(</span><span class="n">r_v</span><span class="p">,</span> <span class="n">r_v</span><span class="p">)</span>
+
+        <span class="n">arot</span><span class="p">,</span> <span class="n">ova</span> <span class="o">=</span> <span class="n">get_target_rot_spat</span><span class="p">(</span><span class="n">r_o</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">r_v</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">brot</span><span class="p">,</span> <span class="n">ovb</span> <span class="o">=</span> <span class="n">get_target_rot_spat</span><span class="p">(</span><span class="n">r_o</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">r_v</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">spinorb_active_rot</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">arot</span><span class="p">,</span> <span class="n">brot</span><span class="p">)</span>
+        <span class="n">target_rots</span> <span class="o">+=</span> <span class="p">[</span><span class="n">spinorb_active_rot</span><span class="p">]</span>
+        <span class="n">ovs_active</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ova</span><span class="p">,</span> <span class="n">ovb</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">target_rots</span><span class="p">,</span> <span class="n">ovs_active</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

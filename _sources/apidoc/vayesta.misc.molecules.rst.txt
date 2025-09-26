@@ -1,0 +1,21 @@
+vayesta.misc.molecules
+======================
+
+Submodules
+----------
+
+vayesta.misc.molecules.molecules
+--------------------------------
+
+.. automodule:: vayesta.misc.molecules.molecules
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.misc.molecules
+   :members:
+   :undoc-members:
+   :show-inheritance:

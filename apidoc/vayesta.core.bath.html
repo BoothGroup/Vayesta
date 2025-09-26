@@ -1,0 +1,1337 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vayesta.core.bath &mdash; Vayesta 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="vayesta.core.bosonic_bath" href="vayesta.core.bosonic_bath.html" />
+    <link rel="prev" title="vayesta.core.ao2mo" href="vayesta.core.ao2mo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq/index.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">API</a></li>
+          <li class="breadcrumb-item"><a href="vayesta.core.html">vayesta.core</a></li>
+      <li class="breadcrumb-item active">vayesta.core.bath</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/apidoc/vayesta.core.bath.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vayesta-core-bath">
+<h1>vayesta.core.bath<a class="headerlink" href="#vayesta-core-bath" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-vayesta.core.bath.bath">
+<span id="vayesta-core-bath-bath"></span><h2>vayesta.core.bath.bath<a class="headerlink" href="#module-vayesta.core.bath.bath" title="Link to this heading"></a></h2>
+<p>Bath base class.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bath.</span></span><span class="sig-name descname"><span class="pre">Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bath.html#Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bath.Bath" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bath.Bath.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.bath.Bath.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.bno">
+<span id="vayesta-core-bath-bno"></span><h2>vayesta.core.bath.bno<a class="headerlink" href="#module-vayesta.core.bath.bno" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Threshold">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bno.</span></span><span class="sig-name descname"><span class="pre">BNO_Threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Threshold" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Threshold.get_number">
+<span class="sig-name descname"><span class="pre">get_number</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_occup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">electron_total</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Threshold.get_number"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Threshold.get_number" title="Link to this definition"></a></dt>
+<dd><p>Get number of BNOs.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bno.</span></span><span class="sig-name descname"><span class="pre">BNO_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">canonicalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bath.Bath" title="vayesta.core.bath.bath.Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bath</span></code></a></p>
+<p>Bath natural orbital (BNO) bath, requires DMET bath.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.c_cluster_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_occ</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.c_cluster_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.c_cluster_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_vir</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.c_cluster_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.make_bno_coeff">
+<span class="sig-name descname"><span class="pre">make_bno_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.make_bno_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.make_bno_coeff" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.ncluster">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ncluster</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.ncluster" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_bno</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.log_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.get_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.get_finite_bath_correction">
+<span class="sig-name descname"><span class="pre">get_finite_bath_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_frozen</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.get_finite_bath_correction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.get_finite_bath_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.truncate_bno">
+<span class="sig-name descname"><span class="pre">truncate_bno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.truncate_bno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.truncate_bno" title="Link to this definition"></a></dt>
+<dd><p>Split natural orbitals (NO) into bath and rest.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.get_active_space">
+<span class="sig-name descname"><span class="pre">get_active_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath.get_active_space"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.get_active_space" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bno.</span></span><span class="sig-name descname"><span class="pre">BNO_Bath_UHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_buffer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">canonicalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath_UHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bno.BNO_Bath" title="vayesta.core.bath.bno.BNO_Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">BNO_Bath</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.ncluster">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ncluster</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.ncluster" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_bno</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath_UHF.log_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.truncate_bno">
+<span class="sig-name descname"><span class="pre">truncate_bno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occup</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#BNO_Bath_UHF.truncate_bno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.truncate_bno" title="Link to this definition"></a></dt>
+<dd><p>Split natural orbitals (NO) into bath and rest.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.c_cluster_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_occ</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.c_cluster_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.c_cluster_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_vir</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.c_cluster_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.get_active_space">
+<span class="sig-name descname"><span class="pre">get_active_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.get_active_space" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.get_finite_bath_correction">
+<span class="sig-name descname"><span class="pre">get_finite_bath_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_frozen</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.get_finite_bath_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.make_bno_coeff">
+<span class="sig-name descname"><span class="pre">make_bno_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.make_bno_coeff" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.BNO_Bath_UHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.bno.BNO_Bath_UHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bno.</span></span><span class="sig-name descname"><span class="pre">MP2_BNO_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'full'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#MP2_BNO_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bno.BNO_Bath" title="vayesta.core.bath.bno.BNO_Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">BNO_Bath</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.get_eris_or_cderi">
+<span class="sig-name descname"><span class="pre">get_eris_or_cderi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">actspace</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#MP2_BNO_Bath.get_eris_or_cderi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.get_eris_or_cderi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.make_delta_dm1">
+<span class="sig-name descname"><span class="pre">make_delta_dm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actspace</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#MP2_BNO_Bath.make_delta_dm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.make_delta_dm1" title="Link to this definition"></a></dt>
+<dd><p>Delta MP2 density matrix</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.make_bno_coeff">
+<span class="sig-name descname"><span class="pre">make_bno_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#MP2_BNO_Bath.make_bno_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.make_bno_coeff" title="Link to this definition"></a></dt>
+<dd><p>Construct MP2 bath natural orbital coefficients and occupation numbers.</p>
+<p>This routine works for both for spin-restricted and unrestricted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>eris</strong> (<em>mp2._ChemistERIs</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>c_bno</strong> (<em>(n(AO), n(BNO)) array</em>) – Bath natural orbital coefficients.</p></li>
+<li><p><strong>n_bno</strong> (<em>(n(BNO)) array</em>) – Bath natural orbital occupation numbers.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.c_cluster_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_occ</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.c_cluster_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.c_cluster_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_vir</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.c_cluster_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.get_active_space">
+<span class="sig-name descname"><span class="pre">get_active_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.get_active_space" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.get_finite_bath_correction">
+<span class="sig-name descname"><span class="pre">get_finite_bath_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_frozen</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.get_finite_bath_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_bno</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.ncluster">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ncluster</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.ncluster" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.MP2_BNO_Bath.truncate_bno">
+<span class="sig-name descname"><span class="pre">truncate_bno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.MP2_BNO_Bath.truncate_bno" title="Link to this definition"></a></dt>
+<dd><p>Split natural orbitals (NO) into bath and rest.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.bno.</span></span><span class="sig-name descname"><span class="pre">UMP2_BNO_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'full'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#UMP2_BNO_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bno.MP2_BNO_Bath" title="vayesta.core.bath.bno.MP2_BNO_Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">MP2_BNO_Bath</span></code></a>, <a class="reference internal" href="#vayesta.core.bath.bno.BNO_Bath_UHF" title="vayesta.core.bath.bno.BNO_Bath_UHF"><code class="xref py py-class docutils literal notranslate"><span class="pre">BNO_Bath_UHF</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.make_delta_dm1">
+<span class="sig-name descname"><span class="pre">make_delta_dm1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actspace</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/bno.html#UMP2_BNO_Bath.make_delta_dm1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.make_delta_dm1" title="Link to this definition"></a></dt>
+<dd><p>Delta MP2 density matrix</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.c_cluster_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_occ</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.c_cluster_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.c_cluster_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_vir</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.c_cluster_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.get_active_space">
+<span class="sig-name descname"><span class="pre">get_active_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.get_active_space" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.get_eris_or_cderi">
+<span class="sig-name descname"><span class="pre">get_eris_or_cderi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">actspace</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.get_eris_or_cderi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.get_finite_bath_correction">
+<span class="sig-name descname"><span class="pre">get_finite_bath_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_frozen</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.get_finite_bath_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_bno</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.make_bno_coeff">
+<span class="sig-name descname"><span class="pre">make_bno_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.make_bno_coeff" title="Link to this definition"></a></dt>
+<dd><p>Construct MP2 bath natural orbital coefficients and occupation numbers.</p>
+<p>This routine works for both for spin-restricted and unrestricted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>eris</strong> (<em>mp2._ChemistERIs</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>c_bno</strong> (<em>(n(AO), n(BNO)) array</em>) – Bath natural orbital coefficients.</p></li>
+<li><p><strong>n_bno</strong> (<em>(n(BNO)) array</em>) – Bath natural orbital occupation numbers.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.ncluster">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ncluster</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.ncluster" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.bno.UMP2_BNO_Bath.truncate_bno">
+<span class="sig-name descname"><span class="pre">truncate_bno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occup</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.bno.UMP2_BNO_Bath.truncate_bno" title="Link to this definition"></a></dt>
+<dd><p>Split natural orbitals (NO) into bath and rest.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.dmet">
+<span id="vayesta-core-bath-dmet"></span><h2>vayesta.core.bath.dmet<a class="headerlink" href="#module-vayesta.core.bath.dmet" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.dmet.</span></span><span class="sig-name descname"><span class="pre">DMET_Bath_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bath.Bath" title="vayesta.core.bath.bath.Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bath</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.get_cluster_electrons">
+<span class="sig-name descname"><span class="pre">get_cluster_electrons</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.get_cluster_electrons"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.get_cluster_electrons" title="Link to this definition"></a></dt>
+<dd><p>Number of cluster electrons.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.get_occupied_bath">
+<span class="sig-name descname"><span class="pre">get_occupied_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.get_occupied_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.get_occupied_bath" title="Link to this definition"></a></dt>
+<dd><p>Inherited bath classes can overwrite this to return additional occupied bath orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.get_virtual_bath">
+<span class="sig-name descname"><span class="pre">get_virtual_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.get_virtual_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.get_virtual_bath" title="Link to this definition"></a></dt>
+<dd><p>Inherited bath classes can overwrite this to return additional virtual bath orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.get_environment">
+<span class="sig-name descname"><span class="pre">get_environment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.get_environment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.get_environment" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath">
+<span class="sig-name descname"><span class="pre">make_dmet_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nbath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.make_dmet_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath" title="Link to this definition"></a></dt>
+<dd><p>Calculate DMET bath, occupied environment and virtual environment orbitals.</p>
+<p>If c_ref is not None, complete DMET orbital space using active transformation of reference orbitals.</p>
+<p>TODO:
+* reftol should not be necessary - just determine how many DMET bath orbital N are missing
+from C_ref and take the N largest eigenvalues over the combined occupied and virtual
+eigenvalues.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>c_env</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>env</em><em>)</em><em>) </em><em>array</em>) – MO-coefficients of environment orbitals.</p></li>
+<li><p><strong>dm1</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>AO</em><em>)</em><em>) </em><em>array</em><em>, </em><em>optional</em>) – Mean-field one-particle reduced density matrix in AO representation. If None, <cite>self.mf.make_rdm1()</cite> is used.
+Default: None.</p></li>
+<li><p><strong>c_ref</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Reference DMET bath orbitals from previous calculation.</p></li>
+<li><p><strong>nbath</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of DMET bath orbitals. If set, the parameter <cite>tol</cite> is ignored. Default: None.</p></li>
+<li><p><strong>tol</strong> (<em>float</em><em>, </em><em>optional</em>) – Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.</p></li>
+<li><p><strong>reftol</strong> (<em>float</em><em>, </em><em>optional</em>) – Tolerance for DMET orbitals in projection of reference orbitals.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>c_bath</strong> (<em>(n(AO), n(bath)) array</em>) – DMET bath orbitals.</p></li>
+<li><p><strong>eig</strong> (<em>n(bath) array</em>) – DMET orbital occupation numbers (in [0,1]).</p></li>
+<li><p><strong>c_occenv</strong> (<em>(n(AO), n(occ. env)) array</em>) – Occupied environment orbitals.</p></li>
+<li><p><strong>c_virenv</strong> (<em>(n(AO), n(vir. env)) array</em>) – Virtual environment orbitals.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath_fast">
+<span class="sig-name descname"><span class="pre">make_dmet_bath_fast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.make_dmet_bath_fast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.make_dmet_bath_fast" title="Link to this definition"></a></dt>
+<dd><p>Fast DMET orbitals.
+from Ref. J. Chem. Phys. 151, 064108 (2019); <a class="reference external" href="https://doi.org/10.1063/1.5108818">https://doi.org/10.1063/1.5108818</a></p>
+<p>Problem: How to get C_occenv and C_virenv without N^3 diagonalization?</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.log_info">
+<span class="sig-name descname"><span class="pre">log_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.log_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.log_info" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.use_ref_orbitals">
+<span class="sig-name descname"><span class="pre">use_ref_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_occenv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_virenv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_RHF.use_ref_orbitals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.use_ref_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Not maintained!</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_RHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_RHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.dmet.</span></span><span class="sig-name descname"><span class="pre">DMET_Bath_UHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_UHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.dmet.DMET_Bath_RHF" title="vayesta.core.bath.dmet.DMET_Bath_RHF"><code class="xref py py-class docutils literal notranslate"><span class="pre">DMET_Bath_RHF</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.get_cluster_electrons">
+<span class="sig-name descname"><span class="pre">get_cluster_electrons</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_UHF.get_cluster_electrons"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.get_cluster_electrons" title="Link to this definition"></a></dt>
+<dd><p>Number of (alpha, beta) cluster electrons.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.get_occupied_bath">
+<span class="sig-name descname"><span class="pre">get_occupied_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_UHF.get_occupied_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.get_occupied_bath" title="Link to this definition"></a></dt>
+<dd><p>Inherited bath classes can overwrite this to return additional occupied bath orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.get_virtual_bath">
+<span class="sig-name descname"><span class="pre">get_virtual_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_UHF.get_virtual_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.get_virtual_bath" title="Link to this definition"></a></dt>
+<dd><p>Inherited bath classes can overwrite this to return additional virtual bath orbitals.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.make_dmet_bath">
+<span class="sig-name descname"><span class="pre">make_dmet_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/dmet.html#DMET_Bath_UHF.make_dmet_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.make_dmet_bath" title="Link to this definition"></a></dt>
+<dd><p>Calculate DMET bath, occupied environment and virtual environment orbitals.</p>
+<p>If c_ref is not None, complete DMET orbital space using active transformation of reference orbitals.</p>
+<p>TODO:
+* reftol should not be necessary - just determine how many DMET bath orbital N are missing
+from C_ref and take the N largest eigenvalues over the combined occupied and virtual
+eigenvalues.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>c_env</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>env</em><em>)</em><em>) </em><em>array</em>) – MO-coefficients of environment orbitals.</p></li>
+<li><p><strong>dm1</strong> (<em>(</em><em>n</em><em>(</em><em>AO</em><em>)</em><em>, </em><em>n</em><em>(</em><em>AO</em><em>)</em><em>) </em><em>array</em><em>, </em><em>optional</em>) – Mean-field one-particle reduced density matrix in AO representation. If None, <cite>self.mf.make_rdm1()</cite> is used.
+Default: None.</p></li>
+<li><p><strong>c_ref</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Reference DMET bath orbitals from previous calculation.</p></li>
+<li><p><strong>nbath</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of DMET bath orbitals. If set, the parameter <cite>tol</cite> is ignored. Default: None.</p></li>
+<li><p><strong>tol</strong> (<em>float</em><em>, </em><em>optional</em>) – Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.</p></li>
+<li><p><strong>reftol</strong> (<em>float</em><em>, </em><em>optional</em>) – Tolerance for DMET orbitals in projection of reference orbitals.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>c_bath</strong> (<em>(n(AO), n(bath)) array</em>) – DMET bath orbitals.</p></li>
+<li><p><strong>eig</strong> (<em>n(bath) array</em>) – DMET orbital occupation numbers (in [0,1]).</p></li>
+<li><p><strong>c_occenv</strong> (<em>(n(AO), n(occ. env)) array</em>) – Occupied environment orbitals.</p></li>
+<li><p><strong>c_virenv</strong> (<em>(n(AO), n(vir. env)) array</em>) – Virtual environment orbitals.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.get_environment">
+<span class="sig-name descname"><span class="pre">get_environment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.get_environment" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.log_info">
+<span class="sig-name descname"><span class="pre">log_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.log_info" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.make_dmet_bath_fast">
+<span class="sig-name descname"><span class="pre">make_dmet_bath_fast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_env</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dm1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.make_dmet_bath_fast" title="Link to this definition"></a></dt>
+<dd><p>Fast DMET orbitals.
+from Ref. J. Chem. Phys. 151, 064108 (2019); <a class="reference external" href="https://doi.org/10.1063/1.5108818">https://doi.org/10.1063/1.5108818</a></p>
+<p>Problem: How to get C_occenv and C_virenv without N^3 diagonalization?</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.dmet.DMET_Bath_UHF.use_ref_orbitals">
+<span class="sig-name descname"><span class="pre">use_ref_orbitals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_occenv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_virenv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.dmet.DMET_Bath_UHF.use_ref_orbitals" title="Link to this definition"></a></dt>
+<dd><p>Not maintained!</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.ewdmet">
+<span id="vayesta-core-bath-ewdmet"></span><h2>vayesta.core.bath.ewdmet<a class="headerlink" href="#module-vayesta.core.bath.ewdmet" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.ewdmet.</span></span><span class="sig-name descname"><span class="pre">EwDMET_Bath_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/ewdmet.html#EwDMET_Bath_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bath.Bath" title="vayesta.core.bath.bath.Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bath</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.get_fock">
+<span class="sig-name descname"><span class="pre">get_fock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/ewdmet.html#EwDMET_Bath_RHF.get_fock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.get_fock" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/ewdmet.html#EwDMET_Bath_RHF.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/ewdmet.html#EwDMET_Bath_RHF.get_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.ewdmet.EwDMET_Bath_RHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.full">
+<span id="vayesta-core-bath-full"></span><h2>vayesta.core.bath.full<a class="headerlink" href="#module-vayesta.core.bath.full" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.full.</span></span><span class="sig-name descname"><span class="pre">Full_Bath_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/full.html#Full_Bath_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bath.Bath" title="vayesta.core.bath.bath.Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bath</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/full.html#Full_Bath_RHF.get_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_RHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_RHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.full.</span></span><span class="sig-name descname"><span class="pre">Full_Bath_UHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/full.html#Full_Bath_UHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.full.Full_Bath_RHF" title="vayesta.core.bath.full.Full_Bath_RHF"><code class="xref py py-class docutils literal notranslate"><span class="pre">Full_Bath_RHF</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/full.html#Full_Bath_UHF.get_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.full.Full_Bath_UHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.full.Full_Bath_UHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.helper">
+<span id="vayesta-core-bath-helper"></span><h2>vayesta.core.bath.helper<a class="headerlink" href="#module-vayesta.core.bath.helper" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.helper.make_histogram">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.helper.</span></span><span class="sig-name descname"><span class="pre">make_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">binwidth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">':'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_number</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invertx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rstrip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/helper.html#make_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.helper.make_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.helper.make_horizontal_histogram">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.helper.</span></span><span class="sig-name descname"><span class="pre">make_horizontal_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxbarlength</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invertx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/helper.html#make_horizontal_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.helper.make_horizontal_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.helper.transform_mp2_eris">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.helper.</span></span><span class="sig-name descname"><span class="pre">transform_mp2_eris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eris</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_occ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_vir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ovlp</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/helper.html#transform_mp2_eris"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.helper.transform_mp2_eris" title="Link to this definition"></a></dt>
+<dd><p>Transform eris of kind (ov|ov) (occupied-virtual-occupied-virtual)</p>
+<p>OBSOLETE: replaced by transform_eris</p>
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.r2bath">
+<span id="vayesta-core-bath-r2bath"></span><h2>vayesta.core.bath.r2bath<a class="headerlink" href="#module-vayesta.core.bath.r2bath" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.r2bath.</span></span><span class="sig-name descname"><span class="pre">R2_Bath_RHF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dmet_bath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occtype</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/r2bath.html#R2_Bath_RHF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bath.Bath" title="vayesta.core.bath.bath.Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bath</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.get_r2">
+<span class="sig-name descname"><span class="pre">get_r2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/r2bath.html#R2_Bath_RHF.get_r2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.get_r2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/r2bath.html#R2_Bath_RHF.kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rcut</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Ang'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/r2bath.html#R2_Bath_RHF.get_bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/r2bath.html#R2_Bath_RHF.log_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.r2bath.R2_Bath_RHF.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.r2bath.R2_Bath_RHF.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath.rpa">
+<span id="vayesta-core-bath-rpa"></span><h2>vayesta.core.bath.rpa<a class="headerlink" href="#module-vayesta.core.bath.rpa" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.rpa.</span></span><span class="sig-name descname"><span class="pre">RPA_BNO_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'full'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dmet</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/rpa.html#RPA_BNO_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#vayesta.core.bath.bno.BNO_Bath" title="vayesta.core.bath.bno.BNO_Bath"><code class="xref py py-class docutils literal notranslate"><span class="pre">BNO_Bath</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.make_bno_coeff">
+<span class="sig-name descname"><span class="pre">make_bno_coeff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cderis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath/rpa.html#RPA_BNO_Bath.make_bno_coeff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.make_bno_coeff" title="Link to this definition"></a></dt>
+<dd><p>Construct RPA bath natural orbital coefficients and occupation numbers.</p>
+<p>This routine works for both for spin-restricted and unrestricted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cderis</strong> (<em>cderis in the particle-hole space.</em>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>c_bno</strong> (<em>(n(AO), n(BNO)) array</em>) – Bath natural orbital coefficients.</p></li>
+<li><p><strong>n_bno</strong> (<em>(n(BNO)) array</em>) – Bath natural orbital occupation numbers.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.base">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.base" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.c_cluster_occ">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_occ</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.c_cluster_occ" title="Link to this definition"></a></dt>
+<dd><p>Occupied DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.c_cluster_vir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_cluster_vir</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.c_cluster_vir" title="Link to this definition"></a></dt>
+<dd><p>Virtual DMET cluster orbitals.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.c_env">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_env</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.c_env" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.c_frag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">c_frag</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.c_frag" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.get_active_space">
+<span class="sig-name descname"><span class="pre">get_active_space</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.get_active_space" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.get_bath">
+<span class="sig-name descname"><span class="pre">get_bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.get_bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.get_finite_bath_correction">
+<span class="sig-name descname"><span class="pre">get_finite_bath_correction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c_active</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_frozen</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.get_finite_bath_correction" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.kernel">
+<span class="sig-name descname"><span class="pre">kernel</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.kernel" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.log">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.log" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.log_histogram">
+<span class="sig-name descname"><span class="pre">log_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_bno</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.log_histogram" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.mf">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.mf" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.mol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">mol</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.mol" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.ncluster">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ncluster</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.ncluster" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.spin_restricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_restricted</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.spin_restricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.spin_unrestricted">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spin_unrestricted</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.spin_unrestricted" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.spinsym">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spinsym</span></span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.spinsym" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="vayesta.core.bath.rpa.RPA_BNO_Bath.truncate_bno">
+<span class="sig-name descname"><span class="pre">truncate_bno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">occup</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bno_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#vayesta.core.bath.rpa.RPA_BNO_Bath.truncate_bno" title="Link to this definition"></a></dt>
+<dd><p>Split natural orbitals (NO) into bath and rest.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-vayesta.core.bath">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-vayesta.core.bath" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.DMET_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">DMET_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#DMET_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.DMET_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.EwDMET_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">EwDMET_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#EwDMET_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.EwDMET_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.MP2_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">MP2_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#MP2_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.MP2_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.RPA_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">RPA_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#RPA_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.RPA_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.R2_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">R2_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#R2_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.R2_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vayesta.core.bath.Full_Bath">
+<span class="sig-prename descclassname"><span class="pre">vayesta.core.bath.</span></span><span class="sig-name descname"><span class="pre">Full_Bath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fragment</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/vayesta/core/bath.html#Full_Bath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vayesta.core.bath.Full_Bath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vayesta.core.ao2mo.html" class="btn btn-neutral float-left" title="vayesta.core.ao2mo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vayesta.core.bosonic_bath.html" class="btn btn-neutral float-right" title="vayesta.core.bosonic_bath" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
