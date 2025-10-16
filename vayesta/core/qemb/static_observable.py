@@ -29,15 +29,14 @@ def make_global_one_body(emb, cluster_observable, symmetrize=False, use_sym=True
 
 
     nao, nmo = emb.mo_coeff.shape
-    dtype = cluster_observable.dtype
-    
-
-    shape = tuple(list(cluster_observable.shape[1:-2]) + [nmo, nmo])
+    dtype = cluster_observable[0].dtype
+    nfrag = len(cluster_observable)
+    shape = tuple( list(cluster_observable[0].shape[:-2]) + [nmo, nmo])
     global_observable = np.zeros(shape, dtype=dtype)
 
     if fragments is None:
         fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
-    assert len(fragments) == cluster_observable.shape[0]
+    assert len(fragments) == nfrag
 
     for i, f in enumerate(fragments):
 

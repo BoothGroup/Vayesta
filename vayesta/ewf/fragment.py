@@ -278,7 +278,7 @@ class Fragment(BaseFragment):
 
         # Moments
 
-        gf_moments = cluster_solver.gf_hole_moments, cluster_solver.gf_particle_moments
+        gf_moments = np.array([cluster_solver.gf_hole_moments, cluster_solver.gf_particle_moments])
         se_static = cluster_solver.se_static
         se_moments = cluster_solver.se_hole_moments, cluster_solver.se_particle_moments
         callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None

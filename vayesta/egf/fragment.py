@@ -3,6 +3,7 @@ import numpy as np
 
 from vayesta.ewf.fragment import Fragment as EWF_Fragment
 from dyson import MBLGF, MBLSE, AufbauPrinciple, AuxiliaryShift
+from dyson.util.moments import se_moments_to_gf_moments, gf_moments_to_se_moments
 
 @dataclasses.dataclass
 class Options(EWF_Fragment.Options):
@@ -17,6 +18,24 @@ class Fragment(EWF_Fragment):
     def kernel(self, solver=None, init_guess=None):
         results = super().kernel(solver=solver, init_guess=init_guess)
 
+
+        # CCSD or FCI solver
+
+        se_moments = []
+        for gf_moms in results.gf_moments:
+            ovlp = gf_moms[0]
+            se_static, se_moms = gf_moments_to_se_moments(gf_moms)
+            se_moments.append(se_moms)
+            assert np.allclose(ovlp, gf_moms[0])
+            #assert np.allclose(se_static, se_moms[1])
+
+
+        results.se_moments = np.array(se_moments)
+
+    
+
+
+            
 
         # if results.se_moments is not None and 0:
         #     se_static = results.se_static

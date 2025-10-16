@@ -5,9 +5,11 @@ import scipy
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 try:
+    import dyson
     from dyson import MBLGF, MBLSE, AuxiliaryShift, AufbauPrinciple
     from dyson.representations import Lehmann, Spectral
     from dyson.solvers.static.chempot import search_aufbau_global
+    dyson.quiet()
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
@@ -231,7 +233,7 @@ def se_moments_block_lanczos(se_static, se_moments, hermitian=True, sym_moms=Tru
 
 
 
-def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None, hermitize=True, use_sym=True, proj=1, hermitian=True, chempot_clus=None, sym_moms=False, debug_gf_moms=None, debug_se_moms=None):
+def make_self_energy_moments(emb, se_by_recursion=False, ph_separation=True, nmom_se=None, nmom_gf=None, hermitize=True, use_sym=True, proj=1, hermitian=True, chempot_clus=None, sym_moms=False, debug_gf_moms=None, debug_se_moms=None, subtract_local_gw=None):
     """
     Construct full system self-energy moments from Green's function moments
 
@@ -284,39 +286,84 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
             nmom_gf = (nmom_gf, nmom_gf)
         elif type(nmom_gf) is tuple:
             assert nmom_gf[0] <= nmom_gf_max[0] and nmom_gf[1] <= nmom_gf_max[1]
-            
-        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
         
-        nelec = 2 * f.cluster.nocc
-        mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
-        gf = mblgf_result.get_greens_function()
-        se = mblgf_result.get_self_energy()
-        static_self_energy_clus = mblgf_result.get_static_self_energy()
-        static_self_energy_clus = th[1] + tp[1]
-        
-        f.results.se = se
-        f.results.gf = gf
-
         mc = f.get_overlap('mo|cluster')
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
-        imag_tol = 1e-10
-        if proj == 1:
+        th, tp = f.results.gf_moments[0][:nmom_gf[0]], f.results.gf_moments[1][:nmom_gf[1]]
+
+        print("nmom : ", nmom_se, nmom_gf)
+        if se_by_recursion:
+
+            nmom_seh, nmom_sep = nmom_gf[0]-2, nmom_gf[1]-2
+            print("nmom_seh, nmom_sep: ", nmom_seh, nmom_sep)
+            print(f.results.se_moments[0].shape)
+            se_moms_clus_hole = f.results.se_moments[0][:nmom_seh]
+            se_moms_clus_part = f.results.se_moments[1][:nmom_se]
+            if not ph_separation:
+                se_moms_clus = se_moms_clus_hole + se_moms_clus_part
+            
+            static_self_energy_clus = th[1] + tp[1]
+        else:
+
+            
+            
+            nelec = 2 * f.cluster.nocc
+            mblgf_result = gf_moments_block_lanczos((th,tp), hermitize=hermitize, hermitian=hermitian, sym_moms=sym_moms, shift=chempot_clus, nelec=nelec, log=emb.log)
+            gf = mblgf_result.get_greens_function()
+            se = mblgf_result.get_self_energy()
+            static_self_energy_clus = mblgf_result.get_static_self_energy()
+            
+        
+            f.results.se = se
+            f.results.gf = gf
+
             if ph_separation:
                 se_moms_clus_holes = se.occupied().moment(range(nmom_se))
                 se_moms_clus_parts = se.virtual().moment(range(nmom_se))
                 # assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
                 # assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
                 se_moms_clus_holes = se_moms_clus_holes.real
-                se_moms_clus_parts = se_moms_clus_parts.real
+                se_moms_clus_parts = se_moms_clus_parts.real  
+            else:
+                se_moms_clus = se.moment(range(nmom_se))
+                #assert np.linalg.norm(se_moms_clus.imag) < imag_tol
+                se_moms_clus = se_moms_clus.real
+
+        
+        imag_tol = 1e-10
+
+
+        if subtract_local_gw is not None:
+
+            try:
+                import momentGW
+            except ImportError:
+                raise ImportError("momentGW is required for GW double-counting correction.")
+
+            gw = momentGW.GW(f.hamil.to_pyscf_mf())
+            gw.polarizability = 'dTDA'
+            integrals = gw.ao2mo()
+            se_static = gw.build_se_static(integrals)
+            gw_se_clus_moms_holes, gw_se_clus_moms_parts = gw.build_se_moments(nmom_se, integrals)
+
+            if ph_separation:
+                se_moms_clus_holes -= gw_se_clus_moms_holes
+                se_moms_clus_parts -= gw_se_clus_moms_parts
+            else:
+                se_moms_clus -= (gw_se_clus_moms_holes + gw_se_clus_moms_parts)
+
+
+        if proj == 1:
+            if ph_separation:
                 se_moms_frag_holes = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus_holes])
                 se_moms_frag_parts = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus_parts])
                 self_energy_moms_holes += np.array([mc @ mom @ mc.T for mom in se_moms_frag_holes])
                 self_energy_moms_parts += np.array([mc @ mom @ mc.T for mom in se_moms_frag_parts])
             else:
-                se_moms_clus = se.moment(range(nmom_se))
+                
                 se_moms_frag = np.array([0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus])
                 # assert np.linalg.norm(se_moms_frag.imag) < imag_tol
                 se_moms_frag = se_moms_frag.real
@@ -333,20 +380,11 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
 
         elif proj == 2:
             if ph_separation:
-                se_moms_clus_holes = se.occupied().moment(range(nmom_se))
-                se_moms_clus_parts = se.virtual().moment(range(nmom_se))
-                #assert np.linalg.norm(se_moms_clus_holes.imag) < imag_tol
-                #assert np.linalg.norm(se_moms_clus_parts.imag) < imag_tol
-                se_moms_clus_holes = se_moms_clus_holes.real
-                se_moms_clus_parts = se_moms_clus_parts.real
                 se_moms_frag_holes = np.array([(fc @ mom @ fc.T) for mom in se_moms_clus_holes])
                 se_moms_frag_parts = np.array([(fc @ mom @ fc.T) for mom in se_moms_clus_parts])
                 self_energy_moms_holes += np.array([mf @ mom @ mf.T for mom in se_moms_frag_holes])
                 self_energy_moms_parts += np.array([mf @ mom @ mf.T for mom in se_moms_frag_parts])
             else:
-                se_moms_clus = se.moment(range(nmom_se))
-                #assert np.linalg.norm(se_moms_clus.imag) < imag_tol
-                se_moms_clus = se_moms_clus.real
                 se_moms_frag = [(fc @ mom @ fc.T) for mom in se_moms_clus]
                 self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
 
@@ -360,31 +398,31 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
                         self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
         # Static self-energy (correlated part)
-        if True:
-            fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
-            static_self_energy_clus = static_self_energy_clus - fock_cls
+        # if True:
+        #     fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+        #     static_self_energy_clus = static_self_energy_clus - fock_cls
 
-        if proj == 1:
-            static_self_energy_frag = cfc @ static_self_energy_clus
-            static_self_energy_frag = 0.5 * (cfc @ static_self_energy_clus + static_self_energy_clus @ cfc)
-            static_self_energy += mc @ static_self_energy_frag @ mc.T
+        # if proj == 1:
+        #     static_self_energy_frag = cfc @ static_self_energy_clus
+        #     static_self_energy_frag = 0.5 * (cfc @ static_self_energy_clus + static_self_energy_clus @ cfc)
+        #     static_self_energy += mc @ static_self_energy_frag @ mc.T
 
-            if use_sym:
-                for child in f.get_symmetry_children():
-                    mc_child = child.get_overlap('mo|cluster')
-                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T 
+        #     if use_sym:
+        #         for child in f.get_symmetry_children():
+        #             mc_child = child.get_overlap('mo|cluster')
+        #             static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T 
 
-        elif proj == 2:
-            static_self_energy_frag = fc @ static_self_energy_clus @ fc.T
-            static_self_energy += mf @ static_self_energy_frag @ mf.T
+        # elif proj == 2:
+        #     static_self_energy_frag = fc @ static_self_energy_clus @ fc.T
+        #     static_self_energy += mf @ static_self_energy_frag @ mf.T
 
-            if use_sym:
-                for child in f.get_symmetry_children():
-                    mf_child = child.get_overlap('mo|frag')
-                    static_self_energy += mf_child @ static_self_energy_frag @ mf_child.T
+        #     if use_sym:
+        #         for child in f.get_symmetry_children():
+        #             mf_child = child.get_overlap('mo|frag')
+        #             static_self_energy += mf_child @ static_self_energy_frag @ mf_child.T
 
-    if sym_moms:
-        static_self_energy = 0.5 * (static_self_energy + static_self_energy.T.conj())
+    # if sym_moms:
+    #     static_self_energy = 0.5 * (static_self_energy + static_self_energy.T.conj())
 
     if sym_moms:
         if ph_separation:
@@ -396,7 +434,7 @@ def make_self_energy_moments(emb, ph_separation=True, nmom_se=None, nmom_gf=None
     if ph_separation:
         return (self_energy_moms_holes, self_energy_moms_parts)
     else:
-        return static_self_energy, self_energy_moms
+        return  self_energy_moms
 
             
 def remove_fragments_from_full_moments(emb, se_moms, proj=2, use_sym=False):

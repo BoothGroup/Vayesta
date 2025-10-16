@@ -20,6 +20,7 @@ from vayesta.core.util import (
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.core.qemb.static_observable import make_global_one_body
 from vayesta.mpi import mpi
 from vayesta.ewf.ewf import REWF
 from vayesta.egf.fragment import Fragment
@@ -84,13 +85,18 @@ class REGF(REWF):
         self.static_self_energy = self.make_static_self_energy(proj=self.opts.proj_static_se, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
 
         if self.opts.se_mode == 'lehmann':
-            self.static_self_energy, self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
+            _, self.self_energy = self.make_self_energy_lehmann(self.opts.proj)
+            self.se_overlap = None
         elif self.opts.se_mode == 'moments':
-            self.self_energy = self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
+            self.result = self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
+            #self.static_self_energy = self.result.get_static_self_energy()
+            self.static_self_energy = self.make_static_self_energy(proj=self.opts.proj_static_se, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
+            self.self_energy = self.result.get_self_energy()
+            self.se_overlap = self.result.get_overlap()
         else:
             raise NotImplementedError()
 
-        self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, chempot_global=self.opts.chempot_global)
+        self.gf = self.make_greens_function(self.static_self_energy, self.self_energy, overlap=self.se_overlap, chempot_global=self.opts.chempot_global)
 
         ea = self.gf.physical().virtual().energies[0] 
         ip = self.gf.physical().occupied().energies[-1]
@@ -131,7 +137,7 @@ class REGF(REWF):
         return static_self_energy, self_energy
         
 
-    def make_self_energy_moments(self, proj, nmom_se=None, ph_separation=True, hermitian_mblse=True, hermitian_mblgf=None, from_gf_moms=True, non_local_se=None):
+    def make_self_energy_moments(self, proj, nmom_se=None, hermitian_mblse=False, non_local_se=True, **kwargs):
         """
         Reconstruct self-energy moments from fragment self-energy moments and perform block Lanczos
         on full system to obtain a Lehmann self-energy.
@@ -142,12 +148,8 @@ class REGF(REWF):
             Number of projectors to use for fragment projection of self-energy moments
         nmom_se : int
             Number of self-energy moments to calculate
-        ph_separation : bool
-            Calculate separate particle and hole moments
         hermitian_mblse : bool
             Use hermitian MBLSE
-        from_gf_moms : bool
-            Use Green's function moments to calculate self-energy moments via recursion relation
         non_local_se : str
             Combine fragment self-energy with non-local self-energy (GW, CCSD, FCI) calculated on full system
 
@@ -158,13 +160,17 @@ class REGF(REWF):
         self_energy : MBLSE
             Self-energy in Lehmann representation
         """
-        if hermitian_mblgf is None:
-            hermitian_mblgf = self.opts.hermitian_mblgf
-        static_self_energy = make_static_self_energy(self, proj=proj, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym)
-        self_energy_moments = make_self_energy_moments(self, ph_separation=ph_separation, nmom_se=nmom_se, proj=proj, chempot_clus=self.opts.chempot_clus, hermitian=hermitian_mblgf, sym_moms=self.opts.sym_moms, use_sym=self.opts.use_sym)
-        self.self_energy_moments = self_energy_moments
+        
+        fragments = self.get_fragments(sym_parent=None) if self.opts.use_sym else self.get_fragments()
+        # overlap and static self-energy are first two GF moments
+        gf_moms_clusters = [f.results.gf_moments[:,:2,:,:] for f in fragments]
+        gf_moms = make_global_one_body(self, gf_moms_clusters, symmetrize=False, use_sym=self.opts.use_sym, proj=1, fragments=fragments)
+
+        se_moms_clusters = [f.results.se_moments for f in fragments]
+        se_moms = make_global_one_body(self, se_moms_clusters, symmetrize=False, use_sym=self.opts.use_sym, proj=proj, fragments=fragments)
+        nmom_se = se_moms.shape[1]
+
         if non_local_se is not None:
-            raise NotImplementedError()
             # if non_local_se.upper() == 'GW-dRPA' or non_local_se.upper() == 'GW-dTDA':
             #     try:
             #         from momentGW import GW
@@ -197,22 +203,64 @@ class REGF(REWF):
             #     raise NotImplementedError()
             # static_self_energy = remove_fragments_from_full_moments(self, non_local_se_static) + static_self_energy
             # self_energy_moments = remove_fragments_from_full_moments(self, non_local_se_moms, proj=proj) + self_energy_moments
+            try:
+                import momentGW
+            except ImportError:
+                raise ImportError("momentGW required for non-local GW self-energy contribution")
+            
+            
+            relaxed = True
+            
+            gw = momentGW.GW(self.mf)
+            gw.polarizability = 'dTDA'
+            integrals = gw.ao2mo()
+            se_static = gw.build_se_static(integrals)
+            gw_se_moms_h, gw_se_moms_p = gw.build_se_moments(nmom_se, integrals)
+            gw_se_moms_full = np.array([gw_se_moms_h, gw_se_moms_p])
+            
 
-        phys = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + static_self_energy
-        if type(self_energy_moments) is tuple:
-            solverh = MBLSE(phys, self_energy_moments[0], hermitian=hermitian_mblse)
-            solverh.kernel()
-            solverp = MBLSE(phys, self_energy_moments[1], hermitian=hermitian_mblse)
-            solverp.kernel()
-            result = Spectral.combine(solverh.result, solverp.result)
-        else:
-            solver = MBLSE(phys, self_energy_moments, hermitian=hermitian_mblse)
+            gw_dc_se_moms_clus = []
+            if relaxed:
+                for f in fragments:
+                    mc = f.get_overlap('mo|cluster')
+                    gw_se_moms_clus = np.matmul(mc.T, np.matmul(gw_se_moms_full, mc))
+                    gw_dc_se_moms_clus.append(gw_se_moms_clus)
+            else:
+                for f in fragments:
+                    gw = momentGW.GW(f.hamil.to_pyscf_mf()[0].density_fit())
+                    gw.polarizability = 'dTDA'
+                    integrals = gw.ao2mo()
+                    se_static = gw.build_se_static(integrals)
+                    gw_se_moms_h_clus, gw_se_moms_p_clus = gw.build_se_moments(nmom_se, integrals)
+
+                    gw_dc_se_moms_clus.append(np.array([gw_se_moms_h_clus, gw_se_moms_p_clus]))
+
+            print(gw_dc_se_moms_clus[0].shape)
+            gw_dc_se_moms = make_global_one_body(self, gw_dc_se_moms_clus, symmetrize=False, use_sym=self.opts.use_sym, proj=proj, fragments=fragments)
+            print(nmom_se)
+            print(se_moms.shape, gw_se_moms_full.shape, gw_dc_se_moms.shape)
+            se_moms = se_moms + (gw_se_moms_full[:,:nmom_se] - gw_dc_se_moms[:,:nmom_se])
+            self.log.info("Added non-local GW self-energy contribution")
+
+        self.gf_overlap = gf_moms[:, 0]
+        self.static_self_energy = gf_moms[:, 1]
+        self.self_energy_moments = se_moms
+
+        # MBLSE for hole and particle moments
+        solvers = []
+        for i in range(2):
+            solver = MBLSE(gf_moms[i,1], se_moms[i], hermitian=hermitian_mblse, overlap=gf_moms[i,0])
             solver.kernel()
-            result = solver.result
-        self_energy = result.get_self_energy()
-        return self_energy
+            solvers.append(solver)  
 
-    def make_greens_function(self, static_self_energy, self_energy, chempot_global=None):
+        result = Spectral.combine(solvers[0].result, solvers[1].result)
+        se = result.get_self_energy()
+        gf = result.get_greens_function()
+
+        return result
+
+        
+    def make_greens_function(self, static_self_energy, self_energy, overlap=None, chempot_global=None):
         """
         Calculate Green's function from self-energy using Dyson equation.
 
