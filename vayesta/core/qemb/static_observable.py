@@ -15,11 +15,13 @@ def make_global_one_body(emb, cluster_observable, symmetrize=False, use_sym=True
     cluster_observable : ndarray (nfrag, ..., nmo_cluster, nmo_cluster)
         List of cluster observables for each fragment
     symmetrize : bool
-        Symmetrize the final observable
+        Symmetrize the final observable.
     use_sym : bool
-        Use symmetry to reconstruct self-energy
+        Include symmetry equivalent fragments.
     proj : int
         Number of projectors to use (1 or 2)
+    fragments : list of Fragment objects, optional
+        List of fragments to use. If None, all fragments are used.
 
     Returns
     -------
@@ -47,10 +49,21 @@ def make_global_one_body(emb, cluster_observable, symmetrize=False, use_sym=True
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
-        if proj == 1:
+        if proj == 0:
+            # No projection onto fragment, just embed cluster observable directly
+            # global_observable += np.einsum('iI,jJ,...IJ->ij', mc, mc, obs_clus)
+            global_observable += np.matmul(mc, np.matmul(obs_clus, mc.T))
+            if use_sym:
+                for child in f.get_symmetry_children():
+                    mc_child = child.get_overlap('mo|cluster')
+                    global_observable += np.matmul(mc_child, np.matmul(obs_clus, mc_child.T))
+        elif proj == 1:
             # Symmetrically project onto fragment 
             # obs_frag = 0.5 * (np.einsum('iI,...Ij->ij', cfc, obs_clus) + np.einsum('jJ,...iJ->ij', cfc, obs_clus))
-            obs_frag = 0.5 * (np.matmul(cfc, obs_clus) + np.matmul(obs_clus, cfc))
+            if symmetrize:
+                obs_frag = 0.5 * (np.matmul(cfc, obs_clus) + np.matmul(obs_clus, cfc))
+            else:
+                obs_frag = np.matmul(cfc, obs_clus)
             # global_observable += np.einsum('iI,jJ,...IJ->ij', mc, mc, obs_frag)
             global_observable += np.matmul(mc, np.matmul(obs_frag, mc.T))
 
@@ -70,7 +83,49 @@ def make_global_one_body(emb, cluster_observable, symmetrize=False, use_sym=True
                     global_observable += np.matmul(mf_child, np.matmul(obs_frag, mf_child.T))
 
     if symmetrize:
-        global_observable = 0.5 * (global_observable + np.moveaxis(global_observable, -1, -2).conj())
+        assert np.allclose(global_observable, np.moveaxis(global_observable, -1, -2))
+        #global_observable = 0.5 * (global_observable + np.moveaxis(global_observable, -1, -2).conj())
 
 
     return global_observable
+
+def make_local_one_body(emb, global_observable, fragments=None, use_sym=True):
+    """
+    Construct fragment cluster one body observable from full system observable.
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    global_observable : ndarray (..., nmo, nmo)
+        Full system one body observable (MO basis)
+    use_sym : bool
+        Include symmetry equivalent fragments
+    fragments : list of Fragment objects, optional
+        List of fragments to use. If None, all fragments are used.        
+    
+    Returns
+    -------
+    cluster_observable : ndarray (nfrag, ..., nmo_cluster, nmo_cluster)
+        List of cluster observables for each fragment
+    """
+    
+    nao, nmo = emb.mo_coeff.shape
+    dtype = global_observable.dtype
+
+    if fragments is None:
+        fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    nfrag = len(fragments)
+
+    cluster_observable = []
+
+    for i, f in enumerate(fragments):
+
+        mc = f.get_overlap('mo|cluster')
+
+        # obs_frag = np.einsum('iI,jJ,...ij->IJ', fc.T, fc.T, np.einsum('iI,jJ,...ij->ij', mf.T, mf.T, global_observable))
+        obs_clus = np.matmul(mc.T, np.matmul(global_observable, mc))
+        #obs_clus = np.einsum('Ii,Jj,...ij->IJ', mc.T, mc.T, global_observable)
+        cluster_observable.append(obs_clus)
+
+    return np.array(cluster_observable, dtype=dtype)

@@ -20,16 +20,17 @@ class Fragment(EWF_Fragment):
 
 
         # CCSD or FCI solver
-
+        se_statics = []
         se_moments = []
         for gf_moms in results.gf_moments:
             ovlp = gf_moms[0]
             se_static, se_moms = gf_moments_to_se_moments(gf_moms)
+            se_statics.append(se_static)
             se_moments.append(se_moms)
             assert np.allclose(ovlp, gf_moms[0])
             #assert np.allclose(se_static, se_moms[1])
 
-
+        results.se_static = se_statics
         results.se_moments = np.array(se_moments)
 
     

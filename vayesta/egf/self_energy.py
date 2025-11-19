@@ -125,7 +125,7 @@ def gf_moments_block_lanczos(gf_moments, hermitize=True, hermitian=True, sym_mom
     solverp.kernel()
     #result = Spectral.combine(solverh.result, solverp.result)
     result = Spectral.combine_from_poles(solverh.result, solverp.result, hermitize=hermitize)
-
+    #result = Spectral.combine_dyson(solverh.result.hermitize(), solverp.result.hermitize(), ns_method='svd')
 
     se_static = result.get_static_self_energy()
     gf = result.get_greens_function()
@@ -600,6 +600,9 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         gf = mblgf_result.get_greens_function()
         se = mblgf_result.get_self_energy()
         static_self_energy_clus = mblgf_result.get_static_self_energy()
+        ovlp = mblgf_result.get_overlap()
+        norm = np.linalg.norm(ovlp - np.eye(ovlp.shape[0]))
+        print("Norm ovlp: %s " %norm )
         
         
         f.results.se = se
@@ -618,6 +621,7 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         coup_l, coup_r = se.unpack_couplings()
         p_coup_l, p_coup_r = cfc @ coup_l, cfc @ coup_r
         sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r.conj()) + einsum('pa,qa->apq', coup_l , cfc @ coup_r.conj()))
+        #sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l.conj() , coup_r) + einsum('pa,qa->apq', coup_l.conj() , cfc @ coup_r))
         mat = sym_coup.sum(axis=0)
         if use_svd:
             energies_frag, couplings_l_frag, couplings_r_frag = project_1_to_fragment_svd(cfc, se, img_space=img_space, tol=1e-12)
