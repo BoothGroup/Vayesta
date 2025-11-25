@@ -97,7 +97,7 @@ class REGF(REWF):
             overlap, static_self_energy, self_energy= self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
 
         else:
-            raise NotImplementedError()
+            raise ValueError("Invalid self-energy mode: %s"%self.opts.se_mode)
 
         self.se_ovelap = overlap
         self.static_self_energy = static_self_energy
