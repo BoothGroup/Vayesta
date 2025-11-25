@@ -131,7 +131,7 @@ jobs:
           icpx -v
           printenv >> $GITHUB_ENV
           pip install numpy --no-binary numpy
-          pip install scipy --no-binary scipy
+          pip install scipy --no-binary scipy -Csetup-args=-Dblas=mkl -Csetup-args=-Dlapack=mkl
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
