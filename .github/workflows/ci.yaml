@@ -108,7 +108,7 @@ jobs:
       CXX: icpx
       FC: ifx
       # fortran needs this because libimf does not have RPATH to find libintlc.so
-      LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin
+      LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
@@ -123,7 +123,7 @@ jobs:
       - name: Install Intel oneAPI
         run: |
           bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB:$LINUX_FORTRAN_COMPONENTS_WEB:$LINUX_MKL_COMPONENTS_WEB
-          sudo apt install pkg-config
+          sudo apt install pkg-config cmake
       - name: Install Vayesta along with dependencies
         run: |
           source /opt/intel/oneapi/setvars.sh
