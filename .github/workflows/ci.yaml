@@ -130,7 +130,8 @@ jobs:
           ifx -v 
           icpx -v
           printenv >> $GITHUB_ENV
-          python -m pip install numpy scipy --no-binary numpy scipy
+          pip install numpy --no-binary numpy
+          pip install scipy --no-binary scipy
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
