@@ -123,6 +123,7 @@ jobs:
       - name: Install Intel oneAPI
         run: |
           bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB:$LINUX_FORTRAN_COMPONENTS_WEB:$LINUX_MKL_COMPONENTS_WEB
+          sudo apt install pkg-config
       - name: Install Vayesta along with dependencies
         run: |
           source /opt/intel/oneapi/setvars.sh
