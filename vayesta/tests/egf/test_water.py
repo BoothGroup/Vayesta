@@ -1,7 +1,6 @@
 import unittest
 
 from dyson.expressions import FCI, CCSD
-from dyson.solvers.chempot import AufbauPrinciple
 from vayesta import egf
 from vayesta.core.util import AbstractMethodError, cache
 from vayesta.tests.common import TestCase

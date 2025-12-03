@@ -1,4 +1,5 @@
 import unittest
+import pytest
 
 import numpy as np
 from vayesta import egf
@@ -6,7 +7,7 @@ from vayesta.core.util import AbstractMethodError, cache
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 try:
-    from dyson import CCSD, FCI, MBLGF, AuxiliaryShift, AufbauPrinciple, NullLogger
+    from dyson import CCSD, FCI, MBLGF, AuxiliaryShift, Spectral
 except ImportError:
     pytest.skip("Requires dyson")
 
@@ -32,31 +33,34 @@ class Test_Full_Bath_FCI(TestCase):
     @cache
     def exact(cls, mf):
         try:
-            from dyson import CCSD, FCI, MBLGF, MixedMBLGF, AuxiliaryShift, NullLogger
+            from dyson import CCSD, FCI, MBLGF, AuxiliaryShift
         except ImportError:
             pytest.skip("Requires dyson")
 
-        expr = cls.EXPR["1h"](mf)
+        expr = cls.EXPR.hole.from_mf(mf)
         th = expr.build_gf_moments(cls.NMOM_MAX_GF) 
-        expr = cls.EXPR["1p"](mf)
+        expr = cls.EXPR.particle.from_mf(mf)
         tp = expr.build_gf_moments(cls.NMOM_MAX_GF)
 
-        solverh = MBLGF(th, log=NullLogger())
-        solverp = MBLGF(tp, log=NullLogger())
-        solver = MixedMBLGF(solverh, solverp)
-        solver.kernel()
-        se = solver.get_self_energy()
-        Shift = AufbauPrinciple if cls.solver == 'CCSD' else AuxiliaryShift
-        solver = Shift(th[1]+tp[1], se, mf.mol.nelectron, log=NullLogger())
-        solver.kernel()
-        gf = solver.get_greens_function()
-        se = solver.get_self_energy()
+        hermitian = True if cls.solver != 'CCSD' else False
+        solverh = MBLGF(th, hermitian=hermitian)
+        solverh.kernel()
+        solverp = MBLGF(tp, hermitian=hermitian)
+        solverp.kernel()
+
+        result = Spectral.combine_dyson(solverh.result, solverp.result)
+        se = result.get_self_energy()
+        # Shift = AufbauPrinciple if cls.solver == 'CCSD' else AuxiliaryShift
+        # solver = Shift(th[1]+tp[1], se, mf.mol.nelectron, log=NullLogger())
+        # solver.kernel()
+        gf = result.get_greens_function()
+        se = result.get_self_energy()
         return se, gf
     
     @classmethod
     @cache
     def emb(cls, mf):
-        opts = dict(solver=cls.solver, proj=1, aux_shift=True, use_sym=True)
+        opts = dict(solver=cls.solver, proj=1, chempot_global=None, use_sym=True)
         bath_opts = dict(bathtype='full', dmet_threshold=1e-12)
         solver_opts =dict(conv_tol=1e-15, n_moments=(cls.NMOM_MAX_GF, cls.NMOM_MAX_GF))
         emb = egf.EGF(mf, **opts, bath_options=bath_opts, solver_options=solver_opts)

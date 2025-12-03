@@ -1,7 +1,7 @@
 import unittest
 
 from dyson.expressions import FCI, CCSD
-from dyson.solvers.chempot import AufbauPrinciple
+from dyson.solvers.static.chempot import AufbauPrinciple
 from vayesta import egf
 from vayesta.core.util import AbstractMethodError, cache
 from vayesta.tests.common import TestCase
@@ -15,7 +15,7 @@ class Test_Full_Bath_FCI(Test_Full_Bath_Hubbard):
     @classmethod
     @cache
     def emb(cls, mf):
-        opts = dict(solver=cls.solver, proj=1, aux_shift=True, use_sym=True)
+        opts = dict(solver=cls.solver, proj=1, chempot_global=None, use_sym=True)
         bath_opts = dict(bathtype='full', dmet_threshold=1e-12)
         solver_opts = dict(conv_tol=1e-15, n_moments=(cls.NMOM_MAX_GF, cls.NMOM_MAX_GF))
         emb = egf.EGF(mf, **opts, bath_options=bath_opts, solver_options=solver_opts)
@@ -29,7 +29,7 @@ class Test_Full_Bath_FCI_Sym(Test_Full_Bath_FCI):
     @classmethod
     @cache
     def emb(cls, mf):
-        opts = dict(solver=cls.solver, proj=1, aux_shift=True, use_sym=True)
+        opts = dict(solver=cls.solver, proj=1, chempot_global=None, use_sym=True)
         bath_opts = dict(bathtype='full', dmet_threshold=1e-12)
         solver_opts =dict(conv_tol=1e-15, n_moments=(cls.NMOM_MAX_GF, cls.NMOM_MAX_GF))
         emb = egf.EGF(mf, **opts, bath_options=bath_opts, solver_options=solver_opts)

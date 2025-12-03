@@ -11,7 +11,7 @@ from vayesta.egf.self_energy import make_self_energy_1proj, make_self_energy_2pr
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 try:
-    from dyson import CCSD, FCI, MBLGF, AuxiliaryShift, AufbauPrinciple, NullLogger
+    from dyson import CCSD, FCI, MBLGF, AuxiliaryShift
 except ImportError:
     pytest.skip("Requires dyson")
 
@@ -56,7 +56,7 @@ class Test_SelfEnergy(TestCase):
     @classmethod
     @cache
     def emb(cls, mf, nfrag):
-        opts = dict(solver=cls.solver, proj=1, aux_shift=True, use_sym=True)
+        opts = dict(solver=cls.solver, proj=1, chempot_global=None, use_sym=True)
         bath_opts = dict(bathtype='full', dmet_threshold=1e-12)
         solver_opts =dict(conv_tol=1e-15, n_moments=(cls.NMOM_MAX_GF, cls.NMOM_MAX_GF))
         emb = vayesta.egf.EGF(mf, **opts, bath_options=bath_opts, solver_options=solver_opts)
@@ -179,7 +179,7 @@ class Test_SelfEnergy_H6_CCSD(Test_SelfEnergy):
     @classmethod
     @cache
     def emb(cls, mf, nfrag):
-        opts = dict(solver=cls.solver, proj=1, aux_shift=True, use_sym=True)
+        opts = dict(solver=cls.solver, proj=1, chempot_global=None, use_sym=True)
         bath_opts = dict(bathtype='full', dmet_threshold=1e-12)
         solver_opts =dict(conv_tol=1e-15, n_moments=(cls.NMOM_MAX_GF, cls.NMOM_MAX_GF))
         emb = vayesta.egf.EGF(mf, **opts, bath_options=bath_opts, solver_options=solver_opts)
