@@ -33,7 +33,7 @@ class FCI_Solver(ClusterSolver):
 
         solver_cls = self.get_solver_class()
         # This just uses mol to initialise various outputting defaults.
-        solver = solver_cls(self.hamil.orig_mf.mol)
+        solver = solver_cls(self.hamil.to_pyscf_mol())
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
         if self.opts.init_guess == "default":
@@ -91,11 +91,10 @@ class FCI_Solver(ClusterSolver):
             
             self.log.info("Calculating cluster FCI spectral moments %s"%str(nmom))
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = FCI.hole.from_fci(self.solver, h1e=heff, h2e=eris)
                 self.gf_hole_moments = expr.build_gf_moments(nmom[0])
-            with log_time(self.log.timing, "Time for hole moments: %s"):    
+            with log_time(self.log.timing, "Time for particle moments: %s"):    
                 expr = FCI.particle.from_fci(self.solver, h1e=heff, h2e=eris)
                 self.gf_particle_moments = expr.build_gf_moments(nmom[1])
 

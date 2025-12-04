@@ -232,7 +232,40 @@ class RClusterHamiltonian:
 
         return cderi, cderi_neg
 
-    # Generate mean-field object representing the cluster.
+    def to_pyscf_mol(self, allow_df=False):
+        """
+        Generate pyscf.gto.Mole object representing this active space Hamiltonian.
+
+        Parameters
+        ----------
+        allow_df : bool, optional
+            Whether the resultant mol object should include a `.with_df` object containing the projection of the
+            CDERIs into the cluster space.
+            Default is False
+
+        Returns
+        -------
+        clusmol : pyscf.gto.Mole
+            Representation of cluster as pyscf molecule.
+        """
+
+        clusmol = pyscf.gto.mole.Mole()
+        # Copy over all output controls from original mol object.
+        clusmol.verbose = self.orig_mf.mol.verbose
+        if self.orig_mf.mol.output is not None:
+            fid = self._fragment.id
+            output = self.orig_mf.mol.output
+            dirname = os.path.dirname(output)
+            basename = os.path.basename(output)
+            clusmol.output = os.path.join(dirname, f"f{fid}_{basename}")
+            self.log.debugv("Setting solver output file to %s", clusmol.output)
+        # Set information as required for our cluster.
+        clusmol.nelec = self.nelec
+        clusmol.nao = max(self.ncas)
+        clusmol.build()
+        clusmol.incore_anyway = not allow_df
+
+        return clusmol
 
     def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False, allow_df=False):
         """
@@ -305,21 +338,7 @@ class RClusterHamiltonian:
             # orbital energy higher than highest actual orbital energy.
             dummy_energy = 10.0 + max([x.max() for x in mo_energy])
 
-        # Set up dummy mol object representing cluster.
-        clusmol = pyscf.gto.mole.Mole()
-        # Copy over all output controls from original mol object.
-        clusmol.verbose = self.orig_mf.mol.verbose
-        if self.orig_mf.mol.output is not None:
-            fid = self._fragment.id
-            output = self.orig_mf.mol.output
-            dirname = os.path.dirname(output)
-            basename = os.path.basename(output)
-            clusmol.output = os.path.join(dirname, f"f{fid}_{basename}")
-            self.log.debugv("Setting solver output file to %s", clusmol.output)
-        # Set information as required for our cluster.
-        clusmol.nelec = self.nelec
-        clusmol.nao = nmo
-        clusmol.build()
+        clusmol = self.to_pyscf_mol(allow_df=allow_df)
         # Then scf object representing mean-field electronic state.
         clusmf = self._scf_class(clusmol)
         # First set mean-field parameters.
@@ -342,7 +361,7 @@ class RClusterHamiltonian:
             and hasattr(self.orig_mf, "with_df")
             and self.orig_mf.with_df is not None
         )
-        clusmol.incore_anyway = not use_df
+        
 
         if use_df:
             # Set up with DF
