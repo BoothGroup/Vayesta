@@ -57,7 +57,9 @@ class QSEGF_RHF(SCMF):
             self.fock_hist = []
             self.static_gap_hist = []
             self.dynamic_gap_hist = []  
-            self.mo_coeff_hist = []
+            self.mo_coeff_hist = [self.emb.mo_coeff.copy()]
+            self.gf_hist = []
+            self.se_hist = []
 
             self.mom_hist = []
 
@@ -103,7 +105,7 @@ class QSEGF_RHF(SCMF):
             self.static_potential = self.emb.mo_coeff @ self.emb.self_energy.as_static_potential(self.emb.mf.mo_energy, eta=self.eta)  @ self.emb.mo_coeff.T
         else:
             raise NotImplementedError()
-
+        
         v_old = self.static_potential.copy()
         sc = self.emb.mf.get_ovlp() @ self.emb.mo_coeff
         if self.global_static_potential:
@@ -112,7 +114,7 @@ class QSEGF_RHF(SCMF):
         if diis is not None:
             self.static_potential = diis.update(self.static_potential)
         
-        new_fock = self.emb.get_fock() + sc @ self.emb.static_self_energy @ sc.T + self.static_potential
+        new_fock = self.emb.get_fock() + self.static_potential
         self.sc_fock = self.damping * self.emb.get_fock() + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
         self.gf = self.emb.gf
@@ -144,5 +146,49 @@ class QSEGF_RHF(SCMF):
             self.static_gap_hist.append(static_gap)
             self.dynamic_gap_hist.append(dynamic_gap)
             self.mo_coeff_hist.append(mo_coeff.copy())
+            self.gf_hist.append(self.gf.copy())
+            self.se_hist.append(self.emb.self_energy.copy())
 
         return mo_coeff
+
+
+class QSEGF_MOD(object):
+
+    def __init__(self, mf, maxiter=50, eta=1e-2, **opts):
+
+        self.mol = mf.mol
+        self.hcore = mf.get_hcore().copy()
+        self.mf = mf
+        self.maxiter = maxiter
+        self.eta = eta
+        self.opts = opts
+        self.mfs = []
+        self.embs = []
+        self.stat_pots = []
+    
+    def kernel(self):
+
+
+        self.static_potential_ao = np.zeros_like(self.hcore)
+
+        for it in range(self.maxiter):
+
+            mf_cls = type(self.mf)
+            mf_it = mf_cls(self.mf.mol)
+            mf_it.mol.h1e += self.static_potential_ao
+            mf_it.kernel()
+            assert mf_it.converged
+            emb = vayesta.egf.EGF(mf_it, **self.opts)
+            nimages = [nsite//nfrag, 1, 1]
+            emb.symmetry.set_translations(nimages)
+            with emb.site_fragmentation() as f:
+                f.add_atomic_fragment(range(nfrag))
+            emb.qsEGF(maxiter=1, eta=self.eta)
+            emb.kernel()
+
+            static_potential = emb.self_energy.as_static_potential(mf_it.mo_energy, eta=self.eta)
+            self.static_potential_ao = mf_it.mo_coeff @ static_potential @ mf_it.mo_coeff.T
+
+            self.mfs.append(mf_it)
+            self.embs.append(emb)
+            self.stat_pots.append(self.static_potential_ao)

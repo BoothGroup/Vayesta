@@ -115,8 +115,8 @@ class SCMF:
             # Check symmetry
             try:
                 self.emb.check_fragment_symmetry(dm1)
-            except SymmetryError:
-                self.log.error("Symmetry check failed in %s", self.name)
+            except SymmetryError as e:
+                self.log.error("Symmetry check failed in %s: %s", self.name, e)
                 self.converged = False
                 break
 

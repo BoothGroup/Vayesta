@@ -129,3 +129,26 @@ def make_local_one_body(emb, global_observable, fragments=None, use_sym=True):
         cluster_observable.append(obs_clus)
 
     return np.array(cluster_observable, dtype=dtype)
+
+
+def symmetrize_observable(emb, obs, ao=True):
+    """Symmetrize an observable over the fragment symmetries."""
+
+    if not ao:
+        sym_obs = emb.mo_coeff @ obs @ emb.mo_coeff.T
+    sym_obs = np.zeros_like(obs)
+    nsyms = 0
+    for f0 in emb.get_fragments(sym_parent=None):
+        for f in f0.get_symmetry_children():
+            if len(f.get_symmetry_children()) != 0:
+                raise NotImplementedError("Nested symmetries not supported.")
+
+            op = f.get_symmetry_operation()
+            sym_obs += op(op(obs).T).T  
+            nsyms += 1
+    sym_obs /= nsyms
+
+    if not ao:
+        sym_obs = emb.mo_coeff.T @ sym_obs @ emb.mo_coeff
+
+    return sym_obs

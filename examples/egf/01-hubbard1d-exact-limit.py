@@ -49,7 +49,7 @@ static_gap = gap(gf_static)
 
 # QP-EwDMET GF
 opts = dict(proj=1, use_sym=False)
-emb = vayesta.egf.EGF(mf, solver='FCI', **opts, bath_options=dict(bathtype='full', dmet_threshold=1e-12), solver_options=dict(conv_tol=1e-15, n_moments=nmom_max_fci))
+emb = vayesta.egf.EGF(mf, solver='FCI', **opts, bath_options=dict(bathtype='dmet', dmet_threshold=1e-12), solver_options=dict(conv_tol=1e-15, n_moments=nmom_max_fci))
 nimages = [nsite//nfrag, 1, 1]
 emb.symmetry.set_translations(nimages)
 with emb.site_fragmentation() as f:

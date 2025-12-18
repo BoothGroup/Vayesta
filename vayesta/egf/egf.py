@@ -20,7 +20,7 @@ from vayesta.core.util import (
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
-from vayesta.core.qemb.static_observable import make_global_one_body, make_local_one_body
+from vayesta.core.qemb.static_observable import make_global_one_body, make_local_one_body, symmetrize_observable
 from vayesta.mpi import mpi
 from vayesta.ewf.ewf import REWF
 from vayesta.egf.fragment import Fragment
@@ -94,7 +94,7 @@ class REGF(REWF):
             static_self_energy = phys
             
         elif self.opts.se_mode == 'moments':
-            overlap, static_self_energy, self_energy= self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, non_local_se=self.opts.non_local_se)
+            overlap, static_self_energy, self_energy= self.make_self_energy_moments(self.opts.proj, nmom_se=self.opts.nmom_se, hermitian_mblse=self.opts.hermitian_mblse, non_local_se=self.opts.non_local_se)
 
         else:
             raise ValueError("Invalid self-energy mode: %s"%self.opts.se_mode)
@@ -337,6 +337,13 @@ class REGF(REWF):
             se_moms = se_moms + (gw_se_moms_full[:,:nmom_se] - gw_dc_se_moms[:,:nmom_se])
             self.log.info("Added non-local GW self-energy contribution")
 
+        # for i, _ in enumerate(['h','p']):
+        #     for j in range(gf_moms.shape[1]):
+        #         gf_moms[i,j,:,:] = symmetrize_observable(self, gf_moms[i,j,:,:], ao=False)
+        #     for j in range(se_moms.shape[1]):
+        #         se_moms[i,j,:,:] = symmetrize_observable(self, se_moms[i,j,:,:], ao=False)
+        
+
         self.gf_overlap = gf_moms[:, 0]
         self.static_self_energy = gf_moms[:, 1]
         self.self_energy_moments = se_moms
@@ -350,13 +357,13 @@ class REGF(REWF):
 
         self.solvers = solvers
 
-        result = Spectral.combine_dyson(solvers[0].result, solvers[1].result)
+        self.result = Spectral.combine_dyson(solvers[0].result, solvers[1].result)
         #self.se = result.get_self_energy()
         #self.gf = result.get_greens_function()
 
 
 
-        return result.get_overlap(), result.get_static_self_energy(), result.get_self_energy()
+        return self.result.get_overlap(), self.result.get_static_self_energy(), self.result.get_self_energy()
 
         
     def make_greens_function(self, static_self_energy, self_energy, overlap=None, chempot_global=None):
