@@ -2,3 +2,4 @@ from vayesta.core.types.orbitals import *
 from vayesta.core.types.wf import *
 from vayesta.core.types.cluster import *
 from vayesta.core.types.ebwf import *
+from vayesta.core.types.dynamical import *
