@@ -438,8 +438,8 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         """Convert to Green's function moments using recurrence relations."""
         gf_moments = []
         for s in range(self.nsectors):
-            static = self.statics[s] if self.single_static else self.statics
-            overlap = self.overlaps[s] if self.single_overlap else self.overlaps
+            static = self.statics if self.single_static else self.statics[s]
+            overlap = self.overlaps if self.single_overlap else self.overlaps[s]
             gf_moments.append(se_moments_to_gf_moments(static, self.moments[s], overlap=overlap))
         return GF_MomentRep(np.array(gf_moments), hermitian=self.hermitian)
     
