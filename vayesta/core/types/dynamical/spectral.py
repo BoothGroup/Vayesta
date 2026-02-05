@@ -1,10 +1,10 @@
 import numpy as np
+from dyson import Spectral, Lehmann
+from vayesta.core.util import einsum
 
-from dyson import Spectral
+from .dynamical import Dynamical, GreensFunction, SelfEnergy
 
-import vayesta.core.types.dynamical as dynamical 
-
-class SpectralRep(object):
+class SpectralRep(Dynamical):
     """Auxilliary space spectral representation."""
 
     def __init__(self, spectrals):
@@ -19,6 +19,16 @@ class SpectralRep(object):
             spectrals = [spectrals]
 
         self._spectrals = spectrals
+
+        nphys = self._spectrals[0].nphys
+        for spectral in spectrals:
+            if spectral.nphys != nphys:
+                raise ValueError("All sectors must have the same physical space dimension.")
+        
+    @property
+    def nphys(self):
+        """Physical space dimension."""
+        return self.spectrals[0].nphys
 
     @property
     def nsectors(self):
@@ -38,15 +48,30 @@ class SpectralRep(object):
             hermitian = hermitian and spectral.hermitian
         return hermitian
     
-    def combine_sectors(self):
+    def hermitize(self):
+        raise NotImplementedError("Hermitization of spectral representation is not implemented.")
+
+    def combine_sectors(self, greens_function=True):
         """Combine all sectors objects into a single spectral object.
+
+        Parameters
+        ----------
+        greens_function : bool (optional)
+            If True, combine the spectral representations to reproduce the sum of their Green's functions (FCI, CCSD)
+            If False, combine the spectral representations to reproduce the sum of their self-energies (AGF2, GW)
 
         Returns
         -------
         Spectral : Spectral
             Combined spectral object.
+
         """
-        return type(self)(Spectral.combine_dyson(*self.spectrals))
+        if greens_function:
+            return type(self)(Spectral.combine_for_greens_function(*self.spectrals))
+        else:
+            static = self.spectrals[0].get_static_self_energy()
+            overlap = self.spectrals[0].get_overlap()
+            return type(self)(Spectral.combine_for_self_energy(*self.spectrals, static=static, overlap=overlap))
     
     def to_gf_lehmann(self):
         """Convert to Lehmann Green's function representation.
@@ -56,11 +81,13 @@ class SpectralRep(object):
         GF_LehmannRep
             Lehmann Green's function representation.
         """
+        from .lehmann import GF_LehmannRep
+
         gfs = []
         for spectral in self.spectrals:
             gf = spectral.get_greens_function()
             gfs.append(gf)
-        return dynamical.GF_LehmannRep(gfs)
+        return GF_LehmannRep(gfs)
     
     def to_se_lehmann(self):
         """Convert to Lehmann self-energy representation.
@@ -70,6 +97,8 @@ class SpectralRep(object):
         SE_LehmannRep
             Lehmann self-energy representation.
         """
+        from .lehmann import SE_LehmannRep
+
         statics = []
         ses = []
         overlaps = []
@@ -78,7 +107,7 @@ class SpectralRep(object):
             statics.append(spectral.get_static_self_energy())
             overlaps.append(spectral.get_overlap())
             ses.append(se)
-        return dynamical.SE_LehmannRep(statics, ses, overlaps=overlaps)
+        return SE_LehmannRep(statics, ses, overlaps=overlaps)
     
 
     def to_gf_moments(self, nmom=None):
@@ -89,6 +118,8 @@ class SpectralRep(object):
         GF_MomentRep
             Green's function moments representation.
         """
+        from .moment import GF_MomentRep
+
         moms = []
         for s in range(self.nsectors):
             gf = self.spectrals[s].get_greens_function()
@@ -97,7 +128,7 @@ class SpectralRep(object):
                 nmom = 2 * self.spectrals[s].eigvals.shape[0] // self.spectrals[s].nphys 
             moms.append(gf.moments(range(nmom)))
 
-        return dynamical.GF_MomentRep(np.array(moms), hermitian=self.hermitian)
+        return GF_MomentRep(np.array(moms), hermitian=self.hermitian)
     
     def to_se_moments(self, nmom=None):
         """Convert to self-energy moments representation.
@@ -107,6 +138,8 @@ class SpectralRep(object):
         SE_MomentRep
             Self-energy moments representation.
         """
+        from .moment import SE_MomentRep
+
         statics = []
         overlaps = []
         moms = []
@@ -119,7 +152,99 @@ class SpectralRep(object):
             statics.append(self.spectrals[s].get_static_self_energy())
             overlaps.append(self.spectrals[s].get_overlap())
             
-        return dynamical.SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
+        return SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
+
+    def project_(self, projector, nproj):
+        """Project the spectral representation"""
+        proj_spectrals = []
+        for s in range(self.nsectors):
+
+            static = self.spectrals[s].get_static_self_energy()
+            overlap = self.spectrals[s].get_overlap()
+            se = self.spectrals[s].get_self_energy()
+
+            proj_static = projector @ static @ projector.T.conj()
+            proj_overlap = projector @ overlap @ projector.T.conj()
+            
+            if se.hermitian:
+                couplings = np.array(se.couplings)
+            else:
+                couplings = np.array(se.unpack_couplings())
+            
+            proj_couplings = einsum('pP,...Pa->...pa', projector, couplings)
+            proj_se = Lehmann(se.energies, proj_couplings)
+
+            proj_spectral = Spectral.from_self_energy(
+                static=proj_static,
+                self_energy=proj_se,
+                overlap=proj_overlap,
+            )
+
+            proj_spectrals.append(proj_spectral)
+        return type(self)(proj_spectrals)
+    
 
     def project(self, projector, nproj):
-        raise NotImplementedError("Projection of Spectral representation not implemented yet.")
+        """Project the spectral representation using arrowhead structure"""
+        proj_spectrals = []
+        for s in range(self.nsectors):
+
+            arrowhead = self.spectrals[s].get_arrowhead()
+
+            nphys = self.spectrals[s].nphys
+            naux = arrowhead.shape[0] - nphys 
+
+            proj_arrowhead = np.zeros((nproj + naux, nproj + naux), dtype=arrowhead.dtype)
+
+            phys = slice(None, nphys)
+            aux = slice(nphys, None)
+
+            if nproj == 2:
+
+                proj_arrowhead[phys, phys] = projector @ arrowhead[phys, phys] @ projector.T.conj()
+                proj_arrowhead[phys, aux] = projector @ arrowhead[phys, aux]
+                proj_arrowhead[aux, phys] = arrowhead[aux, phys] @ projector.T.conj()
+                proj_arrowhead[aux, aux] = arrowhead[aux, aux]
+
+            elif nproj == 1:
+
+                proj_arrowhead[phys, phys] = 0.5 * (projector @ arrowhead[phys, phys] + arrowhead[phys, phys] @ projector.T.conj())
+                proj_arrowhead[phys, aux] = 0.5 * (projector @ arrowhead[phys, aux] + arrowhead[phys, aux])
+                proj_arrowhead[aux, phys] = 0.5 * (arrowhead[aux, phys] @ projector.T.conj() + arrowhead[aux, phys])
+                proj_arrowhead[aux, aux] = arrowhead[aux, aux]
+
+            else:
+                raise ValueError("Invalid projection type nproj=%d"%nproj)
+
+            proj_spectrals.append(Spectral.from_matrix(proj_arrowhead, chempot=self.spectrals[s].chempot, hermitian=self.spectrals[s].hermitian))
+        return type(self)(proj_spectrals)
+
+          
+    def rotate(self, rotation):
+        return self.project(rotation, nproj=2)
+    
+    def combine(self, *args, greens_function=True):
+        """Combine multiple spectral representations.
+
+        Parameters
+        ----------
+        *args : SpectralRep
+            Spectral representations to combine.
+
+        Returns
+        -------
+        SpectralRep
+            Combined spectral representation.
+        """
+        combined_spectrals = []
+        for s in range(self.nsectors):
+            to_combine = [self.spectrals[s]]
+            for arg in args:
+                to_combine.append(arg.spectrals[s])
+            if greens_function:
+                combined_spectral = Spectral.combine_for_greens_function(*to_combine)
+            else:
+                combined_spectral = Spectral.combine_for_self_energy(*to_combine)
+            combined_spectrals.append(combined_spectral)
+        
+        return type(self)(combined_spectrals)

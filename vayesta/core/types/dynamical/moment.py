@@ -4,12 +4,14 @@ from abc import ABC, abstractmethod
 
 from dyson import Lehmann, Spectral, MBLGF, MBLSE
 from dyson.util.moments import gf_moments_to_se_moments, se_moments_to_gf_moments
+from dyson.util.linalg import matrix_power
 
 from vayesta.core.util import einsum
-import vayesta.core.types.dynamical as dynamical 
 
+from .dynamical import Dynamical, GreensFunction, SelfEnergy
+from .spectral import SpectralRep
 
-class MomentRep(ABC):
+class MomentRep(Dynamical):
 
     @property
     def nmom(self):
@@ -22,35 +24,23 @@ class MomentRep(ABC):
         if self.moments.ndim == 4:
             return self.moments.shape[0]
         return 1
+
+    @property
+    def nphys(self):
+        """Physical space dimension of the Moment representation."""
+        return self.moments.shape[-1]
     
     def shift(self, shift):
         """Shift the moments by a constant value."""
         raise NotImplementedError("Moment shifting not implemented yet.")
     
     @abstractmethod
-    def hermitian(self):
-        """Check if the moments are Hermitian."""
-        pass
-
-    @abstractmethod
-    def rotate(self, rotation):
-        """Change the basis of the moments using the given unitary matrix."""
-        pass
-
-    @abstractmethod
-    def project(self, projector, nproj):
-        """Project the moments using the given projector."""
-        pass
-
-    
-    @abstractmethod
     def to_spectral(self):
         """Convert moments to Spectral representation using Block Lanczos."""
         pass
-    
 
 
-class GF_MomentRep(MomentRep):
+class GF_MomentRep(MomentRep, GreensFunction):
 
     def __init__(self, moments, hermitian=None):
 
@@ -92,6 +82,20 @@ class GF_MomentRep(MomentRep):
         """Check if the moments are Hermitian."""
         return self._hermitian
 
+    def hermitize(self):
+        """Return a new Hermitian version of the Moment representation.
+        
+        Returns
+        -------
+        hermitian_moments : GF_MomentRep
+            Hermitian GF moment representation.
+        """
+        if self.hermitian:
+            return self
+        else:
+            herm_moms = 0.5 * (self.moments + self.moments.conj().transpose(0,1,3,2))
+            return type(self)(herm_moms, hermitian=True)
+
     def project(self, projector, nproj):
         """Project the moments using the given projector.
 
@@ -132,18 +136,42 @@ class GF_MomentRep(MomentRep):
         return type(self)(rotated_moms)
 
 
-    def to_se_moments(self):
+    def to_se_moments(self, orth_basis=False):
         """Convert to self-energy moments using recurrence relations."""
         se_statics = []
         se_moments = []
         overlaps = []
         for sector in range(self.nsectors):
-            se_static, se_moms = gf_moments_to_se_moments(self.moments[sector])
+            se_static, se_moms = gf_moments_to_se_moments(self.moments[sector], orth_basis=orth_basis)
             se_statics.append(se_static)
             se_moments.append(se_moms)
-            overlaps.append(self.moments[sector][0])
+            if orth_basis:
+                overlaps.append(np.eye(self.moments.shape[-1]))
+            else:
+                overlaps.append(self.moments[sector][0])
         return SE_MomentRep(np.array(se_statics), np.array(se_moments), overlap=overlaps, hermitian=self.hermitian)
 
+    def orthogonalize(self, overlaps=None):
+        """Orthogonalize the moments using their overlap."""
+        if overlaps is None:
+            overlaps = self.moments[:,0,:,:]
+        orth_moms = []
+        for s in range(self.nsectors):
+            orth, error_orth = matrix_power(overlaps[s], -0.5, hermitian=self.hermitian, return_error=False)
+            moms = einsum("npq,ip,qj->nij", self.moments[s], orth, orth)
+            orth_moms.append(moms)
+        return GF_MomentRep(np.array(orth_moms), hermitian=self.hermitian)
+
+    def unorthogonalize(self, overlaps=None):
+        """Unorthogonalize the moments using their overlap."""
+        if overlaps is None:
+            overlaps = self.moments[:,0,:,:]
+        unorth_moms = []
+        for s in range(self.nsectors):
+            unorth, error_unorth = matrix_power(overlaps[s], 0.5, hermitian=self.hermitian, return_error=False)
+            moms = einsum("npq,ip,qj->nij", self.moments[s], unorth, unorth)
+            unorth_moms.append(moms)
+        return GF_MomentRep(np.array(unorth_moms), hermitian=self.hermitian)
 
     def to_spectral(self, hermitian=None, combine=False):
         """Convert moments to Spectral representation using Block Lanczos.
@@ -171,9 +199,9 @@ class GF_MomentRep(MomentRep):
 
         if combine:
             combined_spectral = Spectral.combine_spectrals(spectrals)
-            return dynamical.SpectralRep([combined_spectral])
+            return SpectralRep([combined_spectral])
         else:
-            return dynamical.SpectralRep(spectrals)
+            return SpectralRep(spectrals)
 
 
     def combine(self, *args):
@@ -201,7 +229,10 @@ class GF_MomentRep(MomentRep):
         
 
 
-class SE_MomentRep(MomentRep):
+
+
+
+class SE_MomentRep(MomentRep, SelfEnergy):
 
     def __init__(self, static, moments, overlap=None, hermitian=None):
 
@@ -220,62 +251,90 @@ class SE_MomentRep(MomentRep):
             
         """
 
-        static = np.array(static)
-        moments =  np.array(moments)
+        moments = np.array(moments).copy()
+
+
+        self._init_static_overlap(static, overlap, hermitian)
 
         if moments.ndim != 3 and moments.ndim != 4:
             raise ValueError("Moments should be a 3D array with shape (nmom, nphys, nphys) or (sector, nmom, nphys, nphys).")
         if moments.shape[-1] != moments.shape[-2]:
             raise ValueError("Moments should be square matrices in the last two dimensions.")
         
+        if moments.shape[-2:] != self.statics.shape[-2:]:
+            raise ValueError("Static and moment matrices should have the same physical dimension.")
+        if self.overlaps is not None and moments.shape[-2:] != self.overlaps.shape[-2:]:
+            raise ValueError("Overlap and moment matrices should have the same physical dimension.")
 
-        if moments.ndim == 3:
-            self._statics = static.copy()[np.newaxis, :, :] 
-            self._moments = moments.copy()[np.newaxis, :, :, :]
-        else:   
-            self._statics = static.copy()
-            self._moments = moments.copy()
+        # GW has a single static part for all sectors. For CCSD/FCI it is sector-dependent.
+        # if static.ndim == 2:
+        #     single_static = True
 
-        if overlap is None:
-            overlap = [None for _ in range(self._moments.shape[0])]
-        elif np.array(overlap).ndim == 2:
-            overlap = [overlap.copy() for _ in range(self._moments.shape[0])]
-        
-        self._overlaps = np.array(overlap).copy()
+        # if overlap.ndim == 2:
+        #     single_overlap = True
 
         if hermitian is None:
             hermitian = np.allclose(self.moments, self.moments.conj().transpose(0,1,3,2))
-            hermitian = hermitian and np.allclose(self.statics, self.statics.conj().transpose(0,2,1))
-            hermitian = hermitian and np.allclose(self.overlaps, self.overlaps.conj().transpose(0,2,1))
+            hermitian = hermitian and self._hermitian_static_overlap()
+        
 
-        if hermitian:
-            self._statics = 0.5 * (self._statics + self._statics.conj().transpose(0,2,1))
-            self._moments = 0.5 * (self._moments + self._moments.conj().transpose(0,1,3,2))
-            self._overlaps = 0.5 * (self._overlaps + self._overlaps.conj().transpose(0,2,1))
+        elif hermitian:
 
+            moments = 0.5 * (moments + moments.conj().transpose(0,1,3,2))
+
+        self._moments = moments
         self._hermitian = hermitian
 
 
+    # def copy(self, overlap=None, static=None):
+    #     """Create a copy of the SE_MomentRep, optionally replacing overlap or static.
 
-    @property
-    def statics(self):
-        """Static part of the self-energy."""
-        return self._statics
+    #     TODO: Remove or perform shape checks
+
+    #     Parameters
+    #     ----------
+    #     overlap : ndarray (nphys, nphys) or (nsectors, nphys, nphys), optional
+    #         New overlap matrices for each sector.
+    #     static : ndarray (nphys, nphys) or (nsectors, nphys, nphys), optional
+    #         New static part of the self-energy.
+
+    #     Returns
+    #     -------
+    #     copied_moments : SE_MomentRep
+    #         Copied moment representation.
+    #     """
+    #     new_overlap = overlap if overlap is not None else self.overlaps
+    #     new_static = static if static is not None else self.statics
+    #     hermitian = self.hermitian and np.allclose(new_static, new_static.conj().transpose(0,2,1)) and np.allclose(new_overlap, new_overlap.conj().transpose(0,2,1))            
+    #     return SE_MomentRep(new_static, self.moments, overlap=new_overlap, hermitian=hermitian)
+    
+
     
     @property
     def moments(self):
         """Moments of the self-energy."""
         return self._moments
-    
-    @property
-    def overlaps(self):
-        """Overlap matrices for each sector."""
-        return self._overlaps
+
     
     @property
     def hermitian(self):
         """Check if the moments are Hermitian."""
         return self._hermitian
+    
+    def hermitize(self):
+        """Return a new Hermitian version of the Moment representation.
+        
+        Returns
+        -------
+        hermitian_moments : SE_MomentRep
+            Hermitian SE moment representation.
+        """
+        if self.hermitian:
+            return self
+        else:
+            herm_static, herm_overlap = self._hermitize_static_overlap()
+            herm_overlaps = 0.5 * (self.overlaps + self.overlaps.conj().transpose(0,2,1))
+            return type(self)(herm_static, herm_moms, overlap=herm_overlaps, hermitian=True)
     
     def project(self, projector, nproj):
         """Project the moments using the given projector.
@@ -292,14 +351,12 @@ class SE_MomentRep(MomentRep):
         projected_moments : MomentRep
             Projected moment representation.
         """
+        proj_static, proj_overlap = self._project_static_overlap(projector, nproj)
         if nproj == 1:
             proj_moms = 0.5 * (einsum('pP,...Pq->...pq', projector, self.moments) + einsum('qQ,...pQ->...pq', projector, self.moments))
-            proj_static = 0.5 * (einsum('pP,...Pq->...pq', projector, self.statics) + einsum('qQ,...pQ->...pq', projector, self.statics))
-            proj_overlap = 0.5 * (einsum('pP,...Pq->...pq', projector, self.overlaps) + einsum('qQ,...pQ->...pq', projector, self.overlaps))
+            
         elif nproj == 2:
             proj_moms = einsum('pP,qQ,...PQ->...pq', projector, projector, self.moments)
-            proj_static = einsum('pP,qQ,...PQ->...pq', projector, projector, self.statics)
-            proj_overlap = einsum('pP,qQ,...PQ->...pq', projector, projector, self.overlaps)
         return type(self)(proj_static, proj_moms, proj_overlap) 
     
 
@@ -316,19 +373,74 @@ class SE_MomentRep(MomentRep):
         rotated_moments : MomentRep
             Rotated moment representation.
         """
-        rotated_static = einsum('pP,qQ,...PQ->...pq', rotmat, rotmat.conj(), self.statics)
+        rotated_static, rotated_overlap = self._rotate_static_overlap(rotmat)
         rotated_moms = einsum('pP,qQ,...PQ->...pq', rotmat, rotmat.conj(), self.moments)
-        if np.all(self.overlaps != None):
-            rotated_overlap = einsum('pP,qQ,...PQ->...pq', rotmat, rotmat.conj(), self.overlaps)
-        else:
-            rotated_overlap = self.overlaps
         return type(self)(rotated_static, rotated_moms, rotated_overlap)
+
+
+    def orthogonalize(self, overlaps=None):
+        """Orthogonalize the moments using their overlap.
+        
+        Parameters
+        ----------
+        overlaps : ndarray (nphys, nphys) or (nsectors, nphys, nphys), optional
+            Overlap matrices to use for orthogonalization. If None, use self.overlaps.
+
+        Returns
+        -------
+        orthogonalized_moments : SE_MomentRep
+            Orthogonalized moment representation
+        """
+        if overlaps is None:
+            overlaps = self.overlaps
+        orth_moms = []
+        orth_static = []
+        orth_overlaps = []
+        for s in range(self.nsectors):
+            orth, error_orth = matrix_power(overlaps[s], -0.5, hermitian=self.hermitian, return_error=False)
+            moms = einsum("npq,ip,qj->nij", self.moments[s], orth, orth)
+            orth_moms.append(moms)
+
+            stat = orth @ self.statics[s] @ orth
+            orth_static.append(stat)
+            orth_overlaps.append(orth @ overlaps[s] @ orth) # Should old overlaps be kept?
+        return SE_MomentRep(np.array(orth_static), np.array(orth_moms), overlap=np.array(orth_overlaps), hermitian=self.hermitian)
+
+    def unorthogonalize(self, overlaps=None):
+        """Unorthogonalize the moments using their overlap.
+        
+        Parameters
+        ----------
+        overlaps : ndarray (nphys, nphys) or (nsectors, nphys, nphys), optional
+            Overlap matrices to use for unorthogonalization. If None, use self.overlaps.
+
+        Returns
+        -------
+        unorthogonalized_moments : SE_MomentRep
+            Unorthogonalized moment representation.
+        """
+        if overlaps is None:
+            overlaps = self.overlaps
+        unorth_moms = []
+        unorth_static = []
+        unorth_overlaps = []
+        for s in range(self.nsectors):
+            unorth, error_unorth = matrix_power(overlaps[s], 0.5, hermitian=self.hermitian, return_error=False)
+            moms = einsum("npq,ip,qj->nij", self.moments[s], unorth, unorth)
+            unorth_moms.append(moms)
+
+            stat = unorth @ self.statics[s] @ unorth
+            unorth_static.append(stat)
+            unorth_overlaps.append(unorth @ self.overlaps[s] @ unorth)
+        return SE_MomentRep(np.array(unorth_static), np.array(unorth_moms), overlap=np.array(overlaps), hermitian=self.hermitian)
 
     def to_gf_moments(self):
         """Convert to Green's function moments using recurrence relations."""
         gf_moments = []
         for s in range(self.nsectors):
-            gf_moments.append(se_moments_to_gf_moments(self.statics[s], self.moments[s], overlap=self.overlaps[s]))
+            static = self.statics[s] if self.single_static else self.statics
+            overlap = self.overlaps[s] if self.single_overlap else self.overlaps
+            gf_moments.append(se_moments_to_gf_moments(static, self.moments[s], overlap=overlap))
         return GF_MomentRep(np.array(gf_moments), hermitian=self.hermitian)
     
     def to_spectral(self, hermitian=None, combine=False):
@@ -350,15 +462,22 @@ class SE_MomentRep(MomentRep):
         spectrals = []
         hermitian = hermitian if hermitian is not None else self.hermitian
         for s in range(self.nsectors):
-            solver = MBLSE(self.statics[s], self.moments[s], overlap=self.overlaps[s], hermitian=hermitian)
+
+            static = self.statics if self.single_static else self.statics[s]
+            if self.overlaps is not None:
+                overlap = self.overlaps if self.single_overlap else self.overlaps[s]
+            else:
+                overlap = None
+            print(static.shape, self.moments[s].shape, overlap.shape if overlap is not None else None)
+            solver = MBLSE(static, self.moments[s], overlap=overlap, hermitian=hermitian)
             solver.kernel()
             spectrals.append(solver.result)
         
         if combine:
             combined_spectral = Spectral.combine_spectrals(spectrals)
-            return dynamical.SpectralRep([combined_spectral])
+            return SpectralRep([combined_spectral])
         else:
-            return dynamical.SpectralRep(spectrals)
+            return SpectralRep(spectrals)
 
     def combine(self, *args):
         """Combine multiple SE_MomentRep into a single one by summing static and moments.
@@ -390,6 +509,27 @@ class SE_MomentRep(MomentRep):
             combined_overlap += arg.overlaps
             combined_static += arg.statics
             combined_moments += arg.moments
+        return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap)
+    
+
+    def combine_sectors(self):
+        """Combine all sectors into a single SE_MomentRep by summing static and moments.
+
+        Returns
+        -------
+        combined_moments : SE_MomentRep
+            Combined moment representation.
+        """
+        
+        combined_overlap = np.zeros_like(self.overlaps[0])
+        combined_static = np.zeros_like(self.statics[0])
+        combined_moments = np.zeros_like(self.moments[0])
+        
+        for s in range(self.nsectors):
+            combined_overlap += self.overlaps[s]
+            combined_static += self.statics[s]
+            combined_moments += self.moments[s]
+        
         return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap)
 
 

@@ -3,8 +3,10 @@ from abc import ABC, abstractmethod
 from dyson import Lehmann
 from vayesta.core.util import einsum
 
+from .dynamical import Dynamical, GreensFunction, SelfEnergy
+from .moment import GF_MomentRep, SE_MomentRep
 
-class LehmannRep(ABC):
+class LehmannRep(Dynamical):
 
     def __init__(self, lehmanns):
         """Initialize Lehmann representation.
@@ -19,7 +21,7 @@ class LehmannRep(ABC):
             lehmanns = [lehmanns]
 
         self._lehmanns = lehmanns
-    
+
     @property
     def lehmanns(self):
         """List of Lehmann objects for each sector."""
@@ -57,20 +59,10 @@ class LehmannRep(ABC):
         """Number of physical states in the Lehmann representation."""
         return self.couplings.shape[0]
 
-    @abstractmethod
-    def rotate(self, rotation):
-        """Change the basis of the Lehmann representation using the given unitary matrix."""
-        pass
-
-    @abstractmethod
-    def project(self, projector, nproj):
-        """Project the Lehmann representation using the given projector."""
-        pass
-    
 
 
 
-class GF_LehmannRep(LehmannRep):
+class GF_LehmannRep(LehmannRep, GreensFunction):
 
     def __init__(self, lehmanns):
         """Initialize Green's function Lehmann representation.
@@ -87,6 +79,9 @@ class GF_LehmannRep(LehmannRep):
 
         self._lehmanns = lehmanns
 
+    def hermitize(self):
+        raise NotImplementedError("Hermitization of Lehmann representation is not implemented.")
+    
 
     def rotate(self, rotation):
         """Change the basis of the Lehmann representation using the given unitary matrix.
@@ -139,12 +134,29 @@ class GF_LehmannRep(LehmannRep):
             new_lehmanns.append(new_lehmann)
 
         return GF_LehmannRep(new_lehmanns)
+    
+    def to_moments(self, nmom):
+        """Convert the Lehmann representation to moment representation.
+
+        Parameters
+        ----------
+        nmom : int
+            Number of moments to compute.
+
+        Returns
+        -------
+        moments : GF_MomentRep
+            Moment representation of the Green's function.
+        """
+        moments = []
+        for s in range(self.nsectors):
+            moms = self.lehmanns[s].moments(range(nmom))
+            moments.append(moms)
+        return GF_MomentRep(moments=np.array(moments), hermitian=self.hermitian)
 
 
 
-
-
-class SE_LehmannRep(LehmannRep):
+class SE_LehmannRep(LehmannRep, SelfEnergy):
     def __init__(self, statics, lehmanns, overlaps=None):
         """Initialize self-energy Lehmann representation.
 
@@ -159,28 +171,16 @@ class SE_LehmannRep(LehmannRep):
 
         """
 
+        self._init_static_overlap(statics, overlaps, hermitian=None)
+
         if isinstance(lehmanns, Lehmann):
-            statics = [statics]
             lehmanns = [lehmanns]
-            if overlaps is not None:
-                overlaps = [overlaps]
-            if overlaps is None:
-                overlaps = [np.eye(statics[0].shape[0]) for _ in range(len(statics))]
 
-        
-        self._statics = statics
         self._lehmanns = lehmanns
-        self._overlaps = overlaps
 
-    @property
-    def statics(self):
-        """Static part of the self-energy."""
-        return np.array(self._statics)
-
-    @property
-    def overlaps(self):
-        """Overlap matrix of the self-energy."""
-        return np.array(self._overlaps)
+    def hermitize(self):
+        raise NotImplementedError("Hermitization of Lehmann representation is not implemented.")
+    
 
     def rotate(self, rotation):
         new_overlaps = []
@@ -241,6 +241,27 @@ class SE_LehmannRep(LehmannRep):
         return SE_LehmannRep(proj_statics, proj_lehmanns, overlaps=proj_overlaps)
 
 
+    def to_moments(self, nmom):
+        """Convert the Lehmann representation to moment representation.
+
+        Parameters
+        ----------
+        nmom : int
+            Number of moments to compute.
+
+        Returns
+        -------
+        moments : SE_MomentRep
+            Moment representation of the Green's function.
+        """
+        moments = []
+        for s in range(self.nsectors):
+            moms = self.lehmanns[s].moments(range(nmom))
+            moments.append(moms)
+        return SE_MomentRep(self.statics, np.array(moments), overlap=self.overlaps, hermitian=self.hermitian)
+
+
+
     def combine(self, *args):
         """Combine multiple SE_LehmannRep into a single one by summing statics and concatenating poles.
 
@@ -262,7 +283,7 @@ class SE_LehmannRep(LehmannRep):
         
 
         dtype = np.complex128 if any(arg.hermitian == False for arg in args) or not self.hermitian else np.float64
-
+        dtype = np.complex128 
         combined_overlaps = self.overlaps.astype(dtype)
         combined_statics = self.statics.astype(dtype)
         combined_energies = [self.lehmanns[s].energies.astype(dtype) for s in range(self.nsectors)]
@@ -281,6 +302,33 @@ class SE_LehmannRep(LehmannRep):
         
         combined_lehmanns = [Lehmann(combined_energies[s], combined_couplings[s]) for s in range(self.nsectors)]
         return SE_LehmannRep(combined_statics, combined_lehmanns, overlaps=combined_overlaps)
+    
+
+    # Sum self-energies or green's functions?
+    def combine_sectors(self):
+        """Combine all sectors into a single Lehmann representation by summing statics and concatenating poles.
+
+        Returns
+        -------
+        combined_lehmann : SE_LehmannRep
+            Combined Lehmann representation.
+        """
+        dtype = np.complex128 #if not self.hermitian else np.float64
+
+        combined_static, combined_overlap = self._combine_static_overlap()
+        combined_energies = []
+        combined_couplings = []
+
+        for s in range(self.nsectors):
+            combined_energies.append(self.lehmanns[s].energies)
+            combined_couplings.append(self.lehmanns[s].couplings)
+
+        combined_energies = np.concatenate(combined_energies)
+        combined_couplings = np.concatenate(combined_couplings, axis=-1)
+
+        combined_lehmann = Lehmann(combined_energies, combined_couplings)
+        return SE_LehmannRep(combined_static, combined_lehmann, overlaps=combined_overlap)
+
 
 def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6):
     """
