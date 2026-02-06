@@ -3,7 +3,7 @@ import dataclasses
 import numpy as np
 import pyscf.cc
 
-from vayesta.core.types import CCSD_WaveFunction
+from vayesta.core.types import CCSD_WaveFunction, GF_MomentRep
 from vayesta.core.util import dot, log_method, log_time, einsum
 from vayesta.solver._uccsd_eris import uao2mo
 from vayesta.solver.cisd import CISD_Solver
@@ -87,7 +87,7 @@ class RCCSD_Solver(ClusterSolver):
             self.log.info("Calculating cluster CCSD spectral moments %s" % str(nmom))
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = CCSD.hole.from_ccsd(mycc)
-                self.gf_hole_moments = expr.build_gf_moments(nmom[0], left=True)
+                gf_moms_h = expr.build_gf_moments(nmom[0], left=True)
             
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
                 # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
@@ -97,14 +97,14 @@ class RCCSD_Solver(ClusterSolver):
             
             with log_time(self.log.timing, "Time for particle moments: %s"):
                 expr = CCSD.particle.from_ccsd(mycc)
-                self.gf_particle_moments = expr.build_gf_moments(nmom[1], left=True)
+                gf_moms_p = expr.build_gf_moments(nmom[1], left=True)
                 
                 # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
                 # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
                 # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
                 # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
                 # self.ea_moment_amplitudes = (amps_bra, amps_ket)
-
+            self.gf = GF_MomentRep([gf_moms_h, gf_moms_p], hermitian=False)
 
     def get_solver_class(self, mf):
         if hasattr(mf, "with_df") and mf.with_df is not None:

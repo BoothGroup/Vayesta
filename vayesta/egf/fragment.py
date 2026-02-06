@@ -1,6 +1,7 @@
 import dataclasses
 import numpy as np
 
+from vayesta.core.types.dynamical import GF_MomentRep, SE_MomentRep
 from vayesta.ewf.fragment import Fragment as EWF_Fragment
 from dyson import MBLGF, MBLSE, AufbauPrinciple, AuxiliaryShift
 from dyson.util.moments import se_moments_to_gf_moments, gf_moments_to_se_moments
@@ -19,19 +20,33 @@ class Fragment(EWF_Fragment):
         results = super().kernel(solver=solver, init_guess=init_guess)
 
 
-        # CCSD or FCI solver
-        se_statics = []
-        se_moments = []
-        for gf_moms in results.gf_moments:
-            ovlp = gf_moms[0]
-            se_static, se_moms = gf_moments_to_se_moments(gf_moms)
-            se_statics.append(se_static)
-            se_moments.append(se_moms)
-            assert np.allclose(ovlp, gf_moms[0])
-            #assert np.allclose(se_static, se_moms[1])
+        # # CCSD or FCI solver
+        # se_statics = []
+        # se_moments = []
+        # for gf_moms in results.gf_moments:
+        #     ovlp = gf_moms[0]
+        #     se_static, se_moms = gf_moments_to_se_moments(gf_moms)
+        #     se_statics.append(se_static)
+        #     se_moments.append(se_moms)
+        #     assert np.allclose(ovlp, gf_moms[0])
+        #     #assert np.allclose(se_static, se_moms[1])
 
-        results.se_static = se_statics
-        results.se_moments = np.array(se_moments)
+        # results.se_static = se_statics
+        # results.se_moments = np.array(se_moments)
+
+        # if hasattr(results, 'gf_moments'):
+        #     gf = GF_MomentRep(moments=results.gf_moments, hermitian=False)
+        #     self.results.gf = gf
+        #     self.results.se = gf.to_se_moments()
+
+        # elif hasattr(results, 'se_moments'):
+        #     se = SE_MomentRep(static=results.se_static, moments=results.se_moments, hermitian=False)
+        #     self.results.se = se
+        #     self.results.gf = se.to_gf_moments()
+
+
+
+
 
     
 

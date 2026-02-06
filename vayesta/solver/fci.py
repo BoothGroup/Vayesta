@@ -4,7 +4,7 @@ import numpy as np
 import pyscf.fci
 import pyscf.fci.addons
 
-from vayesta.core.types import FCI_WaveFunction
+from vayesta.core.types import FCI_WaveFunction, GF_MomentRep
 from vayesta.core.types.wf.fci import UFCI_WaveFunction_w_dummy
 from vayesta.core.util import log_time
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
@@ -93,10 +93,12 @@ class FCI_Solver(ClusterSolver):
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = FCI.hole.from_fci(self.solver, h1e=heff, h2e=eris)
-                self.gf_hole_moments = expr.build_gf_moments(nmom[0])
+                gfh_moms = expr.build_gf_moments(nmom[0])
             with log_time(self.log.timing, "Time for particle moments: %s"):    
                 expr = FCI.particle.from_fci(self.solver, h1e=heff, h2e=eris)
-                self.gf_particle_moments = expr.build_gf_moments(nmom[1])
+                gfp_moms = expr.build_gf_moments(nmom[1])
+
+            self.gf = GF_MomentRep([gfh_moms, gfp_moms], hermitian=True)
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
     @dataclasses.dataclass

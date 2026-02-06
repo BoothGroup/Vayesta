@@ -15,7 +15,7 @@ import vayesta
 from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_recursive, hstack, log_method, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction, RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction, RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction, SE_MomentRep, GF_MomentRep
 from vayesta.core.bath import DMET_Bath
 from vayesta.mpi import mpi
 
@@ -75,8 +75,10 @@ class Fragment(BaseFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         gf_moments: tuple = None
-        se_static: np.ndarray = None
-        se_moments: tuple = None
+        # se_static: np.ndarray = None
+        # se_moments: tuple = None
+        se: SE_MomentRep = None
+        gf: GF_MomentRep = None
         callback_results: dict = None
         
         @property
@@ -276,11 +278,10 @@ class Fragment(BaseFragment):
             proj = self.get_overlap("proj|cluster-occ")
         pwf = pwf.project(proj, inplace=False)
 
-        # Moments
+        # GF / SE Moments
 
-        gf_moments = np.array([cluster_solver.gf_hole_moments, cluster_solver.gf_particle_moments])
-        se_static = cluster_solver.se_static
-        se_moments = cluster_solver.se_hole_moments, cluster_solver.se_particle_moments
+        gf = cluster_solver.gf
+        se = cluster_solver.se
         callback_results = cluster_solver.callback_results if solver.lower() == "callback" else None
         # --- Add to results data class
         self._results = results = self.Results(
@@ -289,9 +290,8 @@ class Fragment(BaseFragment):
             converged=cluster_solver.converged,
             wf=wf,
             pwf=pwf,
-            gf_moments=gf_moments,
-            se_static=se_static,
-            se_moments=se_moments,
+            gf = gf,
+            se = se,
             e_corr_rpa=e_corr_rpa,
             callback_results=callback_results,
         )
