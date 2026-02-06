@@ -3,19 +3,118 @@
 import numpy as np
 import scipy
 
+from functools import reduce
+
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
+from vayesta.core.types import SE_MomentRep
 try:
     import dyson
     from dyson import MBLGF, MBLSE, AuxiliaryShift, AufbauPrinciple
     from dyson.representations import Lehmann, Spectral
     from dyson.solvers.static.chempot import search_aufbau_global
+    from dyson.util.linalg import matrix_power
     dyson.quiet()
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
 
 
-def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=True):
+def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=False, hermitize=True, use_sym=True, hermitian=True, chempot_clus=None, sym_moms=False, orth_basis=False, project_before=False):
+    """
+    Construct full system self-energy moments from Green's function moments
+
+    Parameters
+    ----------
+    emb : EWF object
+        Embedding object
+    use_sym : bool
+        Use symmetry to reconstruct self-energy
+    proj : int
+        Number of projectors to use (1 or 2)
+
+    Returns
+    -------
+    self_energy_moms : ndarry (n_se_mom, nmo, nmo)
+        Full system self-energy moments (MO basis)
+    """
+
+    fock = emb.get_fock()
+    static_self_energy = np.zeros_like(fock)
+    energies = []
+
+    nao, nmo = emb.mo_coeff.shape
+    #dtype = emb.fragments[0].results.gf_moments[0].dtype
+    dtype = np.float64 if emb.opts.hermitian_lanczos else np.complex128
+    fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+    ses_mo = []
+    for i, f in enumerate(fragments):
+        
+        mc = f.get_overlap('mo|cluster')
+        mf = f.get_overlap('mo|frag')
+        fc = f.get_overlap('frag|cluster')
+        cfc = fc.T @ fc
+        
+        if f.results.gf is not None:
+            gf = f.results.gf
+            se = f.results.gf.to_se_moments(orth_basis=orth_basis)
+        elif f.results.se is not None:
+            se = f.results.se
+            gf = f.results.se.to_gf_moments()
+        else:
+            raise Exception("No fragment Green's function or self-energy found")
+        
+        if emb.opts.hermitian_lanczos:
+            se = se.hermitize()
+            gf = gf.hermitize()
+
+        if project_before:
+            se = se.project(cfc, proj)
+            gf = gf.project(cfc, proj)
+        #gf = gf.project(cfc, proj)
+        #se = se.orthogonalize()
+        
+        if se_mode == 'lehmann':
+            if combine_sectors:
+                se = gf.to_spectral().combine_sectors().to_se_lehmann()
+            else:
+                se = gf.to_spectral().to_se_lehmann()
+
+        elif se_mode == 'moments':
+            if combine_sectors:
+                se = se.combine_sectors()
+
+        elif se_mode == 'moments_mblgf':
+            print("MOMENTS MBLGF")
+            if combine_sectors:
+                se = gf.to_spectral().combine_sectors(greens_function=True).to_se_moments(split=True)
+                
+            else:
+                se = gf.to_spectral(greens_function=True).to_se_moments()
+
+        elif se_mode == 'spectral':
+            se = se.to_spectral()
+            if combine_sectors:
+                se.combine_sectors()
+
+        if not project_before:
+            pse = se.project(cfc, proj)
+        else:
+            pse = se
+
+        ses_mo.append(pse.rotate(mc))
+        if use_sym:
+            for child in f.get_symmetry_children():
+                mc_child = child.get_overlap('mo|cluster')
+                ses_mo.append(pse.rotate(mc_child))
+    
+    #if orth_basis:
+    #    se.unorthogonalize()
+    se = reduce(type(se).combine, ses_mo)
+    #se._static = np.diag(emb.mf.mo_energy)
+    return se
+
+
+def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=True, orth_basis=False):
     """
     Construct global static self-energy equal to the first Green's function moment.
 
@@ -39,7 +138,7 @@ def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=
     """
 
     fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
+    static_self_energy = np.zeros([2] + list(fock.shape), dtype=fock.dtype)
 
     nao, nmo = emb.mo_coeff.shape
 
@@ -51,35 +150,123 @@ def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
 
-        static_self_energy_clus = f.results.gf_moments[0][1] + f.results.gf_moments[1][1]
+        if f.results.gf is not None:
+            gf = f.results.gf
 
+        elif f.results.se is not None:
+            gf = f.results.se.to_gf_moments()
+        else:
+            raise Exception("Cluster has no Green's function or self-energy")
+        static = gf.moments[:,1].copy()
+        overlap = gf.moments[:,0].copy()
         if not with_mf:
             fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
-            static_self_energy_clus = static_self_energy_clus - fock_cls
+            nocc = f.cluster.nocc
+
+            
+            fock_oo = np.zeros_like(fock_cls)
+            fock_oo[:nocc, :nocc] = fock_cls[:nocc, :nocc]
+            static[0] -= fock_oo
+            
+            fock_vv = np.zeros_like(fock_cls)
+            fock_vv[nocc:, nocc:] = fock_cls[nocc:, nocc:]
+            static[1] -= fock_vv
+
+
+        if orth_basis:
+            for s in range(static.shape[0]):
+                orth, _ = matrix_power(overlap[s], -0.5, hermitian=gf.hermitian, return_error=False)
+                static[s] = orth @ static[s] @ orth
 
         if proj == 1:
-            static_self_energy_frag = cfc @ static_self_energy_clus
-            static_self_energy_frag = 0.5 * (cfc @ static_self_energy_clus + static_self_energy_clus @ cfc)
-            static_self_energy += mc @ static_self_energy_frag @ mc.T
+            static_frag = cfc @ static
+            static_frag = 0.5 * (cfc @ static + static @ cfc)
+            static_self_energy += mc @ static_frag @ mc.T
 
             if use_sym:
                 for child in f.get_symmetry_children():
                     mc_child = child.get_overlap('mo|cluster')
-                    static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T 
+                    static_self_energy += mc_child @ static_frag @ mc_child.T 
 
         elif proj == 2:
-            static_self_energy_frag = fc @ static_self_energy_clus @ fc.T
-            static_self_energy += mf @ static_self_energy_frag @ mf.T
+            static_frag = fc @ static @ fc.T
+            static_self_energy += mf @ static_frag @ mf.T
 
             if use_sym:
                 for child in f.get_symmetry_children():
                     mf_child = child.get_overlap('mo|frag')
-                    static_self_energy += mf_child @ static_self_energy_frag @ mf_child.T
+                    static_self_energy += mf_child @ static_frag @ mf_child.T
 
     if sym_moms:
-        static_self_energy = 0.5 * (static_self_energy + static_self_energy.T.conj())
+        static_self_energy = 0.5 * (static_self_energy + static_self_energy.transpose(0,2,1).conj())
     
     return static_self_energy
+
+# def make_static_self_energy(emb, proj=1, sym_moms=False, with_mf=False, use_sym=True):
+#     """
+#     Construct global static self-energy equal to the first Green's function moment.
+
+#     Parameters
+#     ----------
+#     emb : EWF object
+#         Embedding object
+#     proj : int
+#         Number of projectors to use (1 or 2)
+#     sym_moms : bool
+#         Hermitise the static self energy
+#     with_mf : bool
+#         Include the fock matrix in the static self energy
+#     use_sym : bool
+#         Use symmetry
+    
+#     Returns
+#     -------
+#     static_self_energy : ndarray (nmo,nmo)
+#         Static part of self-energy (MO basis)   
+#     """
+
+#     fock = emb.get_fock()
+#     static_self_energy = np.zeros_like(fock)
+
+#     nao, nmo = emb.mo_coeff.shape
+
+#     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
+#     for i, f in enumerate(fragments):
+
+#         mc = f.get_overlap('mo|cluster')
+#         mf = f.get_overlap('mo|frag')
+#         fc = f.get_overlap('frag|cluster')
+#         cfc = fc.T @ fc
+
+#         static_self_energy_clus = f.results.gf_moments[0][1] + f.results.gf_moments[1][1]
+
+#         if not with_mf:
+#             fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+#             static_self_energy_clus = static_self_energy_clus - fock_cls
+
+#         if proj == 1:
+#             static_self_energy_frag = cfc @ static_self_energy_clus
+#             static_self_energy_frag = 0.5 * (cfc @ static_self_energy_clus + static_self_energy_clus @ cfc)
+#             static_self_energy += mc @ static_self_energy_frag @ mc.T
+
+#             if use_sym:
+#                 for child in f.get_symmetry_children():
+#                     mc_child = child.get_overlap('mo|cluster')
+#                     static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T 
+
+#         elif proj == 2:
+#             static_self_energy_frag = fc @ static_self_energy_clus @ fc.T
+#             static_self_energy += mf @ static_self_energy_frag @ mf.T
+
+#             if use_sym:
+#                 for child in f.get_symmetry_children():
+#                     mf_child = child.get_overlap('mo|frag')
+#                     static_self_energy += mf_child @ static_self_energy_frag @ mf_child.T
+
+#     if sym_moms:
+#         static_self_energy = 0.5 * (static_self_energy + static_self_energy.T.conj())
+    
+#     return static_self_energy
 
 
 
@@ -605,8 +792,8 @@ def make_self_energy_1proj(emb, hermitian=True, use_sym=True, hermitize=True, sy
         print("Norm ovlp: %s " %norm )
         
         
-        f.results.se = se
-        f.results.gf = gf
+        # f.results.se = se
+        # f.results.gf = gf
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
@@ -858,8 +1045,8 @@ def make_self_energy_2proj(emb, nmom_gf=None, hermitize=True, hermitian=True, sy
         gf = mblgf_result.get_greens_function()
         static_self_energy_clus = mblgf_result.get_static_self_energy()
         
-        f.results.se = se
-        f.results.gf = gf
+        # f.results.se = se
+        # f.results.gf = gf
 
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)

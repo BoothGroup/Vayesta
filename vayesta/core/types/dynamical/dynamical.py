@@ -154,9 +154,9 @@ class SelfEnergy(Dynamical):
     @property
     def _hermitian_static_overlap(self):
         """Check if the static and overlap matrices are Hermitian."""
-        herm_static = np.allclose(self.statics, self.statics.conj().transpose(0,2,1))
+        herm_static = np.allclose(self.statics, self.statics.conj().swapaxes(-2,-1))
         if self.overlaps is not None:
-            herm_overlap = np.allclose(self.overlaps, self.overlaps.conj().transpose(0,2,1))
+            herm_overlap = np.allclose(self.overlaps, self.overlaps.conj().swapaxes(-2,-1))
         else:
             herm_overlap = True
         return herm_static and herm_overlap

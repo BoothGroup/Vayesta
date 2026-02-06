@@ -12,6 +12,7 @@ from vayesta.solver.fci import FCI_Solver, UFCI_Solver
 from vayesta.solver.hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
 from vayesta.solver.mp2 import RMP2_Solver, UMP2_Solver
 from vayesta.solver.tccsd import TRCCSD_Solver
+from vayesta.solver.gw import RGW_Solver
 
 try:
     from vayesta.solver.ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
@@ -69,6 +70,7 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
     ('DUMP', True, False): DumpSolver,
     ('CALLBACK', False, False): CallbackSolver,
     ('CALLBACK', True, False): CallbackSolver,
+    ('GW', False, False): RGW_Solver,
 }
 
 

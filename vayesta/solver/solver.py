@@ -33,11 +33,13 @@ class ClusterSolver:
         self.wf = None
         self.dm1 = None
         self.dm2 = None
-        self.gf_hole_moments = None
-        self.gf_particle_moments = None
-        self.se_static = None
-        self.se_hole_moments = None
-        self.se_particle_moments = None
+        # self.gf_hole_moments = None
+        # self.gf_particle_moments = None
+        # self.se_static = None
+        # self.se_hole_moments = None
+        # self.se_particle_moments = None
+        self.se = None
+        self.gf = None
 
     @property
     def v_ext(self):

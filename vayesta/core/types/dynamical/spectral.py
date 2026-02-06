@@ -146,48 +146,37 @@ class SpectralRep(Dynamical):
         overlaps = []
         moms = []#
 
-        if self.nsectors > 1:        
+        if nmom is None:
+            # FIXME: Determine proper nmom for both odd and even input moms
+            nmom = 2 * self.spectrals[0].eigvals.shape[0] // self.spectrals[0].nphys - 2
 
-            if split:
-                raise NotImplementedError("Split self-energy moments representation is not implemented.")
+        if split:
+
+            if self.nsectors !=1:
+                raise NotImplementedError("Split self-energy moments representation is only implemented for single sector spectral representations.")
+            
+            else:
+
+                statics = self.spectrals[0].get_static_self_energy()
+                overlaps = None
+
+                chempot = self.spectrals[0].chempot if chempot is None else chempot
+
+                se = self.spectrals[0].get_self_energy(chempot=chempot)
+                seh = se.occupied().moments(range(nmom))
+                sep = se.virtual().moments(range(nmom))
+                moms = np.array([seh, sep])
+
+        else:
 
             for s in range(self.nsectors):
                 se = self.spectrals[s].get_self_energy()
-                if nmom is None:
-                    # FIXME: Determine proper nmom for both odd and even input moms
-                    nmom = 2 * self.spectrals[s].eigvals.shape[0] // self.spectrals[s].nphys - 2
                 moms.append(se.moments(range(nmom)))
                 statics.append(self.spectrals[s].get_static_self_energy())
                 overlaps.append(self.spectrals[s].get_overlap())
-                
-            return SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
-        
-        elif self.nsectors == 1:
 
-            statics = self.spectrals[0].get_static_self_energy()
-            overlaps = None
+        return SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
 
-            chempot = self.spectrals[0].chempot if chempot is None
-
-            se = self.spectrals[0].get_self_energy(chempot=chempot)
-            seh = se.moments(range(nmom))
-            sep = se.moments(range(nmom))
-            se_moms = np.array([seh, sep])
-
-            return SE_MomentRep(statics, se_moms, overlap=overlaps, hermitian=self.hermitian)
-        
-
-    def to_split_se_moments(self, chempot=None):
-        """Convert to split self-energy moments representation.
-        
-        Returns
-        -------
-        SE_SplitMomentRep
-            Split self-energy moments representation.
-        """
-        from .moment import SE_MomentRep
-
-        if self.nsectors
 
     def project_(self, projector, nproj):
         """Project the spectral representation"""
