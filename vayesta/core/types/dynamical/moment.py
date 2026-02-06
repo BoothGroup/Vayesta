@@ -274,12 +274,11 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         #     single_overlap = True
 
         if hermitian is None:
-            hermitian = np.allclose(self.moments, self.moments.conj().transpose(0,1,3,2))
-            hermitian = hermitian and self._hermitian_static_overlap()
+            hermitian = np.allclose(moments, moments.conj().transpose(0,1,3,2))
+            hermitian = hermitian and self._hermitian_static_overlap
         
 
         elif hermitian:
-
             moments = 0.5 * (moments + moments.conj().transpose(0,1,3,2))
 
         self._moments = moments
@@ -333,8 +332,8 @@ class SE_MomentRep(MomentRep, SelfEnergy):
             return self
         else:
             herm_static, herm_overlap = self._hermitize_static_overlap()
-            herm_overlaps = 0.5 * (self.overlaps + self.overlaps.conj().transpose(0,2,1))
-            return type(self)(herm_static, herm_moms, overlap=herm_overlaps, hermitian=True)
+            herm_moms = 0.5 * (self.moments + self.moments.conj().swapaxes(-2,-1))
+            return type(self)(herm_static, herm_moms, overlap=herm_overlap, hermitian=True)
     
     def project(self, projector, nproj):
         """Project the moments using the given projector.
@@ -468,7 +467,7 @@ class SE_MomentRep(MomentRep, SelfEnergy):
                 overlap = self.overlaps if self.single_overlap else self.overlaps[s]
             else:
                 overlap = None
-            print(static.shape, self.moments[s].shape, overlap.shape if overlap is not None else None)
+
             solver = MBLSE(static, self.moments[s], overlap=overlap, hermitian=hermitian)
             solver.kernel()
             spectrals.append(solver.result)
@@ -495,18 +494,15 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         
         compatible_shapes = all(arg.moments.shape == self.moments.shape for arg in args)
         compatible_shapes = compatible_shapes and all(arg.statics.shape == self.statics.shape for arg in args)
-        compatible_shapes = compatible_shapes and all(arg.overlaps.shape == self.overlaps.shape for arg in args)
         if not compatible_shapes:
             raise ValueError("All MomentRep instances must have the same shape to be combined.")
         
-        combined_overlap = np.zeros_like(self.overlaps)
-        combined_static = np.zeros_like(self.statics)
-        combined_moments = np.zeros_like(self.moments)
-        combined_overlap += self.overlaps
-        combined_static += self.statics
-        combined_moments += self.moments
+        combined_overlap = self.overlaps
+        combined_static = self.statics
+        combined_moments = self.moments
         for arg in args:
-            combined_overlap += arg.overlaps
+            if arg.overlaps is not None:
+                combined_overlap += arg.overlaps
             combined_static += arg.statics
             combined_moments += arg.moments
         return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap)
@@ -526,10 +522,21 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         combined_moments = np.zeros_like(self.moments[0])
         
         for s in range(self.nsectors):
-            combined_overlap += self.overlaps[s]
-            combined_static += self.statics[s]
             combined_moments += self.moments[s]
+
+        if self.single_static:
+            combined_static = self.statics
+        else:
+            for s in range(self.nsectors):
+                combined_static += self.statics[s]
         
+
+        if self.single_overlap:
+            combined_overlap = self.overlaps
+        elif self.overlaps is not None:
+            for s in range(self.nsectors):
+                combined_overlap += self.overlaps[s]
+
         return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap)
 
 

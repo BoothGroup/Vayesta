@@ -16,10 +16,10 @@ class Dynamical(ABC):
         """Number of sectors."""
         pass
 
-    # @abstractmethod
-    # def hermitize(self):
-    #     """Return a new Hermitian version of the Moment representation."""
-    #     pass
+    @abstractmethod
+    def hermitize(self):
+        """Return a new Hermitian version of the Moment representation."""
+        pass
 
     @abstractmethod
     def rotate(self, rotation):

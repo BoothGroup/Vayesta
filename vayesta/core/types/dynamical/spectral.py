@@ -51,7 +51,7 @@ class SpectralRep(Dynamical):
     def hermitize(self):
         raise NotImplementedError("Hermitization of spectral representation is not implemented.")
 
-    def combine_sectors(self, greens_function=True):
+    def combine_sectors(self, greens_function=False):
         """Combine all sectors objects into a single spectral object.
 
         Parameters
@@ -71,7 +71,9 @@ class SpectralRep(Dynamical):
         else:
             static = self.spectrals[0].get_static_self_energy()
             overlap = self.spectrals[0].get_overlap()
-            return type(self)(Spectral.combine_for_self_energy(*self.spectrals, static=static, overlap=overlap))
+            spec = Spectral.combine_for_self_energy(*self.spectrals)
+            se = spec.get_self_energy()
+            return type(self)([Spectral.from_self_energy(static, se, overlap=overlap)])
     
     def to_gf_lehmann(self):
         """Convert to Lehmann Green's function representation.
@@ -130,7 +132,7 @@ class SpectralRep(Dynamical):
 
         return GF_MomentRep(np.array(moms), hermitian=self.hermitian)
     
-    def to_se_moments(self, nmom=None):
+    def to_se_moments(self, nmom=None, split=True, chempot=None):
         """Convert to self-energy moments representation.
         
         Returns
@@ -142,17 +144,50 @@ class SpectralRep(Dynamical):
 
         statics = []
         overlaps = []
-        moms = []
-        for s in range(self.nsectors):
-            se = self.spectrals[s].get_self_energy()
-            if nmom is None:
-                # FIXME: Determine proper nmom for both odd and even input moms
-                nmom = 2 * self.spectrals[s].eigvals.shape[0] // self.spectrals[s].nphys - 2
-            moms.append(se.moments(range(nmom)))
-            statics.append(self.spectrals[s].get_static_self_energy())
-            overlaps.append(self.spectrals[s].get_overlap())
-            
-        return SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
+        moms = []#
+
+        if self.nsectors > 1:        
+
+            if split:
+                raise NotImplementedError("Split self-energy moments representation is not implemented.")
+
+            for s in range(self.nsectors):
+                se = self.spectrals[s].get_self_energy()
+                if nmom is None:
+                    # FIXME: Determine proper nmom for both odd and even input moms
+                    nmom = 2 * self.spectrals[s].eigvals.shape[0] // self.spectrals[s].nphys - 2
+                moms.append(se.moments(range(nmom)))
+                statics.append(self.spectrals[s].get_static_self_energy())
+                overlaps.append(self.spectrals[s].get_overlap())
+                
+            return SE_MomentRep(np.array(statics), np.array(moms), overlap=overlaps, hermitian=self.hermitian)
+        
+        elif self.nsectors == 1:
+
+            statics = self.spectrals[0].get_static_self_energy()
+            overlaps = None
+
+            chempot = self.spectrals[0].chempot if chempot is None
+
+            se = self.spectrals[0].get_self_energy(chempot=chempot)
+            seh = se.moments(range(nmom))
+            sep = se.moments(range(nmom))
+            se_moms = np.array([seh, sep])
+
+            return SE_MomentRep(statics, se_moms, overlap=overlaps, hermitian=self.hermitian)
+        
+
+    def to_split_se_moments(self, chempot=None):
+        """Convert to split self-energy moments representation.
+        
+        Returns
+        -------
+        SE_SplitMomentRep
+            Split self-energy moments representation.
+        """
+        from .moment import SE_MomentRep
+
+        if self.nsectors
 
     def project_(self, projector, nproj):
         """Project the spectral representation"""
