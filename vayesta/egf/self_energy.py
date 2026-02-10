@@ -19,7 +19,7 @@ except ImportError as e:
     print("Dyson required for self-energy calculations")
 
 
-def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=False, hermitize=True, use_sym=True, hermitian=True, chempot_clus=None, sym_moms=False, orth_basis=False, project_before=False):
+def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=None, use_sym=True, hermitian=None, chempot_clus=None, orth_basis=False, project_before=False):
     """
     Construct full system self-energy moments from Green's function moments
 
@@ -39,12 +39,8 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=False, herm
     """
 
     fock = emb.get_fock()
-    static_self_energy = np.zeros_like(fock)
-    energies = []
-
-    nao, nmo = emb.mo_coeff.shape
-    #dtype = emb.fragments[0].results.gf_moments[0].dtype
-    dtype = np.float64 if emb.opts.hermitian_lanczos else np.complex128
+    hermitian = emb.opts.hermitian_lanczos if hermitian is None else hermitian
+    combine_sectors = emb.opts.combine_sectors_in_cluster if combine_sectors is None else combine_sectors
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     ses_mo = []
     for i, f in enumerate(fragments):
@@ -55,15 +51,17 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=False, herm
         cfc = fc.T @ fc
         
         if f.results.gf is not None:
+            using_gf = True
             gf = f.results.gf
             se = f.results.gf.to_se_moments(orth_basis=orth_basis)
         elif f.results.se is not None:
+            using_gf = False
             se = f.results.se
             gf = f.results.se.to_gf_moments()
         else:
             raise Exception("No fragment Green's function or self-energy found")
         
-        if emb.opts.hermitian_lanczos:
+        if hermitian:
             se = se.hermitize()
             gf = gf.hermitize()
 
@@ -75,41 +73,48 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=False, herm
         
         if se_mode == 'lehmann':
             if combine_sectors:
-                se = gf.to_spectral().combine_sectors().to_se_lehmann()
+                se = gf.to_spectral(hermitian=hermitian).combine_sectors(hermitian=hermitian, greens_function=using_gf).to_se_lehmann()
             else:
-                se = gf.to_spectral().to_se_lehmann()
+                se = gf.to_spectral(hermitian=hermitian).to_se_lehmann()
 
         elif se_mode == 'moments':
             if combine_sectors:
-                se = se.combine_sectors()
+                se = se.combine_sectors(hermitian=hermitian, greens_function=using_gf)
+            else:
+                se = se
 
         elif se_mode == 'moments_mblgf':
             print("MOMENTS MBLGF")
             if combine_sectors:
-                se = gf.to_spectral().combine_sectors(greens_function=True).to_se_moments(split=True)
+                se = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf).to_se_moments(split=True)
                 
             else:
-                se = gf.to_spectral(greens_function=True).to_se_moments()
+                se = gf.to_spectral(hermitian=hermitian).to_se_moments()
 
         elif se_mode == 'spectral':
-            se = se.to_spectral()
+            se = se.to_spectral(hermitian=hermitian)
             if combine_sectors:
                 se.combine_sectors()
 
+        assert se.hermitian == hermitian, "Hermiticity of self-energy does not match specified value"
         if not project_before:
             pse = se.project(cfc, proj)
         else:
             pse = se
+
+        #assert pse.hermitian == hermitian, "Hermiticity of projected self-energy does not match specified value"
 
         ses_mo.append(pse.rotate(mc))
         if use_sym:
             for child in f.get_symmetry_children():
                 mc_child = child.get_overlap('mo|cluster')
                 ses_mo.append(pse.rotate(mc_child))
-    
+
     #if orth_basis:
     #    se.unorthogonalize()
+    #assert all(se.hermitian == hermitian for se in ses_mo)
     se = reduce(type(se).combine, ses_mo)
+    #assert se.hermitian == hermitian, "Hermiticity of combined self-energy does not match specified value"
     #se._static = np.diag(emb.mf.mo_energy)
     return se
 

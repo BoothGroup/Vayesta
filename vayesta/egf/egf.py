@@ -104,6 +104,72 @@ class REGF(REWF):
         self.log.info("EA  = %8f"%ea)
         self.log.info("Gap = %8f"%gap)
 
+    def make_greens_function(self, se, chempot_global=None):
+        """
+        Calculate Green's function from self-energy using Dyson equation.
+
+        Parameters
+        ----------
+        se : SE_Lehmann
+            Self-energy in Lehmann representation
+        chempot_global : (None, 'auf', 'aux')
+            Type of chemical potential optimisation for full system Green's function. AufbauPrinciple or AuxiliaryShift.
+        
+        Returns
+        -------
+        gf : Lehmann
+            Green's function
+        """
+
+        if chempot_global is None:
+           chempot_global = self.opts.chempot_global
+        SC = self.get_ovlp() @ self.mo_coeff
+
+        assert isinstance(se, SE_LehmannRep) # Change to accept all SE types?
+        assert se.nsectors == 1 # Implement for separat particle hole GFs?
+
+        if se.statics.ndim == 3:
+            static_self_energy = np.sum(se.statics, axis=0)
+        else:
+            static_self_energy = se.statics
+        
+        if se.overlaps is not None:
+            if se.overlaps.ndim == 3:
+                overlap = np.sum(se.overlaps, axis=0)
+            else:
+                overlap = se.overlaps
+        else:
+            overlap = None
+        self_energy = se.lehmanns[0]
+        
+        print(static_self_energy.shape)
+        print(self_energy.couplings.shape)
+        if overlap is not None:
+            print(overlap.shape)
+
+        gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(static_self_energy, overlap=overlap) )
+
+        # Add fock self-consistency here?
+
+        if chempot_global == 'auf':
+            cpt, err = find_chempot(gf, self.mf.mol.nelectron, occupancy=2)
+            gf = gf.copy(chempot=cpt)
+            self.log.info("Applied global chemical potential shift: %f (error in N_elec: %e)"%(cpt, err))
+
+
+        elif chempot_global == 'aux':
+            mu_solver = dyson.solvers.static.chempot.AuxiliaryShift(static_self_energy, self_energy, self.mf.mol.nelectron, overlap=overlap)
+            mu_solver.kernel()
+            result = mu_solver.result
+            gf = result.get_greens_function()
+            self_energy = result.get_self_energy()
+            self.log.info("Auxilliary shift applied for global chemical potential")
+
+        dm = gf.occupied().moment(0) 
+        nelec_gf = np.trace(dm) * 2.0
+        self.log.info('Number of electrons in GF: %f'%nelec_gf)
+        return gf, self_energy
+
 
     def make_self_energy(self, se_mode=None, se_static_mode=None, hermitian_lanczos=None, combine_sectors=False, proj=None, global_1dm=None):
 
@@ -136,8 +202,8 @@ class REGF(REWF):
         elif se_static_mode == 'fock':
             se_static = np.diag(self.mf.mo_energy)
         elif se_static_mode == 'fock_corr':
-            dm1 = self._make_rdm1_ccsd_global_wf(self, slow=True) 
-            fock_corr_ao = self.emb.get_fock(dm=dm1) 
+            dm1 = self._make_rdm1_ccsd_global_wf(self, slow=True, ao_basis=True) 
+            fock_corr_ao = self.mf.get_fock(dm=dm1) 
             se_static = self.mo_coeff.T @ fock_corr_ao @ self.mo_coeff
         elif se_static_mode == 'cluster_fock_corr':
             raise NotImplementedError()
@@ -157,13 +223,14 @@ class REGF(REWF):
                 se._statics[0][:nocc, :nocc] += fock_mo[:nocc, :nocc]
                 se._statics[1][nocc:, nocc:] += fock_mo[nocc:, nocc:]
             
-        se._overlaps = None
+        #se._overlaps = None
         self.se_orig = se
+        assert se.hermitian == hermitian_lanczos, "Hermiticity of self-energy does not match specified value"
     
         if self.opts.se_mode == 'moments' or self.opts.se_mode == 'moments_mblgf':
 
             
-            # TODO: Refactor this into egf.make_self_energy and egf.make_static_self_energy functions
+            #TODO: Refactor this into egf.make_self_energy and egf.make_static_self_energy functions
             if self.opts.global_1dm:
                 if dm1 is None:
                     dm1 = self._make_rdm1_ccsd_global_wf(self, slow=True) / 2
@@ -191,9 +258,11 @@ class REGF(REWF):
                 se._statics = np.sum(se.statics, axis=0)    
             spec = se.to_spectral().combine_sectors()
             se = spec.to_se_lehmann()
+            se._overlaps = None
 
         elif self.opts.se_mode == 'lehmann':
-            se = se.combine_sectors()
+            if not self.opts.combine_sectors_in_cluster:
+                se = se.combine_sectors()
             
 
         elif self.opts.se_mode == 'spectral':
@@ -203,6 +272,7 @@ class REGF(REWF):
         # if self._ex_stat is not None:
         #     se._statics[0] = self._ex_stat
         self.se_moms = se
+        #assert se.hermitian == hermitian_lanczos, "Hermiticity of self-energy does not match specified value"
 
         return se
 
@@ -461,57 +531,7 @@ class REGF(REWF):
         return self.result.get_overlap(), self.result.get_static_self_energy(), self.result.get_self_energy()
 
         
-    def make_greens_function(self, se, chempot_global=None):
-        """
-        Calculate Green's function from self-energy using Dyson equation.
-
-        Parameters
-        ----------
-        se : SE_Lehmann
-            Self-energy in Lehmann representation
-        chempot_global : (None, 'auf', 'aux')
-            Type of chemical potential optimisation for full system Green's function. AufbauPrinciple or AuxiliaryShift.
-        
-        Returns
-        -------
-        gf : Lehmann
-            Green's function
-        """
-
-        if chempot_global is None:
-           chempot_global = self.opts.chempot_global
-        SC = self.get_ovlp() @ self.mo_coeff
-
-        assert isinstance(se, SE_LehmannRep) # Change to accept all SE types?
-        assert se.nsectors == 1 # Implement for separat particle hole GFs?
-
-        static_self_energy = se.statics[0]
-        overlap = se.overlaps[0]
-        self_energy = se.lehmanns[0]
-        
-
-        gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(static_self_energy, overlap=overlap) )
-
-        # Add fock self-consistency here?
-
-        if chempot_global == 'auf':
-            cpt, err = find_chempot(gf, self.mf.mol.nelectron, occupancy=2)
-            gf = gf.copy(chempot=cpt)
-            self.log.info("Applied global chemical potential shift: %f (error in N_elec: %e)"%(cpt, err))
-
-
-        elif chempot_global == 'aux':
-            mu_solver = dyson.solvers.static.chempot.AuxiliaryShift(static_self_energy, self_energy, self.mf.mol.nelectron, overlap=overlap)
-            mu_solver.kernel()
-            result = mu_solver.result
-            gf = result.get_greens_function()
-            self_energy = result.get_self_energy()
-            self.log.info("Auxilliary shift applied for global chemical potential")
-
-        dm = gf.occupied().moment(0) 
-        nelec_gf = np.trace(dm) * 2.0
-        self.log.info('Number of electrons in GF: %f'%nelec_gf)
-        return gf, self_energy
+    
 
 
     def qsEGF(self, *args, **kwargs):

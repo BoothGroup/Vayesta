@@ -116,7 +116,7 @@ class GF_MomentRep(MomentRep, GreensFunction):
             proj_moms = 0.5 * (einsum('pP,...Pq->...pq', projector, self.moments) + einsum('qQ,...pQ->...pq', projector, self.moments))
         elif nproj == 2:
             proj_moms = einsum('pP,qQ,...PQ->...pq', projector, projector, self.moments)
-        return type(self)(proj_moms)
+        return type(self)(proj_moms, hermitian=self.hermitian)
     
     def rotate(self, rotmat):
         """Change the basis of the moments using the rectangular matrix
@@ -133,7 +133,7 @@ class GF_MomentRep(MomentRep, GreensFunction):
         """
 
         rotated_moms = einsum('pP,qQ,...PQ->...pq', rotmat, rotmat.conj(), self.moments)
-        return type(self)(rotated_moms)
+        return type(self)(rotated_moms, hermitian=self.hermitian)
 
 
     def to_se_moments(self, orth_basis=False):
@@ -218,6 +218,7 @@ class GF_MomentRep(MomentRep, GreensFunction):
             Combined moment representation.
         """
         
+        hermitian = all(se.hermitian for se in (self, *args))
         compatible_shapes = all(arg.moments.shape == self.moments.shape for arg in args)
         if not compatible_shapes:
             raise ValueError("All MomentRep instances must have the same shape to be combined.")
@@ -225,7 +226,7 @@ class GF_MomentRep(MomentRep, GreensFunction):
         combined_moments += self.moments
         for arg in args:
             combined_moments += arg.moments
-        return GF_MomentRep(combined_moments)
+        return GF_MomentRep(combined_moments, hermitian=hermitian)
         
 
 
@@ -356,7 +357,7 @@ class SE_MomentRep(MomentRep, SelfEnergy):
             
         elif nproj == 2:
             proj_moms = einsum('pP,qQ,...PQ->...pq', projector, projector, self.moments)
-        return type(self)(proj_static, proj_moms, proj_overlap) 
+        return type(self)(proj_static, proj_moms, proj_overlap, hermitian=self.hermitian) 
     
 
     def rotate(self, rotmat):
@@ -374,7 +375,7 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         """
         rotated_static, rotated_overlap = self._rotate_static_overlap(rotmat)
         rotated_moms = einsum('pP,qQ,...PQ->...pq', rotmat, rotmat.conj(), self.moments)
-        return type(self)(rotated_static, rotated_moms, rotated_overlap)
+        return type(self)(rotated_static, rotated_moms, rotated_overlap, hermitian=self.hermitian)
 
 
     def orthogonalize(self, overlaps=None):
@@ -491,7 +492,7 @@ class SE_MomentRep(MomentRep, SelfEnergy):
         combined_moments : SE_MomentRep
             Combined moment representation.
         """
-        
+        hermitian = all(se.hermitian for se in (self, *args))
         compatible_shapes = all(arg.moments.shape == self.moments.shape for arg in args)
         compatible_shapes = compatible_shapes and all(arg.statics.shape == self.statics.shape for arg in args)
         if not compatible_shapes:
@@ -505,7 +506,7 @@ class SE_MomentRep(MomentRep, SelfEnergy):
                 combined_overlap += arg.overlaps
             combined_static += arg.statics
             combined_moments += arg.moments
-        return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap)
+        return SE_MomentRep(combined_static, combined_moments, overlap=combined_overlap, hermitian=hermitian)
     
 
     def combine_sectors(self):

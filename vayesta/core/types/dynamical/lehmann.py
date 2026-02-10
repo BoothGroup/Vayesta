@@ -59,6 +59,36 @@ class LehmannRep(Dynamical):
         """Number of physical states in the Lehmann representation."""
         return self.couplings.shape[0]
 
+    def _project_lehmanns(self, projector, nproj, img_space=True):
+        new_lehmanns = []
+        for s in range(self.nsectors):
+            if nproj == 1:
+                if False:
+                    new_energies, new_couplings = project_1_to_fragment_eig(projector, self.lehmanns[s], img_space=img_space)
+                else:
+                    new_energies, new_couplings_l, new_couplings_r = project_1_to_fragment_svd(projector, self.lehmanns[s], img_space=img_space)
+                    new_couplings = np.array([new_couplings_l, new_couplings_r])
+
+            elif nproj == 2:
+                new_energies = self.lehmanns[s].energies
+                if self.hermitian:
+                    new_couplings = projector @ self.lehmanns[s].couplings
+                else:
+                    coup_l, coup_r = self.lehmanns[s].unpack_couplings()
+                    new_couplings_l = projector @ coup_l
+                    new_couplings_r = projector @ coup_r
+                    new_couplings = np.array([new_couplings_l, new_couplings_r])            
+            new_lehmann = Lehmann(new_energies, new_couplings)
+            new_lehmanns.append(new_lehmann)
+        return new_lehmanns
+
+    def _rotate_lehmanns(self, rotation):
+        new_lehmanns = []
+        for s in range(self.nsectors):
+            new_couplings = rotation @ self.lehmanns[s].couplings
+            new_lehmann = Lehmann(self.lehmanns[s].energies, new_couplings)
+            new_lehmanns.append(new_lehmann)
+        return new_lehmanns
 
 
 
@@ -91,13 +121,7 @@ class GF_LehmannRep(LehmannRep, GreensFunction):
         rotation : ndarray (nphys, nphys)
             Unitary rotation matrix.
         """
-
-        new_lehmanns = []
-        for s in range(self.nsectors):
-            new_couplings = rotation @ self.lehmanns[s].couplings
-            new_lehmann = Lehmann(self.lehmanns[s].energies, new_couplings)
-            new_lehmanns.append(new_lehmann)
-
+        new_lehmanns = self._rotate_lehmanns(rotation)
         return GF_LehmannRep(new_lehmanns)
     
 
@@ -111,28 +135,7 @@ class GF_LehmannRep(LehmannRep, GreensFunction):
         nproj : int
             Number of indices to project.
         """
-
-        new_lehmanns = []
-        for s in range(self.nsectors):
-            if nproj == 1:
-                if self.hermitian:
-                    new_energies, new_couplings = project_1_to_fragment_eig(projector, self.lehmanns[s], img_space=img_space)
-                else:
-                    new_energies, new_couplings_l, new_couplings_r = project_1_to_fragment_svd(projector, self.lehmanns[s], img_space=img_space)
-                    new_couplings = np.array([new_couplings_l, new_couplings_r])
-
-            elif nproj == 2:
-                new_energies = self.lehmanns[s].energies
-                if self.hermitian:
-                    new_couplings = projector @ self.lehmanns[s].couplings
-                else:
-                    coup_l, coup_r = self.lehmanns[s].unpack_couplings()
-                    new_couplings_l = projector @ coup_l
-                    new_couplings_r = projector @ coup_r
-                    new_couplings = np.array([new_couplings_l, new_couplings_r])            
-            new_lehmann = Lehmann(new_energies, new_couplings)
-            new_lehmanns.append(new_lehmann)
-
+        new_lehmanns = self._project_lehmanns(projector, nproj, img_space=img_space)
         return GF_LehmannRep(new_lehmanns)
     
     def to_moments(self, nmom):
@@ -171,31 +174,21 @@ class SE_LehmannRep(LehmannRep, SelfEnergy):
 
         """
 
-        self._init_static_overlap(statics, overlaps, hermitian=None)
-
         if isinstance(lehmanns, Lehmann):
             lehmanns = [lehmanns]
 
         self._lehmanns = lehmanns
+        self._init_static_overlap(statics, overlaps, hermitian=self.hermitian)
 
     def hermitize(self):
         raise NotImplementedError("Hermitization of Lehmann representation is not implemented.")
     
 
     def rotate(self, rotation):
-        new_overlaps = []
-        new_statics = []
-        new_lehmanns = []
-        for s in range(self.nsectors):
-            new_couplings = rotation @ self.lehmanns[s].couplings
-            new_lehmann = Lehmann(self.lehmanns[s].energies, new_couplings)
-            new_lehmanns.append(new_lehmann)
-
-            new_overlaps.append(rotation @ self.overlaps[s] @ rotation.T.conj())
-            new_statics.append(rotation @ self.statics[s] @ rotation.T.conj())
-
+        new_statics, new_overlaps = self._rotate_static_overlap(rotation)
+        new_lehmanns = self._rotate_lehmanns(rotation)
         return SE_LehmannRep(new_statics, new_lehmanns, overlaps=new_overlaps)
-
+    
     def project(self, projector, nproj, img_space=True):
         """Project the Lehmann representation using the given projector.
 
@@ -206,38 +199,8 @@ class SE_LehmannRep(LehmannRep, SelfEnergy):
         nproj : int
             Number of indices to project.
         """
-        proj_statics = []
-        proj_overlaps = []
-        proj_lehmanns = []
-        for s in range(self.nsectors):
-            if nproj == 1:
-                proj_static = 0.5 * (einsum('pP,...Pq->...pq', projector, self.statics[s]) + einsum('qQ,...pQ->...pq', projector, self.statics[s]))
-                proj_overlap = 0.5 * (einsum('pP,...Pq->...pq', projector, self.overlaps[s]) + einsum('qQ,...pQ->...pq', projector, self.overlaps[s]))
-
-                if self.hermitian:
-                    new_energies, new_couplings = project_1_to_fragment_eig(projector, self.lehmanns[s], img_space=img_space)
-                else:
-                    new_energies, new_couplings_l, new_couplings_r = project_1_to_fragment_svd(projector, self.lehmanns[s], img_space=img_space)
-                    new_couplings = np.array([new_couplings_l, new_couplings_r])
-
-            elif nproj == 2:
-                proj_static = einsum('pP,qQ,...PQ->...pq', projector, projector, self.statics[s])
-                proj_overlap = einsum('pP,qQ,...PQ->...pq', projector, projector, self.overlaps[s])
-                
-                new_energies = self.lehmanns[s].energies
-                if self.hermitian:
-                    new_couplings = projector @ self.lehmanns[s].couplings
-                else:
-                    coup_l, coup_r = self.lehmanns[s].unpack_couplings()
-                    new_couplings_l = projector @ coup_l
-                    new_couplings_r = projector @ coup_r
-                    new_couplings = np.array([new_couplings_l, new_couplings_r])  
-
-            proj_statics.append(proj_static)
-            proj_overlaps.append(proj_overlap)          
-            proj_lehmann = Lehmann(new_energies, new_couplings)
-            proj_lehmanns.append(proj_lehmann)
-
+        proj_lehmanns = self._project_lehmanns(projector, nproj, img_space=img_space)
+        proj_statics, proj_overlaps = self._project_static_overlap(projector, nproj)
         return SE_LehmannRep(proj_statics, proj_lehmanns, overlaps=proj_overlaps)
 
 
@@ -280,10 +243,10 @@ class SE_LehmannRep(LehmannRep, SelfEnergy):
         compatible_shapes = compatible_shapes and all(arg.overlaps.shape == self.overlaps.shape for arg in args)
         if not compatible_shapes:
             raise ValueError("All SE_LehmannRep instances must have the same shape to be combined.")
-        
 
-        dtype = np.complex128 if any(arg.hermitian == False for arg in args) or not self.hermitian else np.float64
-        dtype = np.complex128 
+        hermitian = self.hermitian and all(arg.hermitian for arg in args)
+        dtype = np.complex128 if not hermitian else np.float64
+
         combined_overlaps = self.overlaps.astype(dtype)
         combined_statics = self.statics.astype(dtype)
         combined_energies = [self.lehmanns[s].energies.astype(dtype) for s in range(self.nsectors)]
@@ -313,8 +276,7 @@ class SE_LehmannRep(LehmannRep, SelfEnergy):
         combined_lehmann : SE_LehmannRep
             Combined Lehmann representation.
         """
-        dtype = np.complex128 #if not self.hermitian else np.float64
-
+        dtype = np.float64 if self.hermitian else np.complex128
         combined_static, combined_overlap = self._combine_static_overlap()
         combined_energies = []
         combined_couplings = []
