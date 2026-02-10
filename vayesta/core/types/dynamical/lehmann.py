@@ -91,6 +91,19 @@ class LehmannRep(Dynamical):
         return new_lehmanns
 
 
+    def _remove_degeneracies(self, hermitian=None, etol=1e-6, dtol=1e-6):
+        hermitian = self.hermitian if hermitian is None else hermitian
+        new_lehmanns = []
+        for s, l in enumerate(self.lehmanns):
+            if hermitian:
+                new_lehmann = remove_se_degeneracy_sym(l, etol=etol, dtol=dtol)
+            else:
+                new_lehmann = remove_se_degeneracy_nsym(l, etol=etol, dtol=dtol)
+            
+            new_lehmanns.append(new_lehmann)
+        return new_lehmanns
+
+
 
 class GF_LehmannRep(LehmannRep, GreensFunction):
 
@@ -157,6 +170,10 @@ class GF_LehmannRep(LehmannRep, GreensFunction):
             moments.append(moms)
         return GF_MomentRep(moments=np.array(moments), hermitian=self.hermitian)
 
+    def remove_degeneracies(self, hermitian=None, etol=1e-6, dtol=1e-6):
+        new_lehmanns = self._remove_degeneracies(hermitian=hermitian, etol=etol, dtol=dtol)
+        return GF_LehmannRep(new_lehmanns)
+ 
 
 
 class SE_LehmannRep(LehmannRep, SelfEnergy):
@@ -290,6 +307,10 @@ class SE_LehmannRep(LehmannRep, SelfEnergy):
 
         combined_lehmann = Lehmann(combined_energies, combined_couplings)
         return SE_LehmannRep(combined_static, combined_lehmann, overlaps=combined_overlap)
+
+    def remove_degeneracies(self, hermitian=None, etol=1e-6, dtol=1e-6):
+        new_lehmanns = self._remove_degeneracies(hermitian=hermitian, etol=etol, dtol=dtol)
+        return SE_LehmannRep(self.statics, new_lehmanns, overlaps=self.overlaps)
 
 
 def project_1_to_fragment_eig(cfc, se, hermitize=False, img_space=True, tol=1e-6):
@@ -571,3 +592,105 @@ def svd_outer_sum_slow(vs, ws, tol=1e-12, fac=1):
     u = U[:,idx] @ np.diag(np.sqrt(s))
     v = Vh.conj().T[:,idx] @ np.diag(np.sqrt(s))
     return u, s, v
+
+
+def get_unique(array, atol=1e-15): 
+    
+    # Find elements of a sorted float array which are unique up to a tolerance
+    
+    assert len(array.shape) == 1
+    
+    i = 0
+    slices = []
+    while i < len(array):
+        j = 1
+        idxs = [i]
+        while i+j < len(array):
+            if np.abs(array[i] - array[i+j]) < atol:
+                idxs.append(i+j)
+                j += 1
+            else: 
+                break
+        i = i + j
+        slices.append(np.s_[idxs[0]:idxs[-1]+1])
+    new_array = np.array([array[s].mean() for s in slices])
+    return new_array, slices
+
+
+def remove_se_degeneracy_sym(se, dtol=1e-8, etol=1e-6, drop_non_causal=False, img_space=False, log=None):
+    if log is not None:
+        log.info("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    e = se.energies
+    couplings_l, couplings_r = se.unpack_couplings()
+    e_new, slices = get_unique(e, atol=dtol)#
+    if log is not None:
+        log.info("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    energies, couplings = [], []
+    warn_non_causal = False
+    for i, s in enumerate(slices):
+        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s]).real
+        #print("Hermitian: %s"%np.linalg.norm(mat - mat.T.conj()))
+        if img_space:
+            # TODO FIX ME - need to track non causal poles correctly and ensure maximal cancellation
+            val, w = eig_outer_sum(couplings_l[:,s].T, couplings_r[:,s].T, tol=etol, fac=0.5)
+            idx = val > etol if  drop_non_causal else np.abs(val) > etol
+            if np.sum(val[idx] < -etol) > 0:
+                warn_non_causal = True
+            w = w[:,idx]
+        else:
+            mat = 0.5 * (mat + mat.T.conj())
+            assert np.allclose(mat, mat.T.conj())
+            val, vec = np.linalg.eigh(mat)
+            idx = val > etol if  drop_non_causal else np.abs(val) > etol
+            if np.sum(val[idx] < -etol) > 0:
+                warn_non_causal = True
+            w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex128))
+        couplings.append(w)
+        energies += [e_new[i] for _ in range(idx.sum())]
+
+        if log is not None:
+            log.debug("    | E = %e << %s"%(e_new[i],e[s]))
+            log.debug("       evals: %s"%val)
+            log.debug("       kept:  %s"%(val[idx]))
+    if warn_non_causal:
+        if log is not None:
+            log.warning("Non-causal poles found in self-energy")
+    couplings = np.hstack(couplings).real
+    return Lehmann(np.array(energies), np.array(couplings))
+
+
+def remove_se_degeneracy_nsym(se, dtol=1e-8, etol=1e-6, img_space=True, log=None):
+
+    if log is not None:
+        log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    e = se.energies
+    couplings_l, couplings_r = se.unpack_couplings()
+    e_new, slices = get_unique(e, atol=dtol)#
+    if log is not None:
+        log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    energies, new_couplings_l, new_couplings_r = [], [], []
+    for i, s in enumerate(slices):
+        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s].conj())
+        if img_space:
+            # Fast image space algorithm
+            u, sing, v = svd_outer_sum(couplings_l[:,s].T, couplings_r[:,s].T, tol=etol)
+            idx = sing > etol
+        else:
+            # Slow SVD in full space
+            U, sing, Vh = np.linalg.svd(mat)
+            idx = sing > etol
+            u = U[:,idx] @ np.diag(np.sqrt(sing[idx]))
+            v = Vh.T.conj()[:,idx] @ np.diag(np.sqrt(sing[idx]))
+        new_couplings_l.append(u)
+        new_couplings_r.append(v)
+        energies += [e_new[i] for _ in range(u.shape[1])]
+
+        if log is not None:
+            log.debug("    | E = %e << %s"%(e_new[i],e[s]))
+            log.debug("       sing vals: %s"%sing)
+            log.debug("            kept:  %s"%(sing[idx]))
+    
+    couplings = np.array([np.hstack(new_couplings_l), np.hstack(new_couplings_r)])
+    return Lehmann(np.array(energies), couplings)
+
+

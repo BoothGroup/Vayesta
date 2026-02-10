@@ -73,7 +73,7 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=None, use_s
         
         if se_mode == 'lehmann':
             if combine_sectors:
-                se = gf.to_spectral(hermitian=hermitian).combine_sectors(hermitian=hermitian, greens_function=using_gf).to_se_lehmann()
+                se = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf).to_se_lehmann()
             else:
                 se = gf.to_spectral(hermitian=hermitian).to_se_lehmann()
 
@@ -114,6 +114,9 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=None, use_s
     #    se.unorthogonalize()
     #assert all(se.hermitian == hermitian for se in ses_mo)
     se = reduce(type(se).combine, ses_mo)
+
+    if se_mode == 'lehmann':
+        se = se.remove_degeneracies(etol=emb.opts.se_eval_tol, dtol=emb.opts.se_degen_tol)
     #assert se.hermitian == hermitian, "Hermiticity of combined self-energy does not match specified value"
     #se._static = np.diag(emb.mf.mo_energy)
     return se
