@@ -38,6 +38,22 @@ def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     return UClusterHamiltonian(fragment, mf, log=log, **kwargs)
 
 
+class ClusterMol(pyscf.gto.mole.Mole):
+
+    def __init__(self, fragment, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fragment = fragment
+
+
+    def intor(self, *args, **kwargs):
+        c_active = self.fragment.cluster.c_active
+        ints = self.fragment.base.mol.intor(*args, **kwargs)
+        if args[0] == 'int1e_r':
+            ints = np.matmul(c_active.T, np.matmul(ints, c_active))
+        else:
+            raise NotImplementedError("Integral %s not implemented in ClusterMol.intor"%args[0])
+        return ints
+
 class DummyERIs:
     def __init__(self, getter, valid_blocks, **kwargs):
         self.getter = getter
@@ -249,7 +265,7 @@ class RClusterHamiltonian:
             Representation of cluster as pyscf molecule.
         """
 
-        clusmol = pyscf.gto.mole.Mole()
+        clusmol = ClusterMol(self._fragment)
         # Copy over all output controls from original mol object.
         clusmol.verbose = self.orig_mf.mol.verbose
         if self.orig_mf.mol.output is not None:
