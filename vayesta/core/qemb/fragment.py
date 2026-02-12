@@ -978,11 +978,10 @@ class Fragment:
 
         fock_clus = cluster.c_active.T @ self.base.get_fock() @ cluster.c_active
         diag_err = np.linalg.norm(fock_clus - np.diag(np.diag(fock_clus)))
-        #print("MO energy: %s"%np.diag(fock_clus))
-        print("Fock diag error2: %s"%diag_err)
+        
         nocc = cluster.nocc
         dm_norm = np.linalg.norm(cluster.c_active[:, :nocc] @ cluster.c_active[:, :nocc].T)
-        print("DM norm %.6e"%dm_norm)
+
         return cluster
 
     def make_bosonic_bath_target(self):

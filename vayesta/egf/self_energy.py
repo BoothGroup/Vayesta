@@ -84,7 +84,6 @@ def make_self_energy(emb, proj=1, se_mode='moments', combine_sectors=None, use_s
                 se = se
 
         elif se_mode == 'moments_mblgf':
-            print("MOMENTS MBLGF")
             if combine_sectors:
                 se = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf).to_se_moments(split=True)
                 

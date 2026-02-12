@@ -32,6 +32,7 @@ from dyson import MBLGF, MBLSE, FCI, CCSD, AufbauPrinciple, AuxiliaryShift, Lehm
 from dyson.solvers.static.chempot import search_aufbau_global as find_chempot
 from dyson.util.moments import se_moments_to_gf_moments, gf_moments_to_se_moments
 
+
 @dataclasses.dataclass
 class Options(REWF.Options):
     """Options for EGF calculations."""
@@ -44,8 +45,8 @@ class Options(REWF.Options):
     drop_non_causal: bool = False # Drop non-causal poles
     chempot_global: str = None # Use auxiliary shift to ensure correct electron number in the physical space (None, 'auf', 'aux')
     chempot_clus: str = 'auto' # Use auxiliary shift to ensure correct electron number in the fragment space (None, 'auf', 'aux')
-    se_mode: str = 'lehmann' # Mode for self-energy reconstruction (moments, lehmann)
-    se_static: str = 'cluster_moments' # Method for static self-energy (cluster_moments, fock, fock_corr, cluster_fock_corr)
+    se_mode: str = 'moments_mblgf' # Mode for self-energy reconstruction (moments, lehmann)
+    se_static: str = 'cluster_moments_corr' # Method for static self-energy (cluster_moments, fock, fock_corr, cluster_fock_corr)
     nmom_se: int = None      # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
     sym_moms: bool = True # Use symmetrized moments
@@ -53,7 +54,7 @@ class Options(REWF.Options):
     global_1dm: bool = False  # Use global 1DM for zeroth moments
     global_1dm_static: bool = False  # Use Fock matrix evaluated at global 1DM for static self-energy
     static_with_mf: bool = False # Include mean-field in cluster static self-energy
-    combine_sectors_in_cluster: bool = False # Combine sectors when reconstructing self-energy in cluster
+    combine_sectors_in_cluster: bool = True # Combine sectors when reconstructing self-energy in cluster
 
 
     solver_options: dict = Embedding.Options.change_dict_defaults("solver_options", n_moments=(6,6), conv_tol=1e-15, conv_tol_normt=1e-15)
@@ -96,6 +97,8 @@ class REGF(REWF):
 
         self.gf, self.se = self.make_greens_function(self.se, chempot_global=self.opts.chempot_global)
         
+        #gm_energy = self.galitskii_migdal(self.gf, self.se)
+        #self.log.info("Galitskii-Migdal energy: %s", energy_string(gm_energy))
 
         ea = self.gf.physical().virtual().energies[0] 
         ip = self.gf.physical().occupied().energies[-1]
@@ -141,11 +144,7 @@ class REGF(REWF):
         else:
             overlap = None
         self_energy = se.lehmanns[0]
-        
-        print(static_self_energy.shape)
-        print(self_energy.couplings.shape)
-        if overlap is not None:
-            print(overlap.shape)
+    
 
         gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(static_self_energy, overlap=overlap) )
 
@@ -275,6 +274,7 @@ class REGF(REWF):
         #assert se.hermitian == hermitian_lanczos, "Hermiticity of self-energy does not match specified value"
 
         return se
+    
 
     def make_static_self_energy(self, proj, sym_moms=False, with_mf=False, use_sym=True):
         return make_static_self_energy(self, proj=proj, sym_moms=sym_moms, with_mf=with_mf, use_sym=use_sym)
