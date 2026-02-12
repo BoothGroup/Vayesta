@@ -91,7 +91,7 @@ class REGF(REWF):
         """Run the EGF calculation"""
         super().kernel()
        
-            
+           
         self.se = self.make_self_energy(se_mode=self.opts.se_mode, hermitian_lanczos=self.opts.hermitian_lanczos, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, global_1dm=self.opts.global_1dm)
 
 
@@ -194,6 +194,7 @@ class REGF(REWF):
         #     #raise ValueError("Invalid self-energy mode: %s"%self.opts.se_mode)
 
         dm1 = None
+        self.log.info("Calculating static self-energy with %s method."%se_static_mode)
         if se_static_mode == 'cluster_moments':
             se_static = make_static_self_energy(self, proj=1, sym_moms=self.opts.sym_moms, with_mf=True, use_sym=self.opts.use_sym, orth_basis=self.opts.global_1dm)
         elif se_static_mode == 'cluster_moments_corr':
@@ -209,6 +210,7 @@ class REGF(REWF):
         else:
             raise ValueError("Invalid static self-energy mode: %s"%se_static_mode)
         
+        self.log.info("Calculating global self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
         se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm)
         se._statics = se_static
 
@@ -221,6 +223,9 @@ class REGF(REWF):
             else:
                 se._statics[0][:nocc, :nocc] += fock_mo[:nocc, :nocc]
                 se._statics[1][nocc:, nocc:] += fock_mo[nocc:, nocc:]
+
+
+        # TODO: Clean up what follows...
             
         #se._overlaps = None
         self.se_orig = se
