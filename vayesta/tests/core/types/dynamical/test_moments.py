@@ -61,7 +61,7 @@ class Test_FCI_Dynamical_Types(TestCase):
 
         spectral = gf_moms.to_spectral()
         gf_moms_spec = spectral.to_gf_moments()
-        se_moms_spec = spectral.to_se_moments()
+        se_moms_spec = spectral.to_se_moments(split=False)
 
         self.assertTrue((gf_moms.hermitian and gf_moms_spec.hermitian) == self.hermitian)
         self.assertTrue(gf_moms.moments.shape == gf_moms_spec.moments.shape)
@@ -70,6 +70,14 @@ class Test_FCI_Dynamical_Types(TestCase):
         self.assertTrue((se_moms.hermitian and se_moms_spec.hermitian) == self.hermitian)
         self.assertTrue(se_moms.moments.shape == se_moms_spec.moments.shape)
         self.assertMomsClose(gf_moms.moments, gf_moms_spec.moments, rtol=1e-8)
+        
+        se_leh = spectral.to_se_lehmann()
+        se_moms_leh = se_leh.to_moments(self.nmom-2)
+        self.assertMomsClose(se_moms.moments, se_moms_leh.moments, rtol=1e-8)
+
+        gf_leh = spectral.to_gf_lehmann()
+        gf_moms_leh = gf_leh.to_moments(self.nmom)
+        self.assertMomsClose(gf_moms.moments, gf_moms_leh.moments, rtol=1e-8)
 
     def test_se_moment_to_spectral(self):
 
@@ -81,7 +89,7 @@ class Test_FCI_Dynamical_Types(TestCase):
 
         spectral = se_moms.to_spectral()
         gf_moms_spec = spectral.to_gf_moments()
-        se_moms_spec = spectral.to_se_moments()
+        se_moms_spec = spectral.to_se_moments(split=False)
 
         self.assertTrue((gf_moms.hermitian and gf_moms_spec.hermitian) == self.hermitian)
         self.assertTrue(gf_moms.moments.shape == gf_moms_spec.moments.shape)
@@ -91,6 +99,14 @@ class Test_FCI_Dynamical_Types(TestCase):
         self.assertTrue((se_moms.hermitian and se_moms_spec.hermitian) == self.hermitian)
         self.assertTrue(se_moms.moments.shape == se_moms_spec.moments.shape)
         self.assertMomsClose(gf_moms.moments, gf_moms_spec.moments, rtol=1e-8)
+
+        se_leh = spectral.to_se_lehmann()
+        se_moms_leh = se_leh.to_moments(self.nmom-2)
+        self.assertMomsClose(se_moms.moments, se_moms_leh.moments, rtol=1e-8)
+
+        gf_leh = spectral.to_gf_lehmann()
+        gf_moms_leh = gf_leh.to_moments(self.nmom)
+        self.assertMomsClose(gf_moms.moments, gf_moms_leh.moments, rtol=1e-8)
 
 
     def test_moment_to_lehmann(self):

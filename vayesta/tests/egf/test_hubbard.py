@@ -48,7 +48,7 @@ class Test_Full_Bath_FCI(TestCase):
         solverp = MBLGF(tp, hermitian=hermitian)
         solverp.kernel()
 
-        result = Spectral.combine_dyson(solverh.result, solverp.result)
+        result = Spectral.combine_for_greens_function(solverh.result, solverp.result)
         se = result.get_self_energy()
         # Shift = AufbauPrinciple if cls.solver == 'CCSD' else AuxiliaryShift
         # solver = Shift(th[1]+tp[1], se, mf.mol.nelectron, log=NullLogger())
@@ -74,7 +74,7 @@ class Test_Full_Bath_FCI(TestCase):
     def test_ea_ip(self):
         se_exact, gf_exact = self.exact(self.mf)
         emb = self.emb(self.mf)
-        se_emb, gf_emb = emb.self_energy, emb.gf
+        se_emb, gf_emb = emb.se, emb.gf
 
         # Test physical QP energies
         ip_exact = gf_exact.physical().occupied().energies[-1]
@@ -87,7 +87,7 @@ class Test_Full_Bath_FCI(TestCase):
     def test_perturbed_mo_energy(self):
         se_exact, gf_exact = self.exact(self.mf)
         emb = self.emb(self.mf)
-        se_emb, gf_emb = emb.self_energy, emb.gf
+        se_emb, gf_emb = emb.se, emb.gf
 
         gf_energies_exact = gf_exact.as_perturbed_mo_energy()
         gf_energies_emb = gf_emb.as_perturbed_mo_energy()
@@ -98,7 +98,7 @@ class Test_Full_Bath_FCI(TestCase):
     def test_gf_moments(self):
         se_exact, gf_exact = self.exact(self.mf)
         emb = self.emb(self.mf)
-        se_emb, gf_emb = emb.self_energy, emb.gf
+        se_emb, gf_emb = emb.se, emb.gf
 
         th_exact = np.array([gf_exact.occupied().moment(i) for i in range(self.NMOM_MAX_GF)])
         tp_exact = np.array([gf_exact.virtual().moment(i) for i in range(self.NMOM_MAX_GF)])
@@ -113,7 +113,7 @@ class Test_Full_Bath_FCI(TestCase):
     def test_se_moments(self):
         se_exact, gf_exact = self.exact(self.mf)
         emb = self.emb(self.mf)
-        se_emb, gf_emb = emb.self_energy, emb.gf
+        se_emb, gf_emb = emb.se, emb.gf
 
         se_mom_exact = [se_exact.moment(i) for i in range(self.NMOM_MAX_SE)]
         se_mom_emb = [se_emb.moment(i) for i in range(self.NMOM_MAX_SE)]
@@ -122,7 +122,7 @@ class Test_Full_Bath_FCI(TestCase):
     def test_static_potential(self):
         se_exact, gf_exact = self.exact(self.mf)
         emb = self.emb(self.mf)
-        se_emb, gf_emb = emb.self_energy, emb.gf
+        se_emb, gf_emb = emb.se, emb.gf
 
         static_potential_exact = se_exact.as_static_potential(self.mf.mo_energy, eta=self.ETA)
         static_potential_emb = se_emb.as_static_potential(self.mf.mo_energy, eta=self.ETA)
