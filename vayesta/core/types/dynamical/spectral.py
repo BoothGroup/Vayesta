@@ -1,5 +1,6 @@
 import numpy as np
 from dyson import Spectral, Lehmann
+from dyson.solvers.static.chempot import search_aufbau_global, AuxiliaryShift
 from vayesta.core.util import einsum
 
 from .dynamical import Dynamical, GreensFunction, SelfEnergy
@@ -131,6 +132,36 @@ class SpectralRep(Dynamical):
             moms.append(gf.moments(range(nmom)))
 
         return GF_MomentRep(np.array(moms), hermitian=self.hermitian)
+
+
+    def optimize_chempot(self, nelec, method='auf', occupancy=2):
+        """Optimize chemical potential to satisfy Luttinger theorem."""
+        
+        if method not in ['auf', 'aux']:
+            raise ValueError("Invalid chemical potential optimization method: %s"%method)
+
+        if self.nsectors != 1:
+            raise NotImplementedError("Chemical potential optimization is only implemented for single sector spectral representations.")
+        
+        if method == 'auf':
+            gf = self.spectrals[0].get_greens_function()
+            chempot, err = search_aufbau_global(gf, nelec, occupancy=occupancy)
+            self.chempot = chempot
+            print("Chmempot optimization: chempot=%.6f, error=%.2e"%(chempot, err))
+            eigvals, eigvecs = self.spectrals[0].eigvals, self.spectrals[0].eigvecs
+            nphys = self.spectrals[0].nphys
+            new_spec = Spectral(eigvals, eigvecs, nphys=nphys, chempot=self.chempot)
+
+        elif method == 'aux':
+            static = self.spectrals[0].get_static_self_energy()
+            se = self.spectrals[0].get_self_energy()
+            overlap = self.spectrals[0].get_overlap()
+            solver = AuxiliaryShift(static, se, nelec, overlap=overlap)
+            solver.kernel()
+            new_spec = solver.result
+            self.spectrals[0] = new_spec
+
+        return type(self)([new_spec])# , err
     
     def to_se_moments(self, nmom=None, split=True, chempot=None):
         """Convert to self-energy moments representation.
