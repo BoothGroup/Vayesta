@@ -91,17 +91,19 @@ class REGF(REWF):
         """Run the EGF calculation"""
         super().kernel()
        
-           
-        self.se = self.make_self_energy(se_mode=self.opts.se_mode, hermitian_lanczos=self.opts.hermitian_lanczos, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, global_1dm=self.opts.global_1dm)
+        with log_time(self.log.info, "Time for self-energy: %s"):   
+            self.se = self.make_self_energy(se_mode=self.opts.se_mode, hermitian_lanczos=self.opts.hermitian_lanczos, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, global_1dm=self.opts.global_1dm)
 
-
-        self.gf, self.se = self.make_greens_function(self.se, chempot_global=self.opts.chempot_global)
+        with log_time(self.log.info, "Time for Green's function: %s"):
+            self.gf, self.se = self.make_greens_function(self.se, chempot_global=self.opts.chempot_global)
         
         #gm_energy = self.galitskii_migdal(self.gf, self.se)
         #self.log.info("Galitskii-Migdal energy: %s", energy_string(gm_energy))
 
-        ea = self.gf.physical().virtual().energies[0] 
-        ip = self.gf.physical().occupied().energies[-1]
+        #ea = self.gf.physical().virtual().energies[0] 
+        #ip = self.gf.physical().occupied().energies[-1]
+        ip = self.gf.as_perturbed_mo_energy()[self.mf.mol.nelectron//2-1]
+        ea = self.gf.as_perturbed_mo_energy()[self.mf.mol.nelectron//2]
         gap = ea - ip
         self.log.info("IP  = %8f"%ip)
         self.log.info("EA  = %8f"%ea)
@@ -145,7 +147,7 @@ class REGF(REWF):
             overlap = None
         self_energy = se.lehmanns[0]
     
-
+        self.log.info("Diagonalizing arrowhead matrix to obtain Green's function")
         gf = Lehmann(*self_energy.diagonalise_matrix_with_projection(static_self_energy, overlap=overlap) )
 
         # Add fock self-consistency here?
@@ -210,7 +212,7 @@ class REGF(REWF):
         else:
             raise ValueError("Invalid static self-energy mode: %s"%se_static_mode)
         
-        self.log.info("Calculating global self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
+        self.log.info("Calculating dynamic self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
         se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm)
         se._statics = se_static
 
