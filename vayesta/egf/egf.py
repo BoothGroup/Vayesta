@@ -87,9 +87,11 @@ class REGF(REWF):
             self.log.info(break_into_lines(str(self.opts), newline="\n    "))
             #self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer() - t0))
     
-    def kernel(self):
+    def kernel(self, run_ewf=True):
         """Run the EGF calculation"""
-        super().kernel()
+
+        if run_ewf:
+            super().kernel()
        
         with log_time(self.log.info, "Time for self-energy: %s"):   
             self.se = self.make_self_energy(se_mode=self.opts.se_mode, hermitian_lanczos=self.opts.hermitian_lanczos, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, global_1dm=self.opts.global_1dm)
@@ -213,7 +215,7 @@ class REGF(REWF):
             raise ValueError("Invalid static self-energy mode: %s"%se_static_mode)
         
         self.log.info("Calculating dynamic self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
-        se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm)
+        se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm, non_local_se=self.opts.non_local_se, hermitian=self.opts.hermitian_lanczos)
         se._statics = se_static
 
         if se_static_mode == 'cluster_moments_corr':

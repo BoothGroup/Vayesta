@@ -20,11 +20,11 @@ class RGW_Solver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
-        polarizability: str = 'dtda'
+        polarizability: str = 'drpa'
         optimize_chempot: bool = False
         fock_loop: bool = False
 
-        nmom: (int, int) = (11,11)
+        n_moments: (int, int) = (11,11)
 
 
 
@@ -39,7 +39,7 @@ class RGW_Solver(ClusterSolver):
         self.log.info("Calculating cluster GW self-energy moments")
         se_static = gw.build_se_static(integrals)
         with log_time(self.log.timing, "Time for self-energy moments: %s"):
-            se_moms = gw.build_se_moments(self.opts.nmom[0], integrals)
+            se_moms = gw.build_se_moments(self.opts.n_moments[0], integrals)
 
         nmo = se_static.shape[-1]
         dm1 = np.zeros((nmo, nmo))
