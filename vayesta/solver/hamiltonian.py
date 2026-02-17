@@ -265,7 +265,8 @@ class RClusterHamiltonian:
             Representation of cluster as pyscf molecule.
         """
 
-        clusmol = ClusterMol(self._fragment)
+        #clusmol = ClusterMol(self._fragment)
+        clusmol = pyscf.gto.Mole()
         # Copy over all output controls from original mol object.
         clusmol.verbose = self.orig_mf.mol.verbose
         if self.orig_mf.mol.output is not None:
