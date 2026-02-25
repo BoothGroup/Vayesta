@@ -125,7 +125,8 @@ def make_self_energy(
         chempot_clus=None, 
         orth_basis=False, 
         project_before=False,
-        non_local_se = None,
+        non_local_se = None, 
+        se_dc_mode = 'subtract', 
         ):
 
     """
@@ -141,31 +142,46 @@ def make_self_energy(
         Number of projectors to use (1 or 2)
     se_mode : string ('lehmann', 'moments', 'moments_mblgf' or 'spectral')
         Method used to combine cluster self-energies.
-
     chempot_clus : string or None ('aux' or 'auf')
         Method to optimize chemical potential in cluster spectral function.
-
-    double_counting : string or None ('gw_rpa', 'gw_tda')
-            Method to determine double counting correction when combining embedding self-energy with full system GW or CCSD self-energy.
-
     project_before : bool 
-        Whether to project self-energy before or after sector combination and/or Lanczos
-        
+        Whether to project self-energy before or after sector combination and/or Lanczos.
+    non_local_se : string or None ('gw_rpa' or 'gw_tda')
+        Whether to include non-local self-energy from full system GW calculation, and if so, which polarizability to use in the GW calculation.
+    se_dc_mode : string ('subtract' or 'project')
+        Method to apply double counting correction when combining embedding self-energy with full system GW self-energy. 
+        'subtract' subtracts the local GW self-energy moments from the cluster self-energy moments before projection.
+        'project' projects out the cluster contribution to the full GW self-energy.
 
     Returns
     -------
-    self_energy_moms : ndarry (n_se_mom, nmo, nmo)
-        Full system self-energy moments (MO basis)
+    self_energy_moms : vayesta.core.types.dynamical.SelfEnergy
+        Full system self-energy (MO basis)
     """
 
     if se_mode not in ['lehmann', 'moments', 'moments_mblgf', 'spectral']:
         raise ValueError("Invalid self-energy construction method")
+
+    if non_local_se is not None and non_local_se.lower() not in ['gw_rpa', 'gw_tda']:
+        raise ValueError("Invalid non-local self-energy method")
+    
+    if se_dc_mode not in ['subtract', 'project']:
+        raise ValueError("Invalid double counting correction method")
     
     if se_mode not in ['moments', 'moments_mblgf'] and non_local_se is not None:
         raise NotImplementedError("Double counting correction only implemented for moment-based self-energy construction")
     
     hermitian = emb.opts.hermitian_lanczos if hermitian is None else hermitian
     combine_sectors = emb.opts.combine_sectors_in_cluster if combine_sectors is None else combine_sectors
+
+    if non_local_se is not None:
+        if non_local_se.lower() == 'gw_rpa':
+            polarizability = 'drpa'
+        elif non_local_se.lower() == 'gw_tda':
+            polarizability = 'dtda'
+        nmom_se = emb.fragments[0].results.gf.nmom - 1
+        se_nl = calc_gw_self_energy_moments(emb.mf, nmom_se=nmom_se, polarizability=polarizability)
+
     fragments = emb.get_fragments(sym_parent=None) if use_sym else emb.get_fragments()
     ses_mo = []
     for i, f in enumerate(fragments):
@@ -175,6 +191,7 @@ def make_self_energy(
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
         
+        # Get cluster self-energy and Green's function
         if f.results.gf is not None:
             using_gf = True
             gf = f.results.gf
@@ -190,8 +207,12 @@ def make_self_energy(
         else:
             raise Exception("No fragment Green's function or self-energy found")
 
-        if non_local_se is not None:
+        # Build double counting correction for non-local self-energy if needed
+        if non_local_se is not None and se_dc_mode == 'subtract':
             se_dc = make_fragment_double_counting_correction(f, se_mode=se_mode, double_counting=non_local_se, nmom_se=nmom_se)
+        elif non_local_se is not None and se_dc_mode == 'project':
+            # rotate into cluster basis
+            se_dc = se_nl.rotate(mc.T)
         else:
             se_dc = None
 
@@ -209,33 +230,34 @@ def make_self_energy(
         #gf = gf.project(cfc, proj)
         #se = se.orthogonalize()
         
+        # projected Lehmann representation for cluster self-energy
         if se_mode == 'lehmann':
             if combine_sectors:
                 se = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf).to_se_lehmann()
             else:
                 se = gf.to_spectral(hermitian=hermitian).to_se_lehmann()
 
+        # independent SE moments corresponding to particle and hole Green's functions
         elif se_mode == 'moments':
             if combine_sectors:
                 se = se.combine_sectors(hermitian=hermitian, greens_function=using_gf)
             else:
                 se = se
 
+        # effective SE moments after performing Block Lanczos
         elif se_mode == 'moments_mblgf':
 
             if combine_sectors:
+                spec = gf.to_spectral(hermitian=hermitian)
+                spec = spec.combine_sectors(greens_function=using_gf)
                 if chempot_clus is not None:
-                    spec = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf)
                     spec = spec.optimize_chempot(f.cluster.nocc*2, method=chempot_clus, occupancy=2)
-                    se = spec.to_se_moments(split=True, nmom=nmom_se)
-                else: 
-                    se = gf.to_spectral(hermitian=hermitian).combine_sectors(greens_function=using_gf).to_se_moments(split=True, nmom=nmom_se)
-                
+                se = spec.to_se_moments(split=True, nmom=nmom_se)
             else:
                 se = gf.to_spectral(hermitian=hermitian).to_se_moments()
                 
                 
-
+        # use full spectral representation in cluster 
         elif se_mode == 'spectral':
             se = se.to_spectral(hermitian=hermitian)
             if combine_sectors:
@@ -243,8 +265,8 @@ def make_self_energy(
 
         assert se.hermitian == hermitian, "Hermiticity of self-energy does not match specified value"
 
+        # Subtract double counting correction from cluster self-energy moments 
         if non_local_se is not None:
-            print(se.moments.shape, se_dc.moments.shape)
             se._moments -= se_dc.moments[:,:se.nmom]
 
         if not project_before:
@@ -260,21 +282,12 @@ def make_self_energy(
                 mc_child = child.get_overlap('mo|cluster')
                 ses_mo.append(pse.rotate(mc_child))
 
-    #if orth_basis:
-    #    se.unorthogonalize()
-    #assert all(se.hermitian == hermitian for se in ses_mo)
-    print(ses_mo[0].moments.shape)
-    se = reduce(type(se).combine, ses_mo)
-    print(se.moments.shape)
-    if non_local_se is not None:
-        if non_local_se.lower() == 'gw_rpa':
-            polarizability = 'drpa'
-        elif non_local_se.lower() == 'gw_tda':
-            polarizability = 'dtda'
-        se_static_gw, se_moms_gw = calc_gw_self_energy_moments(emb.mf, nmom_se=se.nmom, polarizability=polarizability)
-        se._moments += se_moms_gw[:,:se.nmom]
 
-        
+    #se = reduce(type(se).combine, ses_mo)
+    se = type(se).combine(*ses_mo)
+
+    if non_local_se is not None:
+        se._moments += se_nl._moments[:,:se.nmom]
 
     if se_mode == 'lehmann':
         se = se.remove_degeneracies(etol=emb.opts.se_eval_tol, dtol=emb.opts.se_degen_tol)
@@ -322,10 +335,7 @@ def make_fragment_double_counting_correction(
         polarizability = 'dtda'
     else:
         raise ValueError("Invalid double counting correction method")
-    se_static, se_moms = calc_gw_self_energy_moments(clus_mf, nmom_se=nmom_se, polarizability=polarizability)
-
-
-    se_dc = SE_MomentRep(se_static, se_moms, hermitian=True)
+    se_dc = calc_gw_self_energy_moments(clus_mf, nmom_se=nmom_se, polarizability=polarizability)
     
     return se_dc
 
@@ -344,8 +354,10 @@ def calc_gw_self_energy_moments(mf, nmom_se, polarizability='dTDA'):
     se_static = gw.build_se_static(integrals)
     seh, sep = gw.build_se_moments(nmom_se, integrals)
     se_moments = np.array([seh, sep])
+
+    se = SE_MomentRep(se_static, se_moments, hermitian=True)
     
-    return se_static, se_moments
+    return se
 
 
 

@@ -49,6 +49,7 @@ class Options(REWF.Options):
     se_static: str = 'cluster_moments_corr' # Method for static self-energy (cluster_moments, fock, fock_corr, cluster_fock_corr)
     nmom_se: int = None      # Number of conserved moments for self-energy
     non_local_se: str = None # Non-local self-energy (GW, CCSD, FCI)
+    se_dc_mode: str = 'subtract' # Mode for double counting correction of non-local self-energy (subtract, project)
     sym_moms: bool = True # Use symmetrized moments
     hermitian_lanczos: bool = True # Use hermitian Lanczos algorithm 
     global_1dm: bool = False  # Use global 1DM for zeroth moments
@@ -200,9 +201,21 @@ class REGF(REWF):
         dm1 = None
         self.log.info("Calculating static self-energy with %s method."%se_static_mode)
         if se_static_mode == 'cluster_moments':
-            se_static = make_static_self_energy(self, proj=1, sym_moms=self.opts.sym_moms, with_mf=True, use_sym=self.opts.use_sym, orth_basis=self.opts.global_1dm)
+            se_static = make_static_self_energy(self, 
+                                                proj=1, 
+                                                sym_moms=self.opts.sym_moms, 
+                                                with_mf=True, 
+                                                use_sym=self.opts.use_sym, 
+                                                orth_basis=self.opts.global_1dm)
+            
         elif se_static_mode == 'cluster_moments_corr':
-            se_static = make_static_self_energy(self, proj=1, sym_moms=self.opts.sym_moms, with_mf=False, use_sym=self.opts.use_sym, orth_basis=self.opts.global_1dm)
+            se_static = make_static_self_energy(self, 
+                                                proj=1, 
+                                                sym_moms=self.opts.sym_moms, 
+                                                with_mf=False, 
+                                                use_sym=self.opts.use_sym, 
+                                                orth_basis=self.opts.global_1dm)
+            
         elif se_static_mode == 'fock':
             se_static = np.diag(self.mf.mo_energy)
         elif se_static_mode == 'fock_corr':
@@ -219,7 +232,14 @@ class REGF(REWF):
             self.log.info("Calculating dynamic self-energy with %s projectors, using %s method with non-local %s.", self.opts.proj, self.opts.se_mode, s)  
         else:
             self.log.info("Calculating dynamic self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
-        se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm, non_local_se=self.opts.non_local_se, hermitian=self.opts.hermitian_lanczos)
+        se = make_self_energy(self, 
+                              se_mode=self.opts.se_mode, 
+                              combine_sectors=self.opts.combine_sectors_in_cluster, 
+                              proj=self.opts.proj, orth_basis=self.opts.global_1dm, 
+                              non_local_se=self.opts.non_local_se, 
+                              se_dc_mode=self.opts.se_dc_mode, 
+                              hermitian=self.opts.hermitian_lanczos)
+        
         se._statics = se_static
 
         if se_static_mode == 'cluster_moments_corr':
