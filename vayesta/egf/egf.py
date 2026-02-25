@@ -214,7 +214,11 @@ class REGF(REWF):
         else:
             raise ValueError("Invalid static self-energy mode: %s"%se_static_mode)
         
-        self.log.info("Calculating dynamic self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
+        if self.opts.non_local_se is not None:
+            s = "GW(TDA)" if self.opts.non_local_se == 'gw_tda' else "GW(RPA)"
+            self.log.info("Calculating dynamic self-energy with %s projectors, using %s method with non-local %s.", self.opts.proj, self.opts.se_mode, s)  
+        else:
+            self.log.info("Calculating dynamic self-energy with %s projectors, using %s method.", self.opts.proj, self.opts.se_mode)  
         se = make_self_energy(self, se_mode=self.opts.se_mode, combine_sectors=self.opts.combine_sectors_in_cluster, proj=self.opts.proj, orth_basis=self.opts.global_1dm, non_local_se=self.opts.non_local_se, hermitian=self.opts.hermitian_lanczos)
         se._statics = se_static
 
