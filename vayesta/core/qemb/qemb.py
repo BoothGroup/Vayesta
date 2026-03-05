@@ -289,6 +289,7 @@ class Embedding:
             # 4) Mean-field
             # -------------
             self.mf = None
+            self.is_pbc = False
             self.kcell = None
             self.kpts = None
             self.kdf = None
@@ -330,6 +331,9 @@ class Embedding:
             # Use MOs of master process
             mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
             mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+            if hasattr(mf, "kmf") and mf.kmf is not None:
+                mf.kmf.mo_energy = mpi.world.bcast(mf.kmf.mo_energy, root=0)
+                mf.kmf.mo_coeff = mpi.world.bcast(mf.kmf.mo_coeff, root=0)
 
     def init_mf(self, mf):
         self._mf_orig = (
@@ -345,6 +349,7 @@ class Embedding:
         if isinstance(mf, pyscf.pbc.scf.khf.KSCF):
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
+            self.is_pbc = True
         if isinstance(mf, FoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         # Make sure that all MPI ranks use the same MOs`:
@@ -362,10 +367,18 @@ class Embedding:
         self._ovlp_orig = self.mf.get_ovlp()
         self._hcore_orig = self.mf.get_hcore()
         self._veff_orig = self.mf.get_veff()
+        if self.is_pbc:
+            self._kovlp_orig = self.mf.kmf.get_ovlp()
+            self._khcore_orig = self.mf.kmf.get_hcore()
+            self._kveff_orig = self.mf.kmf.get_veff()
         # Cached integrals - these can be changed!
         self._ovlp = self._ovlp_orig
         self._hcore = self._hcore_orig
         self._veff = self._veff_orig
+        if self.is_pbc:
+            self._kovlp = self._kovlp_orig
+            self._khcore = self._khcore_orig
+            self._kveff = self._kveff_orig
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a (converged) HF calculations
@@ -498,9 +511,29 @@ class Embedding:
         return self.mf.mo_energy
 
     @property
+    def mo_energy_occ(self):
+        """Occupied MO energies."""
+        return self.mo_energy[: self.nocc]
+
+    @property
+    def mo_energy_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_energy[self.nocc :]
+
+    @property
     def mo_coeff(self):
         """Molecular orbital coefficients."""
         return self.mf.mo_coeff
+
+    @property
+    def mo_coeff_occ(self):
+        """Occupied MO coefficients."""
+        return self.mo_coeff[:, : self.nocc]
+
+    @property
+    def mo_coeff_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_coeff[:, self.nocc :]
 
     @property
     def mo_occ(self):
@@ -545,25 +578,70 @@ class Embedding:
         """Number of virtual MOs."""
         return np.count_nonzero(self.mo_occ == 0)
 
-    @property
-    def mo_energy_occ(self):
-        """Occupied MO energies."""
-        return self.mo_energy[: self.nocc]
 
     @property
-    def mo_energy_vir(self):
-        """Virtual MO coefficients."""
-        return self.mo_energy[self.nocc :]
+    def kmo_occ(self):
+        """k-point sampled MO occupations."""
+        return np.array(self.mf.kmf.mo_occ) if self.is_pbc else None
 
     @property
-    def mo_coeff_occ(self):
-        """Occupied MO coefficients."""
-        return self.mo_coeff[:, : self.nocc]
+    def kmo_energy(self):
+        """k-point sampled MO energies."""
+        return np.array(self.mf.kmf.mo_energy) if self.is_pbc else None
 
     @property
-    def mo_coeff_vir(self):
-        """Virtual MO coefficients."""
-        return self.mo_coeff[:, self.nocc :]
+    def kmo_energy_occ(self):
+        """k-point sampled occupied MO energies."""
+        if self.is_pbc:
+            occ_energy = []
+            for k in range(self.nk):
+                occ_energy.append(self.kmo_energy[k, self.kmo_occ[k] > 0])
+            return np.array(occ_energy) # Will be problematic for gapless systems, will need to use list instead of ndarray or pad.
+        else:
+            return None
+        
+    @property
+    def kmo_energy_vir(self):
+        """k-point sampled virtual MO energies."""
+        if self.is_pbc:
+            vir_energy = []
+            for k in range(self.nk):
+                vir_energy.append(self.kmo_energy[k, self.kmo_occ[k] == 0])
+            return np.array(vir_energy)
+        else:
+            return None
+    
+    @property
+    def kmo_coeff(self):
+        """k-point sampled MO coefficients."""
+        return np.array(self.mf.kmf.mo_coeff) if self.is_pbc else None
+    
+    @property
+    def kmo_coeff_occ(self):
+        """k-point sampled MO occupations."""
+        if self.is_pbc:
+            occ_coeff = []
+            for k in range(self.nk):
+                occ_coeff.append(self.kmo_coeff[k][:,self.kmo_occ[k] > 0])
+            return np.array(occ_coeff)
+        else:
+            return None
+    
+    @property
+    def kmo_coeff_vir(self):
+        """k-point sampled virtual MO coefficients."""
+        if self.is_pbc:
+            vir_coeff = []
+            for k in range(self.nk):
+                vir_coeff.append(self.kmo_coeff[k][:,self.kmo_occ[k] == 0])
+            return np.array(vir_coeff)
+        else:
+            return None
+
+    @property
+    def nk(self):
+        """Number of k-points."""
+        return self.kmo_coeff.shape[0] if self.is_pbc else None
 
     @property
     def e_mf(self):
@@ -625,7 +703,7 @@ class Embedding:
     def get_ovlp(self):
         """AO-overlap matrix."""
         return self._ovlp
-
+    
     def get_hcore(self):
         """Core Hamiltonian (kinetic energy plus nuclear-electron attraction)."""
         return self._hcore
@@ -654,6 +732,33 @@ class Embedding:
     def set_veff(self, value):
         self.log.debug("Changing veff matrix.")
         self._veff = value
+
+
+    def get_kovlp(self):
+        """k-space AO-overlap matrix."""
+        return self._kovlp
+
+    def get_khcore(self):
+        """k-space core Hamiltonian (kinetic energy plus nuclear-electron attraction)."""
+        return self._khcore
+    
+    def get_kveff(self, dm1=None, with_exxdiv=True):
+        """k-space Hartree-Fock Coulomb and exchange potential in kAO basis."""
+        if not self.is_pbc:
+            return None
+        if not with_exxdiv and self.has_exxdiv:
+            v_exxdiv = self.get_exxdiv()[1]
+            return self.get_kveff(dm1=dm1) - v_exxdiv
+        if dm1 is None:
+            return self._kveff
+        return self.kdf.get_veff(dm=dm1)
+
+    def get_kfock(self, dm1=None, with_exxdiv=True):
+        """k-space Fock matrix in kAO basis."""
+        if not self.is_pbc:
+            return None
+        return self.get_khcore() + self.get_kveff(dm1=dm1, with_exxdiv=with_exxdiv)
+    
 
     # Integrals for energy evaluation
     # Overwriting these allows using different integrals for the energy evaluation
