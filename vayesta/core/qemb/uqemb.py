@@ -214,7 +214,7 @@ class UEmbedding(Embedding):
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
         if veff is None:
             veff = self.mf.get_veff(dm=dm)
-        self.set_veff(veff)
+        self._veff = veff
         if mo_energy is None:
             # Use diagonal of Fock matrix as MO energies
             fock = self.get_fock()

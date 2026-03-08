@@ -32,6 +32,7 @@ from vayesta.core.util import (
     log_time,
     with_doc,
 )
+from vayesta.core.mf import read_mf
 from vayesta.core import spinalg, eris
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.screening.screening_moment import build_screened_eris
@@ -363,22 +364,14 @@ class Embedding:
         if self.has_exxdiv:
             self.madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
 
-        # Original mean-field integrals - do not change these!
-        self._ovlp_orig = self.mf.get_ovlp()
-        self._hcore_orig = self.mf.get_hcore()
-        self._veff_orig = self.mf.get_veff()
-        if self.is_pbc:
-            self._kovlp_orig = self.mf.kmf.get_ovlp()
-            self._khcore_orig = self.mf.kmf.get_hcore()
-            self._kveff_orig = self.mf.kmf.get_veff()
         # Cached integrals - these can be changed!
-        self._ovlp = self._ovlp_orig
-        self._hcore = self._hcore_orig
-        self._veff = self._veff_orig
+        self._ovlp = self.mf.get_ovlp()
+        self._hcore = self.mf.get_hcore()
+        self._veff = self.mf.get_veff()
         if self.is_pbc:
-            self._kovlp = self._kovlp_orig
-            self._khcore = self._khcore_orig
-            self._kveff = self._kveff_orig
+            self._kovlp = self.mf.kmf.get_ovlp()
+            self._khcore = self.mf.kmf.get_hcore()
+            self._kveff = self.mf.kmf.get_veff()
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a (converged) HF calculations
@@ -678,28 +671,6 @@ class Embedding:
         for frag in self.fragments:
             yield frag
 
-    # --- Integral methods
-    # ====================
-
-    # Integrals of the original mean-field object - these cannot be changed:
-
-    def _get_ovlp_orig(self):
-        return self._ovlp_orig
-
-    def _get_hcore_orig(self):
-        return self._hcore_orig
-
-    def _get_veff_orig(self, with_exxdiv=True):
-        if not with_exxdiv and self.has_exxdiv:
-            v_exxdiv = self.get_exxdiv()[1]
-            return self._get_veff_orig() - v_exxdiv
-        return self._veff_orig
-
-    def _get_fock_orig(self, with_exxdiv=True):
-        return self._get_hcore_orig() + self._get_veff_orig(with_exxdiv=with_exxdiv)
-
-    # Integrals which change with mean-field updates or chemical potential shifts:
-
     def get_ovlp(self):
         """AO-overlap matrix."""
         return self._ovlp
@@ -720,19 +691,6 @@ class Embedding:
     def get_fock(self, dm1=None, with_exxdiv=True):
         """Fock matrix in AO basis."""
         return self.get_hcore() + self.get_veff(dm1=dm1, with_exxdiv=with_exxdiv)
-
-    def set_ovlp(self, value):
-        self.log.debug("Changing ovlp matrix.")
-        self._ovlp = value
-
-    def set_hcore(self, value):
-        self.log.debug("Changing hcore matrix.")
-        self._hcore = value
-
-    def set_veff(self, value):
-        self.log.debug("Changing veff matrix.")
-        self._veff = value
-
 
     def get_kovlp(self):
         """k-space AO-overlap matrix."""
@@ -1763,7 +1721,7 @@ class Embedding:
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
         if veff is None:
             veff = self.mf.get_veff(dm=dm)
-        self.set_veff(veff)
+        self._veff = veff
         if mo_energy is None:
             # Use diagonal of Fock matrix as MO energies
             mo_energy = einsum("ai,ab,bi->i", mo_coeff, self.get_fock(), mo_coeff)
