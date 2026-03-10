@@ -683,14 +683,9 @@ class Embedding:
         `e_mf` refers to this cell.
         """
         h1e = self.get_hcore_for_energy()
-        vhf = self.get_veff_for_energy()
-        # Pass dm explicitly so that the density matrix is derived from the
-        # wrapper's own _mo_coeff, rather than from the underlying PySCF mf
-        # object's mo_coeff.  This avoids a subtle bug where update_mf (called
-        # by SCMF) modifies the underlying PySCF object in-place, corrupting
-        # the energy of a separate Embedding instance that wraps the same mf.
-        dm = self.mf.make_rdm1()
-        e_mf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
+        dm1 = self.mf.make_rdm1()
+        vhf = self.get_veff_for_energy(dm1=dm1)
+        e_mf = self.mf.energy_tot(dm=dm1, h1e=h1e, vhf=vhf)
         return e_mf / self.mf.ncells
 
     @property
