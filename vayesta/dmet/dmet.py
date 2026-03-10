@@ -124,7 +124,7 @@ class DMET(Embedding):
                 self.reset()
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = self.mf.eig(fock + self.vcorr, self.get_ovlp())
-                self.update_mf(mo_coeff, mo_energy)
+                self.mf.update_mf(mo_coeff, mo_energy)
 
                 if self.opts.charge_consistent:
                     fock = self.get_fock()

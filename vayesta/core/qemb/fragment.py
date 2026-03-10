@@ -305,6 +305,17 @@ class Fragment:
             return dot(c1, c2)
         return dot(c1, ovlp, c2)
 
+    def _kcsc_dot(self, c1, c2, kpts1=None, kpts2=None, ovlp=True, transpose_left=True, transpose_right=False):
+        if transpose_left:
+            c1 = c1.T
+        if transpose_right:
+            c2 = c2.T
+        if ovlp is True:
+            ovlp = self.base.get_ovlp(kpts1, kpts2)
+        if ovlp is None:
+            return dot(c1, c2)
+        return dot(c1, ovlp, c2)
+
     @cache
     def get_overlap(self, key):
         """Get overlap between cluster orbitals, fragment orbitals, or MOs.
@@ -317,6 +328,8 @@ class Fragment:
         >>> s = self.get_overlap('cluster|frag')
         >>> s = self.get_overlap('mo[occ]|cluster[occ]')
         >>> s = self.get_overlap('mo[vir]|cluster[vir]')
+        >>> s = self.get_overlap('kmo->cluster')
+
         """
         if key.count("|") > 1:
             left, center, right = key.rsplit("|", maxsplit=2)
@@ -346,6 +359,30 @@ class Fragment:
                 return getattr(self.cluster, "c_active%s" % part)
             raise ValueError("Invalid key: '%s'")
 
+        def _get_kcoeff(key):
+            if not self.base.is_pbc:
+                raise RuntimeError("k-space coefficients requested for non-periodic system.")
+            if "frag" in key:
+                raise NotImplementedError("k-fragment coefficients not implemented.")
+                return self.c_frag
+            if "proj" in key:
+                raise NotImplementedError("k-projected coefficients not implemented.")
+                return self.c_proj
+            if "occ" in key:
+                raise NotImplementedError("k-occupied coefficients not implemented.")
+                part = "_occ"
+            elif "vir" in key:
+                raise NotImplementedError("k-virtual coefficients not implemented.")
+                part = "_vir"
+            else:
+                part = ""
+            if "mo" in key:
+                return getattr(self.base, "kmo_coeff%s" % part)
+            if "cluster" in key:
+                return getattr(self.cluster, "ck_active%s" % part)
+            raise ValueError("Invalid key: '%s'")
+
+        _coeff_func = _get_kcoeff if "k" in key else _get_coeff
         left, right = key.split("|")
         c_left = _get_coeff(left)
         c_right = _get_coeff(right)

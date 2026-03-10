@@ -36,19 +36,19 @@ class SCMF_Test(TestCase):
         """Test p-DMET."""
         emb0 = self.emb()
         emb = self.emb("pdmet")
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAllclose(emb.with_scmf.e_tot, -1.1417348230969397)
+        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1417348230969397)
 
     def test_brueckner(self):
         """Test Brueckner DMET."""
         emb0 = self.emb()
         emb = self.emb("brueckner")
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAllclose(emb.with_scmf.e_tot, -1.1417339799464736)
+        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1417339799464736)
 
 
 class SCMF_UHF_Test(SCMF_Test):
@@ -64,19 +64,19 @@ class SCMF_TCCSD_Test(SCMF_Test):
         """Test p-DMET."""
         emb0 = self.emb()
         emb = self.emb("pdmet")
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060814972688)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -1.1419060814972688)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAllclose(emb.with_scmf.e_tot, -1.1406317042658112)
+        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1406317042658112)
 
     def test_brueckner(self):
         """Test Brueckner DMET."""
         emb0 = self.emb()
         emb = self.emb("brueckner")
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
-        self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060814979487)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -1.1419060814979487)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAllclose(emb.with_scmf.e_tot, -1.1348718457034288)
+        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1348718457034288)
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ import pyscf.pbc.tools
 
 # Package
 from vayesta.core.util import call_once, einsum, timer
-from vayesta.core.foldscf import kpts_to_kmesh
+from vayesta.core.mf.folded_mf import kpts_to_kmesh
 from vayesta.libs import libcore
 from vayesta.core.ao2mo import helper
 

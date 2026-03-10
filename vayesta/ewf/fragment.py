@@ -434,7 +434,7 @@ class Fragment(BaseFragment):
     def _get_projected_gamma2_intermediates(self, t_as_lambda=False, sym_t2=True):
         """Intermediates for 2-DM, projected in Lambda-amplitudes and linear T-term."""
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        cc = self.mf  # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
+        cc = self.mf._mf  # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
         dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
         # Correct D2[ovov] part (first element of d2 tuple)
         dtau = (t2x - t2) + einsum("ia,jb->ijab", (t1x - t1), t1)

@@ -1,7 +1,7 @@
 import pytest
 import unittest
 from pyscf.pbc import scf
-from vayesta.core import foldscf
+from vayesta.core.mf import foldscf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 

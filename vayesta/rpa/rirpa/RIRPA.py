@@ -64,9 +64,27 @@ class ssRIRRPA:
         # Determine how many times to attempt compression of low-rank expressions for various matrices.
         self.compress = compress
 
-    @property
-    def mol(self):
-        return self.mf.mol
+    _from_mf = ['mol',
+                'mf',
+                'nocc', 
+                'nvir', 
+                'mo_occ',
+                'mo_coeff', 
+                'mo_coeff_occ', 
+                'mo_coeff_vir', 
+                'mo_energy',
+                'mo_energy_occ',
+                'mo_energy_vir',]
+
+    def __getattr__(self, name):
+        if name in self._from_mf:
+            return getattr(self.mf, name)
+
+        raise AttributeError("RIRPA object has no attribute %s" % name)
+
+    # @property
+    # def mol(self):
+    #     return self.mf.mol
 
     @property
     def df(self):
@@ -81,13 +99,13 @@ class ssRIRRPA:
                 return self.mf.with_df
         return None
 
-    @property
-    def nocc(self):
-        return sum(self.mf.mo_occ > 0)
+    # @property
+    # def nocc(self):
+    #     return sum(self.mf.mo_occ > 0)
 
-    @property
-    def nvir(self):
-        return len(self.mf.mo_occ) - self.nocc
+    # @property
+    # def nvir(self):
+    #     return len(self.mf.mo_occ) - self.nocc
 
     @property
     def naux_eri(self):
@@ -101,32 +119,32 @@ class ssRIRRPA:
     def ov_tot(self):
         return 2 * self.ov
 
-    @property
-    def mo_coeff(self):
-        """Occupied MO coefficients."""
-        return self.mf.mo_coeff
+    # @property
+    # def mo_coeff(self):
+    #     """Occupied MO coefficients."""
+    #     return self.mf.mo_coeff
 
-    @property
-    def mo_coeff_occ(self):
-        """Occupied MO coefficients."""
-        return self.mo_coeff[:, : self.nocc]
+    # @property
+    # def mo_coeff_occ(self):
+    #     """Occupied MO coefficients."""
+    #     return self.mo_coeff[:, : self.nocc]
 
-    @property
-    def mo_coeff_vir(self):
-        """Virtual MO coefficients."""
-        return self.mo_coeff[:, self.nocc :]
+    # @property
+    # def mo_coeff_vir(self):
+    #     """Virtual MO coefficients."""
+    #     return self.mo_coeff[:, self.nocc :]
 
-    @property
-    def mo_energy(self):
-        return self.mf.mo_energy
+    # @property
+    # def mo_energy(self):
+    #     return self.mf.mo_energy
 
-    @property
-    def mo_energy_occ(self):
-        return self.mo_energy[: self.nocc]
+    # @property
+    # def mo_energy_occ(self):
+    #     return self.mo_energy[: self.nocc]
 
-    @property
-    def mo_energy_vir(self):
-        return self.mo_energy[self.nocc :]
+    # @property
+    # def mo_energy_vir(self):
+    #     return self.mo_energy[self.nocc :]
 
     @property
     def e_corr(self):

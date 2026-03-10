@@ -13,7 +13,7 @@ class ssURPA(ssRPA):
 
     @property
     def nocc(self):
-        return self.mf.nelec
+        return self.mf.nocc
 
     @property
     def nvir(self):

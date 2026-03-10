@@ -109,7 +109,7 @@ class SCMF:
 
             # Update MF
             mo_coeff = self.update_mo_coeff(self.mf.mo_coeff, self.mf.mo_occ, diis=diis)
-            self.emb.update_mf(mo_coeff)
+            self.emb.mf.update_mf(mo_coeff)
 
             dm1 = self.mf.make_rdm1()
             # Check symmetry
