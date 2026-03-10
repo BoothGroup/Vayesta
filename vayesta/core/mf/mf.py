@@ -308,9 +308,6 @@ class PySCF_RHF(PySCF_MeanField, RHF_MeanField):
             raise ValueError("MO coefficients not orthonormal!")
         self._mo_coeff = mo_coeff
 
-        # # Update underlying mean-field object - to be removed in future refactor
-        # self._mf.mo_coeff = mo_coeff
-
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
         if veff is None:
             veff = self.get_veff(dm=dm)
@@ -320,10 +317,6 @@ class PySCF_RHF(PySCF_MeanField, RHF_MeanField):
             mo_energy = einsum("ai,ab,bi->i", mo_coeff, self.get_fock(), mo_coeff)
         self._mo_energy = mo_energy
         self.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
-
-        # # Update underlying mean-field object - to be removed in future refactor
-        # self._mf.mo_energy = mo_energy
-        # self._mf.e_tot = self.e_tot
 
         norm_mo = np.linalg.norm(mo_coeff)
         norm_moe = np.linalg.norm(mo_energy)

@@ -82,10 +82,6 @@ class ssRIRRPA:
 
         raise AttributeError("RIRPA object has no attribute %s" % name)
 
-    # @property
-    # def mol(self):
-    #     return self.mf.mol
-
     @property
     def df(self):
         return self.mf.with_df
@@ -99,14 +95,6 @@ class ssRIRRPA:
                 return self.mf.with_df
         return None
 
-    # @property
-    # def nocc(self):
-    #     return sum(self.mf.mo_occ > 0)
-
-    # @property
-    # def nvir(self):
-    #     return len(self.mf.mo_occ) - self.nocc
-
     @property
     def naux_eri(self):
         return self.mf.with_df.get_naoaux()
@@ -118,33 +106,6 @@ class ssRIRRPA:
     @property
     def ov_tot(self):
         return 2 * self.ov
-
-    # @property
-    # def mo_coeff(self):
-    #     """Occupied MO coefficients."""
-    #     return self.mf.mo_coeff
-
-    # @property
-    # def mo_coeff_occ(self):
-    #     """Occupied MO coefficients."""
-    #     return self.mo_coeff[:, : self.nocc]
-
-    # @property
-    # def mo_coeff_vir(self):
-    #     """Virtual MO coefficients."""
-    #     return self.mo_coeff[:, self.nocc :]
-
-    # @property
-    # def mo_energy(self):
-    #     return self.mf.mo_energy
-
-    # @property
-    # def mo_energy_occ(self):
-    #     return self.mo_energy[: self.nocc]
-
-    # @property
-    # def mo_energy_vir(self):
-    #     return self.mo_energy[self.nocc :]
 
     @property
     def e_corr(self):

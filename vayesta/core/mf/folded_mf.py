@@ -88,13 +88,17 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         ovlp = k2bvk_2d(sk, self.kphase)
         return ovlp
 
-    # def get_ovlp_power(self, power):
-    #     # For folded calculations, use k-point sampled overlap for better performance and accuracy
-    #     sk = self.kcell.pbc_intor("int1e_ovlp", hermi=1, kpts=self.kpts, pbcopt=pyscf.lib.c_null_ptr())
-    #     ek, vk = np.linalg.eigh(sk)
-    #     spowk = einsum("kai,ki,kbi->kab", vk, ek**power, vk.conj())
-    #     spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
-    #     return spow
+    def get_ovlp_power(self, power):
+        if power == 0:
+            return np.eye(self.nao)
+        elif power == 1:
+            return self.get_ovlp()
+        # For folded calculations, use k-point sampled overlap for better performance and accuracy
+        sk = self.kcell.pbc_intor("int1e_ovlp", hermi=1, kpts=self.kpts, pbcopt=pyscf.lib.c_null_ptr())
+        ek, vk = np.linalg.eigh(sk)
+        spowk = einsum("kai,ki,kbi->kab", vk, ek**power, vk.conj())
+        spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
+        return spow
 
     def get_hcore(self, *args, make_real=True, **kwargs):
         hk = self.mf.get_hcore(*args, **kwargs)
