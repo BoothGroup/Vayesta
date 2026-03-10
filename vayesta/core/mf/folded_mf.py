@@ -45,14 +45,12 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         self.cell = mf.cell
         self.kpts = mf.kpts
 
-
         # Only Gamma point supported for now
         self.kpt = np.array([0.0, 0.0, 0.0])
 
         self.subcellmesh = kpts_to_kmesh(self.mf.cell, mf.kpts)
         self.mol, self.kphase = get_phase(self.kcell, self.mf.kpts)
         
-
         self._dim = getattr(self.mol, "dimension", 0)
         self.kpts = None
         self.exxdiv = mf.get_exxdiv() if hasattr(mf, "get_exxdiv") else None
