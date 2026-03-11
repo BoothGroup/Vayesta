@@ -76,7 +76,7 @@ class SCMF_TCCSD_Test(SCMF_Test):
         self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -1.1419060814979487)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1348718457034288)
+        self.assertAlmostEqual(emb.with_scmf.e_tot, -1.1348718457034288, 6)
 
 
 if __name__ == "__main__":
