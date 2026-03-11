@@ -311,10 +311,23 @@ class Fragment:
         if transpose_right:
             c2 = c2.T
         if ovlp is True:
-            ovlp = self.base.get_ovlp(kpts1, kpts2)
+            ovlp = self.base.mf.get_kovlp()
         if ovlp is None:
-            return dot(c1, c2)
-        return dot(c1, ovlp, c2)
+            return einsum('kcp,kaP->kpP', c1, c2)
+        return einsum('kcp,kca,kaP->kpP', c1, ovlp, c2)
+
+    @property
+    @cache
+    def ck_active(f):
+        """Cluster orbital coefficients: supercell AO -> k-AO basis."""
+        mf = f.base.mf
+        nclus = f.cluster.c_active.shape[1]
+        nk = len(mf.kpts)
+        nao = np.array(mf.mo_coeff).shape[1]
+        C_clus = f.cluster.c_active.reshape(nk, nao//nk, nclus)
+        phase = mf.kphase
+        clus2kao = einsum('kR,Rmp->kmp', phase.conj(), C_clus)  
+        return clus2kao
 
     @cache
     def get_overlap(self, key):
@@ -379,14 +392,22 @@ class Fragment:
             if "mo" in key:
                 return getattr(self.base, "kmo_coeff%s" % part)
             if "cluster" in key:
-                return getattr(self.cluster, "ck_active%s" % part)
+                return getattr(self, "ck_active%s" % part)
             raise ValueError("Invalid key: '%s'")
 
         _coeff_func = _get_kcoeff if "k" in key else _get_coeff
         left, right = key.split("|")
-        c_left = _get_coeff(left)
-        c_right = _get_coeff(right)
-        return self._csc_dot(c_left, c_right)
+        _coeff_func_left = _get_kcoeff if "k" in left else _get_coeff
+        _coeff_func_right = _get_kcoeff if "k" in right else _get_coeff
+        c_left = _coeff_func_left(left)
+        c_right = _coeff_func_right(right)
+
+        if c_left.ndim == 3 and c_right.ndim == 3:
+            return self._kcsc_dot(c_left, c_right, ovlp=None, transpose_left=False)
+        if c_left.ndim == 2 or c_right.ndim == 2:
+            return self._csc_dot(c_left, c_right)
+        else:
+            raise NotImplementedError("Overlap involving k-space coefficient arrays not implemented.")
 
     def get_coeff_env(self):
         if self.c_env is not None:

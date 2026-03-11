@@ -52,7 +52,6 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         self.mol, self.kphase = get_phase(self.kcell, self.mf.kpts)
         
         self._dim = getattr(self.mol, "dimension", 0)
-        self.kpts = None
         self.exxdiv = mf.get_exxdiv() if hasattr(mf, "get_exxdiv") else None
         self.has_exxdiv = hasattr(mf, "exxdiv") and mf.exxdiv is not None
         if self.has_exxdiv:
@@ -83,10 +82,25 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
     def _eri(self):
         return None
 
+    @property
+    def kmo_coeff(self):
+        return np.array(self.mf.mo_coeff)
+    
+    @property
+    def kmo_energy(self):
+        return np.array(self.mf.mo_energy)
+
+    @property
+    def kmo_occ(self):
+        return np.array(self.mf.mo_occ)
+    
     def get_ovlp(self, *args, **kwargs):
         sk = self.mf.get_ovlp(*args, **kwargs)
         ovlp = k2bvk_2d(sk, self.kphase)
         return ovlp
+
+    def get_kovlp(self, *args, **kwargs):
+        return self.mf.get_ovlp(*args, **kwargs)
 
     def get_ovlp_power(self, power):
         if power == 0:
@@ -105,6 +119,9 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         hcore = k2bvk_2d(hk, self.kphase, make_real=make_real)
         return hcore
 
+    def get_khcore(self, *args, **kwargs):
+        return self.mf.get_hcore(*args, **kwargs)
+
     def get_veff(self, mol=None, dm=None, *args, make_real=True, with_exxdiv=True, **kwargs):
         assert mol is None or mol is self.mol
         # Unfold DM into k-space
@@ -118,6 +135,20 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
             return veff - v_exxdiv
         else:
             return veff
+
+    def get_kveff(self, mol=None, dm=None, *args, with_exxdiv=True, **kwargs):
+        if dm is not None and dm.ndim == 2:
+            dm = bvk2k_2d(dm, self.kphase)
+        veff = self.mf.get_veff(self.mf.mol, dm, *args, **kwargs)
+
+        if not with_exxdiv and self.has_exxdiv:
+            raise NotImplementedError("get_kveff with with_exxdiv=False is not implemented yet")
+            v_exxdiv = self.get_exxdiv()[1]
+            kv_exxdiv = bvk2k_2d(v_exxdiv, self.kphase)
+            return veff - kv_exxdiv
+        else:
+            return veff
+
         
     def make_rdm1(self, mo_coeff=None, mo_occ=None):
         """Make 1-particle density matrix in AO basis."""
@@ -128,6 +159,8 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         dm1 = self._dummy_mf.make_rdm1(mo_coeff=mo_coeff, mo_occ=mo_occ)
         #dm1 = np.einsum("...ap,...o,...bp->ab", mo_coeff, mo_occ, mo_coeff.conj())
         return dm1
+
+    #def make_krdm1(self, mo_coeff=None, mo_occ=None):
 
     def energy_tot(self, *args, **kwargs):
         self._dummy_mf.mo_coeff = self.mo_coeff
@@ -148,6 +181,9 @@ class Folded_PySCF_RHF(Folded_PySCF_MeanField, PySCF_RHF):
         self._dummy_mf = pyscf.scf.rhf.RHF(self.mol)
         assert np.all(self.mo_coeff.imag == 0)
 
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        raise NotImplementedError("update_mf is not implemented for Folded_PySCF_RHF")
+
 
 class Folded_PySCF_UHF(Folded_PySCF_MeanField, PySCF_UHF):
     __doc__ = Folded_PySCF_MeanField.__doc__
@@ -164,6 +200,9 @@ class Folded_PySCF_UHF(Folded_PySCF_MeanField, PySCF_UHF):
         self._dummy_mf = pyscf.scf.uhf.UHF(self.mol)
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
+
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        raise NotImplementedError("update_mf is not implemented for Folded_PySCF_UHF")
 
 def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=True):
     # --- MO energy and occupations

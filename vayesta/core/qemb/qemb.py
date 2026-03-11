@@ -342,6 +342,8 @@ class Embedding:
         self.mf = mf
         if isinstance(mf, Folded_PySCF_MeanField):
             self.kcell, self.kpts, self.kdf = mf.mf.mol, mf.mf.kpts, mf.mf.with_df
+            # TODO: Need update to consider initialisation from supercell HF calculation
+            self.is_pbc = True
         self.log.debugv("type(mf)= %r", type(mf))
         if mpi:
             self._mpi_bcast_mf(mf)
@@ -393,6 +395,11 @@ class Embedding:
                 'mo_coeff',
                 'mo_coeff_occ',
                 'mo_coeff_vir',
+                'kmo_occ',
+                'kmo_energy',
+                'kmo_coeff',
+                'kpts',
+                'rvecs',
                 'nocc',
                 'nvir',
                 'ncells',
