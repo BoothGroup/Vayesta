@@ -61,6 +61,18 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
     @property
     def nao(self):
         return self.mf.mol.nao_nr() * np.prod(self.subcellmesh)
+
+    @property
+    def nkpts(self):
+        return self.kpts.shape[0]
+
+    @property
+    def nkmo(self):
+        return self.kmo_coeff.shape[-1]
+
+    @property
+    def nkao(self):
+        return self.mf.mol.nao_nr()
         
     @property
     def e_tot(self):
@@ -184,6 +196,11 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         """
         pass
     
+    def one_body_ao_to_kao(self, obs):
+        return bvk2k_2d(obs, self.kphase)
+
+    def one_body_kao_to_ao(self, obs):
+        return k2bvk_2d(obs, self.kphase)
 
 
 

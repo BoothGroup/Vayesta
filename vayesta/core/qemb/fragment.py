@@ -306,7 +306,7 @@ class Fragment:
         return dot(c1, ovlp, c2)
 
     def _kcsc_dot(self, c1, c2, kpts1=None, kpts2=None, ovlp=True, transpose_left=True, transpose_right=False):
-        """Compute k-space matrix product: C1^T @ [S @] C2, per k-point.
+        """Compute k-space matrix product: C1^H @ [S @] C2, per k-point.
 
         Parameters
         ----------
@@ -317,14 +317,14 @@ class Fragment:
         ovlp : (nk, nkAO, nkAO) array, True, or None
             k-space overlap matrix. If True, use the MF k-overlap. If None, no overlap.
         transpose_left : bool
-            If True, transpose c1 per k-point (conjugate transpose for complex arrays).
+            If True, conjugate-transpose c1 per k-point.
         transpose_right : bool
-            If True, transpose c2 per k-point (conjugate transpose for complex arrays).
+            If True, conjugate-transpose c2 per k-point.
         """
         if transpose_left:
-            c1 = c1.swapaxes(-1, -2)
+            c1 = c1.swapaxes(-1, -2).conj()
         if transpose_right:
-            c2 = c2.swapaxes(-1, -2)
+            c2 = c2.swapaxes(-1, -2).conj()
         if ovlp is True:
             ovlp = np.asarray(self.base.mf.get_kovlp())
         if ovlp is None:
@@ -396,6 +396,16 @@ class Fragment:
             return self.get_overlap(key_mod)
 
         left, right = key.split("|")
+
+        # Coeffs are stored in AO basis, overlap with AOs is the coeffs themselves
+        if left in ['ao', 'kao']:
+            right = 'k'+right if left == 'kao' else right
+            return self._get_coeff_and_basis(right)[0]
+        
+        elif right in ['ao', 'kao']:
+            left = 'k'+left if right == 'kao' else left
+            return self._get_coeff_and_basis(left)[0].swapaxes(-1, -2)
+        
         c_left, basis_left = self._get_coeff_and_basis(left)
         c_right, basis_right = self._get_coeff_and_basis(right)
 
@@ -403,7 +413,7 @@ class Fragment:
 
 
     def _get_coeff_and_basis(self, key):
-        """Get AO orbital coefficients for a key."""
+        """Get AO orbital coefficients for a key."""            
 
         if "occ" in key:
             part = "_occ"

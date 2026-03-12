@@ -388,6 +388,9 @@ class Embedding:
 
     _mf_attrs = ['nao',
                 'nmo',
+                'nkpts',
+                'nkmo',
+                'nkao',
                 'mo_energy',
                 'mo_energy_occ',
                 'mo_energy_vir',
@@ -398,6 +401,8 @@ class Embedding:
                 'kmo_occ',
                 'kmo_energy',
                 'kmo_coeff',
+                'kmo_coeff_occ',
+                'kmo_coeff_vir',
                 'kpts',
                 'rvecs',
                 'nocc',
