@@ -116,6 +116,7 @@ jobs:
       # fortran needs this because libimf does not have RPATH to find libintlc.so
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
+      PKG_CONFIG_PATH: /opt/intel/oneapi/mkl/latest/lib/pkgconfig
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -129,7 +130,8 @@ jobs:
       - name: Install Intel oneAPI
         run: |
           bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_CPP_COMPONENTS_WEB:$LINUX_FORTRAN_COMPONENTS_WEB:$LINUX_MKL_COMPONENTS_WEB
-          sudo apt install pkg-config cmake
+          sudo apt-get update
+          sudo apt-get install -y pkg-config cmake
       - name: Install Vayesta along with dependencies
         run: |
           source /opt/intel/oneapi/setvars.sh
@@ -137,13 +139,18 @@ jobs:
           ifx -v 
           icpx -v
           printenv >> $GITHUB_ENV
-          pip install numpy --no-binary numpy
-          pip install scipy --no-binary scipy
+          export PKG_CONFIG_PATH=/opt/intel/oneapi/mkl/latest/lib/pkgconfig:$PKG_CONFIG_PATH
+          # Verify MKL is discoverable
+          pkg-config --libs mkl-dynamic-lp64-seq
+          # Build numpy and scipy from source against MKL
+          pip install numpy --no-binary numpy --config-settings=setup-args="-Dblas=mkl" --config-settings=setup-args="-Dlapack=mkl"
+          pip install scipy --no-binary scipy --config-settings=setup-args="-Dblas=mkl-dynamic-lp64-seq" --config-settings=setup-args="-Dlapack=mkl-dynamic-lp64-seq"
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install .[dmet,ebcc] --user
           python -c 'import numpy as np; np.__config__.show()'
+          python -c 'import scipy as sp; sp.show_config()'
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
