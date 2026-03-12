@@ -306,15 +306,30 @@ class Fragment:
         return dot(c1, ovlp, c2)
 
     def _kcsc_dot(self, c1, c2, kpts1=None, kpts2=None, ovlp=True, transpose_left=True, transpose_right=False):
+        """Compute k-space matrix product: C1^T @ [S @] C2, per k-point.
+
+        Parameters
+        ----------
+        c1 : (nk, nkAO, n1) array
+            Left coefficient matrix in k-AO basis.
+        c2 : (nk, nkAO, n2) array
+            Right coefficient matrix in k-AO basis.
+        ovlp : (nk, nkAO, nkAO) array, True, or None
+            k-space overlap matrix. If True, use the MF k-overlap. If None, no overlap.
+        transpose_left : bool
+            If True, transpose c1 per k-point (conjugate transpose for complex arrays).
+        transpose_right : bool
+            If True, transpose c2 per k-point (conjugate transpose for complex arrays).
+        """
         if transpose_left:
-            c1 = c1.T
+            c1 = c1.swapaxes(-1, -2)
         if transpose_right:
-            c2 = c2.T
+            c2 = c2.swapaxes(-1, -2)
         if ovlp is True:
-            ovlp = self.base.mf.get_kovlp()
+            ovlp = np.asarray(self.base.mf.get_kovlp())
         if ovlp is None:
-            return einsum('kcp,kaP->kpP', c1, c2)
-        return einsum('kcp,kca,kaP->kpP', c1, ovlp, c2)
+            return np.matmul(c1, c2)
+        return np.matmul(np.matmul(c1, ovlp), c2)
 
     @property
     @cache
@@ -341,7 +356,7 @@ class Fragment:
         >>> s = self.get_overlap('cluster|frag')
         >>> s = self.get_overlap('mo[occ]|cluster[occ]')
         >>> s = self.get_overlap('mo[vir]|cluster[vir]')
-        >>> s = self.get_overlap('kmo->cluster')
+        >>> s = self.get_overlap('kmo|cluster')
 
         """
         if key.count("|") > 1:
@@ -355,59 +370,128 @@ class Fragment:
         if key_mod != key:
             return self.get_overlap(key_mod)
 
-        def _get_coeff(key):
-            if "frag" in key:
-                return self.c_frag
-            if "proj" in key:
-                return self.c_proj
-            if "occ" in key:
-                part = "_occ"
-            elif "vir" in key:
-                part = "_vir"
-            else:
-                part = ""
-            if "mo" in key:
-                return getattr(self.base, "mo_coeff%s" % part)
-            if "cluster" in key:
-                return getattr(self.cluster, "c_active%s" % part)
-            raise ValueError("Invalid key: '%s'")
-
-        def _get_kcoeff(key):
-            if not self.base.is_pbc:
-                raise RuntimeError("k-space coefficients requested for non-periodic system.")
-            if "frag" in key:
-                raise NotImplementedError("k-fragment coefficients not implemented.")
-                return self.c_frag
-            if "proj" in key:
-                raise NotImplementedError("k-projected coefficients not implemented.")
-                return self.c_proj
-            if "occ" in key:
-                raise NotImplementedError("k-occupied coefficients not implemented.")
-                part = "_occ"
-            elif "vir" in key:
-                raise NotImplementedError("k-virtual coefficients not implemented.")
-                part = "_vir"
-            else:
-                part = ""
-            if "mo" in key:
-                return getattr(self.base, "kmo_coeff%s" % part)
-            if "cluster" in key:
-                return getattr(self, "ck_active%s" % part)
-            raise ValueError("Invalid key: '%s'")
-
-        _coeff_func = _get_kcoeff if "k" in key else _get_coeff
         left, right = key.split("|")
-        _coeff_func_left = _get_kcoeff if "k" in left else _get_coeff
-        _coeff_func_right = _get_kcoeff if "k" in right else _get_coeff
-        c_left = _coeff_func_left(left)
-        c_right = _coeff_func_right(right)
+        c_left, basis_left = self._get_coeff_and_basis(left)
+        c_right, basis_right = self._get_coeff_and_basis(right)
 
-        if c_left.ndim == 3 and c_right.ndim == 3:
-            return self._kcsc_dot(c_left, c_right, ovlp=None, transpose_left=False)
-        if c_left.ndim == 2 or c_right.ndim == 2:
-            return self._csc_dot(c_left, c_right)
+        return self._compute_overlap(c_left, basis_left, c_right, basis_right)
+
+
+    def _get_coeff_and_basis(self, key):
+        """Get AO orbital coefficients for a key."""
+
+        if "occ" in key:
+            part = "_occ"
+        elif "vir" in key:
+            part = "_vir"
         else:
-            raise NotImplementedError("Overlap involving k-space coefficient arrays not implemented.")
+            part = ""
+
+        if "mo" in key:
+            if key.startswith("k"):
+                return getattr(self.base, "kmo_coeff%s" % part), "kao"
+            else:
+                return getattr(self.base, "mo_coeff%s" % part), "ao"
+
+        elif "frag" in key:
+            coeff = self.c_frag
+        elif "proj" in key:
+            coeff = self.c_proj
+
+        elif 'cluster' in key:
+            coeff = getattr(self.cluster, "c_active%s" % part)
+        else:
+            raise ValueError("Invalid key: '%s'" % key)
+
+        if key.startswith("k"):
+            return self.base.mf.orbital_ao_to_kao(coeff), "kao"
+        else:
+            return coeff, "ao"
+
+    # def _get_coeff_and_basis(self, key):
+    #     """Return (coefficients, basis_type) for a given key."""
+    #     is_k = key.startswith("k")
+
+    #     if is_k:
+    #         return self._get_kcoeff(key), "kao"
+    #     else:
+    #         return self._get_rcoeff(key), "ao"
+            
+
+    # def _get_rcoeff(self, key):
+    #     """Get AO orbital coefficients for a key."""
+    #     if "frag" in key:
+    #         return self.c_frag
+    #     if "proj" in key:
+    #         return self.c_proj
+    #     if "occ" in key:
+    #         part = "_occ"
+    #     elif "vir" in key:
+    #         part = "_vir"
+    #     else:
+    #         part = ""
+    #     if "mo" in key:
+    #         return getattr(self.base, "mo_coeff%s" % part)
+    #     if "cluster" in key:
+    #         return getattr(self.cluster, "c_active%s" % part)
+    #     raise ValueError("Invalid key: '%s'" % key)
+
+    # def _get_kcoeff(self, key):
+    #     """Get k-AO orbital coefficients for a key."""
+    #     if not self.base.is_pbc:
+    #         raise RuntimeError("k-space coefficients requested for non-periodic system.")
+    #     if "frag" in key:
+    #         raise NotImplementedError("k-fragment coefficients not implemented.")
+    #     if "proj" in key:
+    #         raise NotImplementedError("k-projected coefficients not implemented.")
+    #     if "occ" in key:
+    #         raise NotImplementedError("k-occupied coefficients not implemented.")
+    #     elif "vir" in key:
+    #         raise NotImplementedError("k-virtual coefficients not implemented.")
+    #     else:
+    #         part = ""
+    #     if "mo" in key:
+    #         return getattr(self.base, "kmo_coeff%s" % part)
+    #     if "cluster" in key:
+    #         return self.ck_active
+    #     raise ValueError("Invalid key: '%s'" % key)
+
+    def _compute_overlap(self, c_left, basis_left, c_right, basis_right):
+        """Compute overlap between two sets of orbitals, dispatching based on their basis type.
+
+        Parameters
+        ----------
+        c_left : ndarray
+            Left coefficient matrix. Shape (nAO, n) for 'ao' or (nk, nkAO, n) for 'kao'.
+        basis_left : str
+            'ao' or 'kao'.
+        c_right : ndarray
+            Right coefficient matrix.
+        basis_right : str
+            'ao' or 'kao'.
+
+        Returns
+        -------
+        overlap : ndarray
+            For (ao, ao): shape (n_left, n_right).
+            For (kao, kao): shape (nk, n_left, n_right).
+            For mixed (ao, kao) or (kao, ao): shape (nk, n_left, n_right).
+        """
+        if basis_left == "ao" and basis_right == "ao":
+            return self._csc_dot(c_left, c_right)
+
+        if basis_left == "kao" and basis_right == "kao":
+            return self._kcsc_dot(c_left, c_right)
+
+        if basis_left == "ao" and basis_right == "kao":
+            c_left_k = self.base.mf.orbital_ao_to_kao(c_left)
+            return self._kcsc_dot(c_left_k, c_right)
+
+        if basis_left == "kao" and basis_right == "ao":
+            c_right_k = self.base.mf.orbital_ao_to_kao(c_right)
+            return self._kcsc_dot(c_left, c_right_k)
+
+        raise ValueError("Unknown basis types: %s, %s" % (basis_left, basis_right))
 
     def get_coeff_env(self):
         if self.c_env is not None:

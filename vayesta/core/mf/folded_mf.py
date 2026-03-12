@@ -167,7 +167,25 @@ class Folded_PySCF_MeanField(PySCF_MeanField):
         self._dummy_mf.mo_occ = self.mo_occ
         self._dummy_mf.mo_energy = self.mo_energy
         return self._dummy_mf.energy_tot(*args, **kwargs)
+
+
+    def orbital_ao_to_kao(self, coeff_ao):
+        """Transform supercell AO coefficients to k-AO basis.
+
+        Parameters
+        ----------
+        coeff_ao : (nAO, nOrb) array
+            Orbital coefficients in supercell AO basis.
+
+        Returns
+        -------
+        coeff_kao : (nk, nkAO, nOrb) array
+            Orbital coefficients in k-AO basis.
+        """
+        pass
     
+
+
 
 class Folded_PySCF_RHF(Folded_PySCF_MeanField, PySCF_RHF):
     __doc__ = Folded_PySCF_MeanField.__doc__
@@ -180,6 +198,9 @@ class Folded_PySCF_RHF(Folded_PySCF_MeanField, PySCF_RHF):
         )
         self._dummy_mf = pyscf.scf.rhf.RHF(self.mol)
         assert np.all(self.mo_coeff.imag == 0)
+
+    def orbital_ao_to_kao(self, coeff_ao):
+        return unfold_orbitals(coeff_ao, self.kphase)
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         raise NotImplementedError("update_mf is not implemented for Folded_PySCF_RHF")
@@ -201,8 +222,22 @@ class Folded_PySCF_UHF(Folded_PySCF_MeanField, PySCF_UHF):
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
 
+    def orbital_ao_to_kao(self, coeff_ao):
+        return tuple(unfold_orbitals(coeff_ao[i], self.kphase) for i in range(2))
+
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         raise NotImplementedError("update_mf is not implemented for Folded_PySCF_UHF")
+
+def unfold_orbitals(coeff_ao, kphase):
+    nk = kphase.shape[0]
+    nao = coeff_ao.shape[0]
+    nkao = nao // nk
+    norb = coeff_ao.shape[-1]
+    # Reshape supercell AO -> (nk, nkAO, nOrb) via the unit cell index
+    coeff_cell = coeff_ao.reshape(nk, nkao, norb)
+    coeff_kao = einsum('kR,...Rmp->...kmp', kphase.conj(), coeff_cell)
+    return coeff_kao
+
 
 def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=True):
     # --- MO energy and occupations

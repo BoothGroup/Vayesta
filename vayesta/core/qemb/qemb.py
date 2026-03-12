@@ -413,8 +413,8 @@ class Embedding:
                 'get_ovlp_power',
                 'get_hcore',
                 'get_veff',
-                'get_fock'
-
+                'get_fock',
+                'orbital_ao_to_kao',
                 ]
     def __getattr__(self, name):
         if name in self._mf_attrs:
