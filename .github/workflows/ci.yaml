@@ -107,6 +107,7 @@ jobs:
       CC: icx
       CXX: icpx
       FC: ifx
+      MKL_ROOT: /opt/intel/oneapi/mkl/latest
       BLAS: mkl
       LAPACK: mkl
       CFLAGS: -I/opt/intel/oneapi/mkl/latest/include -O3 -Wno-error
