@@ -331,18 +331,43 @@ class Fragment:
             return np.matmul(c1, c2)
         return np.matmul(np.matmul(c1, ovlp), c2)
 
-    @property
-    @cache
-    def ck_active(f):
-        """Cluster orbital coefficients: supercell AO -> k-AO basis."""
-        mf = f.base.mf
-        nclus = f.cluster.c_active.shape[1]
-        nk = len(mf.kpts)
-        nao = np.array(mf.mo_coeff).shape[1]
-        C_clus = f.cluster.c_active.reshape(nk, nao//nk, nclus)
-        phase = mf.kphase
-        clus2kao = einsum('kR,Rmp->kmp', phase.conj(), C_clus)  
-        return clus2kao
+    def _compute_overlap(self, c_left, basis_left, c_right, basis_right):
+        """Compute overlap between two sets of orbitals, dispatching based on their basis type.
+
+        Parameters
+        ----------
+        c_left : ndarray
+            Left coefficient matrix. Shape (nAO, n) for 'ao' or (nk, nkAO, n) for 'kao'.
+        basis_left : str
+            'ao' or 'kao'.
+        c_right : ndarray
+            Right coefficient matrix.
+        basis_right : str
+            'ao' or 'kao'.
+
+        Returns
+        -------
+        overlap : ndarray
+            For (ao, ao): shape (n_left, n_right).
+            For (kao, kao): shape (nk, n_left, n_right).
+            For mixed (ao, kao) or (kao, ao): shape (nk, n_left, n_right).
+        """
+        if basis_left == "ao" and basis_right == "ao":
+            return self._csc_dot(c_left, c_right)
+
+        if basis_left == "kao" and basis_right == "kao":
+            return self._kcsc_dot(c_left, c_right)
+
+        if basis_left == "ao" and basis_right == "kao":
+            c_left_k = self.base.mf.orbital_ao_to_kao(c_left)
+            return self._kcsc_dot(c_left_k, c_right)
+
+        if basis_left == "kao" and basis_right == "ao":
+            c_right_k = self.base.mf.orbital_ao_to_kao(c_right)
+            return self._kcsc_dot(c_left, c_right_k)
+
+        raise ValueError("Unknown basis types: %s, %s" % (basis_left, basis_right))
+
 
     @cache
     def get_overlap(self, key):
@@ -408,90 +433,6 @@ class Fragment:
         else:
             return coeff, "ao"
 
-    # def _get_coeff_and_basis(self, key):
-    #     """Return (coefficients, basis_type) for a given key."""
-    #     is_k = key.startswith("k")
-
-    #     if is_k:
-    #         return self._get_kcoeff(key), "kao"
-    #     else:
-    #         return self._get_rcoeff(key), "ao"
-            
-
-    # def _get_rcoeff(self, key):
-    #     """Get AO orbital coefficients for a key."""
-    #     if "frag" in key:
-    #         return self.c_frag
-    #     if "proj" in key:
-    #         return self.c_proj
-    #     if "occ" in key:
-    #         part = "_occ"
-    #     elif "vir" in key:
-    #         part = "_vir"
-    #     else:
-    #         part = ""
-    #     if "mo" in key:
-    #         return getattr(self.base, "mo_coeff%s" % part)
-    #     if "cluster" in key:
-    #         return getattr(self.cluster, "c_active%s" % part)
-    #     raise ValueError("Invalid key: '%s'" % key)
-
-    # def _get_kcoeff(self, key):
-    #     """Get k-AO orbital coefficients for a key."""
-    #     if not self.base.is_pbc:
-    #         raise RuntimeError("k-space coefficients requested for non-periodic system.")
-    #     if "frag" in key:
-    #         raise NotImplementedError("k-fragment coefficients not implemented.")
-    #     if "proj" in key:
-    #         raise NotImplementedError("k-projected coefficients not implemented.")
-    #     if "occ" in key:
-    #         raise NotImplementedError("k-occupied coefficients not implemented.")
-    #     elif "vir" in key:
-    #         raise NotImplementedError("k-virtual coefficients not implemented.")
-    #     else:
-    #         part = ""
-    #     if "mo" in key:
-    #         return getattr(self.base, "kmo_coeff%s" % part)
-    #     if "cluster" in key:
-    #         return self.ck_active
-    #     raise ValueError("Invalid key: '%s'" % key)
-
-    def _compute_overlap(self, c_left, basis_left, c_right, basis_right):
-        """Compute overlap between two sets of orbitals, dispatching based on their basis type.
-
-        Parameters
-        ----------
-        c_left : ndarray
-            Left coefficient matrix. Shape (nAO, n) for 'ao' or (nk, nkAO, n) for 'kao'.
-        basis_left : str
-            'ao' or 'kao'.
-        c_right : ndarray
-            Right coefficient matrix.
-        basis_right : str
-            'ao' or 'kao'.
-
-        Returns
-        -------
-        overlap : ndarray
-            For (ao, ao): shape (n_left, n_right).
-            For (kao, kao): shape (nk, n_left, n_right).
-            For mixed (ao, kao) or (kao, ao): shape (nk, n_left, n_right).
-        """
-        if basis_left == "ao" and basis_right == "ao":
-            return self._csc_dot(c_left, c_right)
-
-        if basis_left == "kao" and basis_right == "kao":
-            return self._kcsc_dot(c_left, c_right)
-
-        if basis_left == "ao" and basis_right == "kao":
-            c_left_k = self.base.mf.orbital_ao_to_kao(c_left)
-            return self._kcsc_dot(c_left_k, c_right)
-
-        if basis_left == "kao" and basis_right == "ao":
-            c_right_k = self.base.mf.orbital_ao_to_kao(c_right)
-            return self._kcsc_dot(c_left, c_right_k)
-
-        raise ValueError("Unknown basis types: %s, %s" % (basis_left, basis_right))
 
     def get_coeff_env(self):
         if self.c_env is not None:
