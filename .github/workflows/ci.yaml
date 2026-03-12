@@ -140,11 +140,12 @@ jobs:
           icpx -v
           printenv >> $GITHUB_ENV
           export PKG_CONFIG_PATH=/opt/intel/oneapi/mkl/latest/lib/pkgconfig:$PKG_CONFIG_PATH
-          # Verify MKL is discoverable
           pkg-config --libs mkl-dynamic-lp64-seq
-          # Build numpy and scipy from source against MKL
           pip install numpy --no-binary numpy --config-settings=setup-args="-Dblas=mkl" --config-settings=setup-args="-Dlapack=mkl"
           pip install scipy --no-binary scipy --config-settings=setup-args="-Dblas=mkl-dynamic-lp64-seq" --config-settings=setup-args="-Dlapack=mkl-dynamic-lp64-seq"
+          # Install PySCF with MKL BLAS hint
+          export CMAKE_ARGS="-DBLA_VENDOR=Intel10_64lp_seq"
+          pip install "pyscf @ git+https://github.com/pyscf/pyscf@master" --no-binary pyscf
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
