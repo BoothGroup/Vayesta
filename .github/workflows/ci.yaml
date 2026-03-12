@@ -107,6 +107,10 @@ jobs:
       CC: icx
       CXX: icpx
       FC: ifx
+      BLAS: mkl
+      LAPACK: mkl
+      CFLAGS: -I/opt/intel/oneapi/mkl/latest/include
+      LDFLAGS: -L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt
       # fortran needs this because libimf does not have RPATH to find libintlc.so
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
