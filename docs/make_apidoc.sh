@@ -8,4 +8,5 @@ sphinx-apidoc -o source/apidoc -t templates ../vayesta/ \
 ../vayesta/ewf/rdm.py \
 ../vayesta/ewf/urdm.py \
 ../vayesta/misc/gmtkn55** \
+../vayesta/libs/** \
 ../vayesta/tests/**
