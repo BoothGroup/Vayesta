@@ -110,8 +110,8 @@ jobs:
       MKL_ROOT: /opt/intel/oneapi/mkl/latest
       BLAS: mkl
       LAPACK: mkl
-      CFLAGS: -I/opt/intel/oneapi/mkl/latest/include -O3 -Wno-error
-      CXXFLAGS: -O3 -Wno-error
+      CFLAGS: -I/opt/intel/oneapi/mkl/latest/include -O3 -Wno-error -fveclib=none
+      CXXFLAGS: -O3 -Wno-error 
       LDFLAGS: -L/opt/intel/oneapi/mkl/latest/lib/intel64 -L/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64 -lmkl_rt -limf -lsvml -lirc -lirc_s
       # fortran needs this because libimf does not have RPATH to find libintlc.so
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
