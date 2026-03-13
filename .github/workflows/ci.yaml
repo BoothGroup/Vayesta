@@ -144,7 +144,7 @@ jobs:
           pip install numpy --no-binary numpy --config-settings=setup-args="-Dblas=mkl" --config-settings=setup-args="-Dlapack=mkl"
           pip install scipy --no-binary scipy --config-settings=setup-args="-Dblas=mkl-dynamic-lp64-seq" --config-settings=setup-args="-Dlapack=mkl-dynamic-lp64-seq"
           # Install PySCF with MKL BLAS hint
-          export CMAKE_ARGS="-DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so"
+          export CMAKE_CONFIGURE_ARGS="-DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so"
           pip install "pyscf @ git+https://github.com/pyscf/pyscf@master" --no-build-isolation --no-binary pyscf
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
