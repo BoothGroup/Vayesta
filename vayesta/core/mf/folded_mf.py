@@ -13,20 +13,12 @@ import pyscf.pbc.df
 
 from vayesta.core.util import ImaginaryPartError, OrthonormalityError, dot, einsum
 
+from .mf import PySCF_MeanField, PySCF_RHF, PySCF_UHF
+
+
 log = logging.getLogger(__name__)
 
-
-def fold_scf(kmf, *args, **kwargs):
-    """Fold k-point sampled mean-field object to Born-von Karman (BVK) supercell.
-    See also :class:`FoldedSCF`."""
-    if isinstance(kmf, pyscf.pbc.scf.khf.KRHF):
-        return FoldedRHF(kmf, *args, **kwargs)
-    if isinstance(kmf, pyscf.pbc.scf.kuhf.KUHF):
-        return FoldedUHF(kmf, *args, **kwargs)
-    raise NotImplementedError("Mean-field type= %r" % kmf)
-
-
-class FoldedSCF:
+class Folded_PySCF_MeanField(PySCF_MeanField):
     """Fold k-point sampled SCF calculation to the BVK (Born-von Karman) supercell.
 
     This class automatically updates the attributes `mo_energy`, `mo_coeff`, `mo_occ`, `e_tot`, and `converged`.
@@ -47,113 +39,221 @@ class FoldedSCF:
     kphase: (ncells, ncells) array
         Transformation matrix between k-point and BVK quantities.
     """
+    def __init__(self, mf):
 
-    # Propagate the following attributes to the k-point mean-field:
-    _from_kmf = ["converged", "exxdiv", "verbose", "max_memory", "conv_tol", "conv_tol_grad", "stdout", "_eri"]
+        self._mf = mf
+        self.cell = mf.cell
+        self.kpts = mf.kpts
 
-    def __init__(self, kmf, kpt=np.zeros(3), **kwargs):
-        # Create a copy, so that the original mean-field object does not get modified
-        kmf = copy.copy(kmf)
-        # Support for k-point symmetry:
-        if hasattr(kmf, "to_khf"):
-            kmf = kmf.to_khf()
-        self.kmf = kmf
-        self.subcellmesh = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
-        cell, self.kphase = get_phase(self.kcell, self.kmf.kpts)
-        # We cannot call the PySCF __init__....
-        # super().__init__(scell, **kwargs)
-        # ... so we have to intialize a few attributes here:
-        self.mol = self.cell = cell
+        # Only Gamma point supported for now
+        self.kpt = np.array([0.0, 0.0, 0.0])
 
-        # From scf/hf.py:
-        self.callback = None
-        self.scf_summary = {}
-        self._chkfile = tempfile.NamedTemporaryFile(dir=lib.param.TMPDIR)
-        self.chkfile = self._chkfile.name
+        self.subcellmesh = kpts_to_kmesh(self.mf.cell, mf.kpts)
+        self.mol, self.kphase = get_phase(self.kcell, self.mf.kpts)
+        
+        self._dim = getattr(self.mol, "dimension", 0)
+        self.exxdiv = mf.get_exxdiv() if hasattr(mf, "get_exxdiv") else None
+        self.has_exxdiv = hasattr(mf, "exxdiv") and mf.exxdiv is not None
+        if self.has_exxdiv:
+            self.madelung = pyscf.pbc.tools.madelung(self.mol, self.kpt)
 
-        # from pbc/scf/hf.py:
-        self.with_df = pyscf.pbc.df.FFTDF(cell)
-        self.rsjk = None
-        self.kpt = kpt
-        if not np.allclose(kpt, 0):
-            raise NotImplementedError()
-
-    def __getattr__(self, name):
-        if name in self._from_kmf:
-            return getattr(self.kmf, name)
-        raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
-
-    def __setattr__(self, name, value):
-        if name in self._from_kmf:
-            return setattr(self.kmf, name, value)
-        return super().__setattr__(name, value)
 
     @property
+    def nao(self):
+        return self.mf.mol.nao_nr() * np.prod(self.subcellmesh)
+
+    @property
+    def nkpts(self):
+        return self.kpts.shape[0]
+
+    @property
+    def nkmo(self):
+        return self.kmo_coeff.shape[-1]
+
+    @property
+    def nkao(self):
+        return self.mf.mol.nao_nr()
+        
+    @property
     def e_tot(self):
-        return self.ncells * self.kmf.e_tot
+        return self.ncells * self.mf.e_tot
 
     @e_tot.setter
     def e_tot(self, value):
-        self.kmf.e_tot = value / self.ncells
+        self.mf.e_tot = value / self.ncells
 
     @property
     def ncells(self):
-        return len(self.kmf.kpts)
+        return len(self.mf.kpts)
 
     @property
     def kcell(self):
-        return self.kmf.mol
+        return self.mf.mol
 
     @property
     def _eri(self):
         return None
 
+    @property
+    def kmo_coeff(self):
+        return np.array(self.mf.mo_coeff)
+    
+    @property
+    def kmo_energy(self):
+        return np.array(self.mf.mo_energy)
+
+    @property
+    def kmo_occ(self):
+        return np.array(self.mf.mo_occ)
+    
     def get_ovlp(self, *args, **kwargs):
-        sk = self.kmf.get_ovlp(*args, **kwargs)
+        sk = self.mf.get_ovlp(*args, **kwargs)
         ovlp = k2bvk_2d(sk, self.kphase)
         return ovlp
 
+    def get_kovlp(self, *args, **kwargs):
+        return self.mf.get_ovlp(*args, **kwargs)
+
+    def get_ovlp_power(self, power):
+        if power == 0:
+            return np.eye(self.nao)
+        elif power == 1:
+            return self.get_ovlp()
+        # For folded calculations, use k-point sampled overlap for better performance and accuracy
+        sk = self.kcell.pbc_intor("int1e_ovlp", hermi=1, kpts=self.kpts, pbcopt=pyscf.lib.c_null_ptr())
+        ek, vk = np.linalg.eigh(sk)
+        spowk = einsum("kai,ki,kbi->kab", vk, ek**power, vk.conj())
+        spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
+        return spow
+
     def get_hcore(self, *args, make_real=True, **kwargs):
-        hk = self.kmf.get_hcore(*args, **kwargs)
+        hk = self.mf.get_hcore(*args, **kwargs)
         hcore = k2bvk_2d(hk, self.kphase, make_real=make_real)
         return hcore
 
-    def get_veff(self, mol=None, dm=None, *args, make_real=True, **kwargs):
+    def get_khcore(self, *args, **kwargs):
+        return self.mf.get_hcore(*args, **kwargs)
+
+    def get_veff(self, mol=None, dm=None, *args, make_real=True, with_exxdiv=True, **kwargs):
         assert mol is None or mol is self.mol
         # Unfold DM into k-space
         if dm is not None:
             dm = bvk2k_2d(dm, self.kphase)
-        vk = self.kmf.get_veff(self.kmf.mol, dm, *args, **kwargs)
+        vk = self.mf.get_veff(self.mf.mol, dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase, make_real=make_real)
-        return veff
+
+        if not with_exxdiv and self.has_exxdiv:
+            v_exxdiv = self.get_exxdiv()[1]
+            return veff - v_exxdiv
+        else:
+            return veff
+
+    def get_kveff(self, mol=None, dm=None, *args, with_exxdiv=True, **kwargs):
+        if dm is not None and dm.ndim == 2:
+            dm = bvk2k_2d(dm, self.kphase)
+        veff = self.mf.get_veff(self.mf.mol, dm, *args, **kwargs)
+
+        if not with_exxdiv and self.has_exxdiv:
+            raise NotImplementedError("get_kveff with with_exxdiv=False is not implemented yet")
+            v_exxdiv = self.get_exxdiv()[1]
+            kv_exxdiv = bvk2k_2d(v_exxdiv, self.kphase)
+            return veff - kv_exxdiv
+        else:
+            return veff
+
+        
+    def make_rdm1(self, mo_coeff=None, mo_occ=None):
+        """Make 1-particle density matrix in AO basis."""
+        if mo_coeff is None:
+            mo_coeff = self.mo_coeff
+        if mo_occ is None:
+            mo_occ = self.mo_occ
+        dm1 = self._dummy_mf.make_rdm1(mo_coeff=mo_coeff, mo_occ=mo_occ)
+        #dm1 = np.einsum("...ap,...o,...bp->ab", mo_coeff, mo_occ, mo_coeff.conj())
+        return dm1
+
+    #def make_krdm1(self, mo_coeff=None, mo_occ=None):
+
+    def energy_tot(self, *args, **kwargs):
+        self._dummy_mf.mo_coeff = self.mo_coeff
+        self._dummy_mf.mo_occ = self.mo_occ
+        self._dummy_mf.mo_energy = self.mo_energy
+        return self._dummy_mf.energy_tot(*args, **kwargs)
 
 
-class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
-    __doc__ = FoldedSCF.__doc__
+    def orbital_ao_to_kao(self, coeff_ao):
+        """Transform supercell AO coefficients to k-AO basis.
+
+        Parameters
+        ----------
+        coeff_ao : (nAO, nOrb) array
+            Orbital coefficients in supercell AO basis.
+
+        Returns
+        -------
+        coeff_kao : (nk, nkAO, nOrb) array
+            Orbital coefficients in k-AO basis.
+        """
+        pass
+    
+    def one_body_ao_to_kao(self, obs):
+        return bvk2k_2d(obs, self.kphase)
+
+    def one_body_kao_to_ao(self, obs):
+        return k2bvk_2d(obs, self.kphase)
+
+
+
+class Folded_PySCF_RHF(Folded_PySCF_MeanField, PySCF_RHF):
+    __doc__ = Folded_PySCF_MeanField.__doc__
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
         ovlp = self.get_ovlp()
-        self.mo_energy, self.mo_coeff, self.mo_occ = fold_mos(
-            self.kmf.mo_energy, self.kmf.mo_coeff, self.kmf.mo_occ, self.kphase, ovlp
+        self._mo_energy, self._mo_coeff, self._mo_occ = fold_mos(
+            self.mf.mo_energy, self.mf.mo_coeff, self.mf.mo_occ, self.kphase, ovlp
         )
-
+        self._dummy_mf = pyscf.scf.rhf.RHF(self.mol)
         assert np.all(self.mo_coeff.imag == 0)
 
+    def orbital_ao_to_kao(self, coeff_ao):
+        return unfold_orbitals(coeff_ao, self.kphase)
 
-class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
-    __doc__ = FoldedSCF.__doc__
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        raise NotImplementedError("update_mf is not implemented for Folded_PySCF_RHF")
+
+
+class Folded_PySCF_UHF(Folded_PySCF_MeanField, PySCF_UHF):
+    __doc__ = Folded_PySCF_MeanField.__doc__
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
 
         ovlp = self.get_ovlp()
-        self.mo_energy, self.mo_coeff, self.mo_occ = zip(
-            fold_mos(self.kmf.mo_energy[0], self.kmf.mo_coeff[0], self.kmf.mo_occ[0], self.kphase, ovlp),
-            fold_mos(self.kmf.mo_energy[1], self.kmf.mo_coeff[1], self.kmf.mo_occ[1], self.kphase, ovlp),
+        self._mo_energy, self._mo_coeff, self._mo_occ = zip(
+            fold_mos(self.mf.mo_energy[0], self.mf.mo_coeff[0], self.mf.mo_occ[0], self.kphase, ovlp),
+            fold_mos(self.mf.mo_energy[1], self.mf.mo_coeff[1], self.mf.mo_occ[1], self.kphase, ovlp),
         )
+
+        self._dummy_mf = pyscf.scf.uhf.UHF(self.mol)
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
+
+    def orbital_ao_to_kao(self, coeff_ao):
+        return tuple(unfold_orbitals(coeff_ao[i], self.kphase) for i in range(2))
+
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        raise NotImplementedError("update_mf is not implemented for Folded_PySCF_UHF")
+
+def unfold_orbitals(coeff_ao, kphase):
+    nk = kphase.shape[0]
+    nao = coeff_ao.shape[0]
+    nkao = nao // nk
+    norb = coeff_ao.shape[-1]
+    # Reshape supercell AO -> (nk, nkAO, nOrb) via the unit cell index
+    coeff_cell = coeff_ao.reshape(nk, nkao, norb)
+    coeff_kao = einsum('kR,...Rmp->...kmp', kphase.conj(), coeff_cell)
+    return coeff_kao
 
 
 def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=True):
@@ -237,55 +337,6 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     return mo_energy, mo_coeff.real
 
 
-def make_mo_coeff_real_2(mo_energy, mo_coeff, mo_occ, ovlp, hcore, imag_tol=1e-8):
-    mo_coeff = mo_coeff.copy()
-    # Check orthonormality
-    ortherr = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
-    log.debugv("Orthonormality error before make_mo_coeff_real: %.2e", ortherr)
-
-    mo_coeff_occ = mo_coeff[:, mo_occ > 0]
-    mo_coeff_vir = mo_coeff[:, mo_occ == 0]
-
-    e_hcore_min = scipy.linalg.eigh(hcore, b=ovlp)[0][0]
-    shift = 1.0 - e_hcore_min
-
-    def make_subspace_real(mo_coeff_sub):
-        # Diagonalize Hcore to separate symmetry sectors
-        nsub = mo_coeff_sub.shape[-1]
-        hsub = dot(mo_coeff_sub.T.conj(), hcore, mo_coeff_sub) + shift * np.eye(nsub)
-        cs = dot(mo_coeff_sub.T.conj(), ovlp)
-        hsub = dot(cs.T.conj(), hsub, cs)
-        im = abs(hsub.imag).max()
-        assert im < imag_tol, "Imaginary part of Hcore= %.3e" % im
-        e, c = scipy.linalg.eigh(hsub.real, b=ovlp)
-        colspace = e > 0.5
-        assert np.count_nonzero(colspace) == nsub
-        mo_coeff_sub = c[:, colspace]
-
-        # Canonicalize subspace MO coefficients
-        p = dot(mo_coeff.T.conj(), ovlp, mo_coeff_sub)
-        fsub = einsum("ia,i,ib->ab", p.conj(), mo_energy, p)
-        im = abs(fsub.imag).max()
-        assert im < imag_tol, "Imaginary part of Fock= %.3e" % im
-        e, r = np.linalg.eigh(fsub.real)
-        mo_energy_sub = e
-        mo_coeff_sub = np.dot(mo_coeff_sub, r)
-        return mo_energy_sub, mo_coeff_sub
-
-    mo_energy_occ, mo_coeff_occ = make_subspace_real(mo_coeff_occ)
-    mo_energy_vir, mo_coeff_vir = make_subspace_real(mo_coeff_vir)
-    mo_energy_real = np.hstack((mo_energy_occ, mo_energy_vir))
-    mo_coeff_real = np.hstack((mo_coeff_occ, mo_coeff_vir))
-
-    log_error_norms("Error in MO energies of real orbitals: L(2)= %.2e L(inf)= %.2e", (mo_energy_real - mo_energy))
-
-    return mo_energy_real, mo_coeff_real
-
-
-# ==========================
-# From PySCF, modified
-
-
 def kpts_to_kmesh(cell, kpts):
     """Guess k-mesh from k-points."""
     scaled_k = cell.get_scaled_kpts(kpts).round(8)
@@ -341,64 +392,3 @@ def bvk2k_2d(ag, phase):
     ag = ag.reshape(shape)
     ak = einsum("kR,...RiSj,kS->...kij", phase.conj(), ag, phase)
     return ak
-
-
-# Depreciated functionality removed; rotation of mos to minimise imaginary part and conversion between kpoint and
-# supercell calculations.
-# Check out v1.0.0 or v1.0.1 if needed.
-
-
-if __name__ == "__main__":
-    import vayesta
-    from pyscf.pbc import gto, scf
-
-    log = vayesta.log
-
-    cell = gto.Cell()
-    cell.atom = """
-    H 0.0  0.0  0.0
-    H 0.6  0.4  0.0
-    """
-
-    cell.basis = "cc-pvdz"
-    cell.a = np.eye(3) * 4.0
-    cell.a[2, 2] = 20
-    cell.unit = "B"
-    cell.dimension = 2
-    cell.build()
-
-    kmesh = [3, 3, 1]
-    kpts = cell.make_kpts(kmesh)
-
-    khf = scf.KRHF(cell, kpts)
-    # khf = scf.KUHF(cell, kpts)
-    khf.conv_tol = 1e-12
-    khf = khf.density_fit(auxbasis="cc-pvdz-jkfit")
-    khf.kernel()
-
-    hf = fold_scf(khf)
-
-    scell = pyscf.pbc.tools.super_cell(cell, kmesh)
-    shf = scf.RHF(scell)
-    # shf = scf.UHF(scell)
-    shf.conv_tol = 1e-12
-    shf = shf.density_fit(auxbasis="cc-pvdz-jkfit")
-    shf.kernel()
-
-    # Overlap matrix
-    err = np.linalg.norm(hf.get_ovlp() - shf.get_ovlp())
-    print("Error overlap= %.3e" % err)
-
-    # Hcore matrix
-    err = np.linalg.norm(hf.get_hcore() - shf.get_hcore())
-    print("Error hcore= %.3e" % err)
-
-    # Veff matrix
-    err = np.linalg.norm(hf.get_veff() - shf.get_veff())
-    print("Error veff= %.3e" % err)
-
-    # Veff matrix for given DM
-    scell, phase = get_phase(cell, kpts)
-    dm = k2bvk_2d(khf.get_init_guess(), phase)
-    err = np.linalg.norm(hf.get_veff(dm=dm) - shf.get_veff(dm=dm))
-    print("Error veff for given DM= %.3e" % err)

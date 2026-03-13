@@ -15,6 +15,7 @@ import pyscf.pbc.tools
 
 # Package
 from vayesta.core.util import call_once, einsum, timer
+from vayesta.core.mf.folded_mf import kpts_to_kmesh
 from vayesta.libs import libcore
 from vayesta.core.ao2mo import helper
 
@@ -67,7 +68,10 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
     nk = len(kpts)
     kconserv = helper.get_kconserv(cell, kpts, nk=2)
     # Fourier transform MOs from supercell Gamma point to primitive cell k-points
-    phase = (pyscf.pbc.tools.k2gamma.get_phase(cell, kpts)[1]).T
+
+    #TODO investigate issue with pyscf impl. of kpts_to_kmesh
+    kmesh = kpts_to_kmesh(cell, kpts)
+    phase = (pyscf.pbc.tools.k2gamma.get_phase(cell, kpts, kmesh=kmesh)[1]).T
 
     if blksize is None:
         max_memory = int(1e9)  # 1 GB

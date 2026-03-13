@@ -18,7 +18,6 @@ import pyscf.pbc.tools
 import pyscf.lib
 
 from pyscf.mp.mp2 import _mo_without_core
-from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import (
     OptionsBase,
     OrthonormalityError,
@@ -32,6 +31,7 @@ from vayesta.core.util import (
     log_time,
     with_doc,
 )
+from vayesta.core.mf import read_mf, Folded_PySCF_MeanField
 from vayesta.core import spinalg, eris
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.screening.screening_moment import build_screened_eris
@@ -289,6 +289,7 @@ class Embedding:
             # 4) Mean-field
             # -------------
             self.mf = None
+            self.is_pbc = False
             self.kcell = None
             self.kpts = None
             self.kdf = None
@@ -313,6 +314,7 @@ class Embedding:
             self._reset()
 
     def _mpi_bcast_mf(self, mf):
+        raise NotImplementedError("Has not been updated after MF refactor.")
         """Use mo_energy and mo_coeff from master MPI rank only."""
         # If vayesta.misc.scf_with_mpi was used, we do not need broadcast
         # as the MO coefficients will already be the same
@@ -330,46 +332,25 @@ class Embedding:
             # Use MOs of master process
             mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
             mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+            if hasattr(mf, "kmf") and mf.kmf is not None:
+                mf.kmf.mo_energy = mpi.world.bcast(mf.kmf.mo_energy, root=0)
+                mf.kmf.mo_coeff = mpi.world.bcast(mf.kmf.mo_coeff, root=0)
 
     def init_mf(self, mf):
-        self._mf_orig = (
-            mf  # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
-        )
-
-        # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
-        # embedding method if attributes are replaced in their entirety
-        # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
-        mf = copy.copy(mf)
+        """Initialize mean-field object and related attributes."""
+        mf = read_mf(mf)
+        self.mf = mf
+        if isinstance(mf, Folded_PySCF_MeanField):
+            self.kcell, self.kpts, self.kdf = mf.mf.mol, mf.mf.kpts, mf.mf.with_df
+            # TODO: Need update to consider initialisation from supercell HF calculation
+            self.is_pbc = True
         self.log.debugv("type(mf)= %r", type(mf))
-        # If the mean-field has k-points, automatically fold to the supercell:
-        if isinstance(mf, pyscf.pbc.scf.khf.KSCF):
-            with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
-                mf = fold_scf(mf)
-        if isinstance(mf, FoldedSCF):
-            self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
-        # Make sure that all MPI ranks use the same MOs`:
         if mpi:
             self._mpi_bcast_mf(mf)
-        self.mf = mf
-        if not (self.is_rhf or self.is_uhf):
-            raise ValueError("Cannot deduce RHF or UHF!")
-
-        # Evaluating the Madelung constant is expensive - cache result
-        if self.has_exxdiv:
-            self.madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
-
-        # Original mean-field integrals - do not change these!
-        self._ovlp_orig = self.mf.get_ovlp()
-        self._hcore_orig = self.mf.get_hcore()
-        self._veff_orig = self.mf.get_veff()
-        # Cached integrals - these can be changed!
-        self._ovlp = self._ovlp_orig
-        self._hcore = self._hcore_orig
-        self._veff = self._veff_orig
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a (converged) HF calculations
-        e_mf = mf.e_tot / self.ncells
+        e_mf = mf.e_tot / mf.ncells
         e_hf = self.e_mf
         de = e_mf - e_hf
         rde = de / e_mf
@@ -383,27 +364,68 @@ class Embedding:
 
         # FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
-            self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao - self.nmo)
+            self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.mf.nao, self.mf.nmo, self.mf.nao - self.mf.nmo)
         else:
             self.log.info(
                 "n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
-                self.nao,
-                *self.nmo,
-                self.nao - self.nmo[0],
-                self.nao - self.nmo[1],
+                self.mf.nao,
+                *self.mf.nmo,
+                self.mf.nao - self.mf.nmo[0],
+                self.mf.nao - self.mf.nmo[1],
             )
 
-        self._check_orthonormal(self.mo_coeff, mo_name="MO")
+        self._check_orthonormal(self.mf.mo_coeff, mo_name="MO")
 
-        if self.mo_energy is not None:
+        if self.mf.mo_energy is not None:
             if self.is_rhf:
-                self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
-                self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
+                self.log.debugv("MO energies (occ):\n%r", self.mf.mo_energy[self.mf.mo_occ > 0])
+                self.log.debugv("MO energies (vir):\n%r", self.mf.mo_energy[self.mf.mo_occ == 0])
             else:
-                self.log.debugv("alpha-MO energies (occ):\n%r", self.mo_energy[0][self.mo_occ[0] > 0])
-                self.log.debugv("beta-MO energies (occ):\n%r", self.mo_energy[1][self.mo_occ[1] > 0])
-                self.log.debugv("alpha-MO energies (vir):\n%r", self.mo_energy[0][self.mo_occ[0] == 0])
-                self.log.debugv("beta-MO energies (vir):\n%r", self.mo_energy[1][self.mo_occ[1] == 0])
+                self.log.debugv("alpha-MO energies (occ):\n%r", self.mf.mo_energy[0][self.mf.mo_occ[0] > 0])
+                self.log.debugv("beta-MO energies (occ):\n%r", self.mf.mo_energy[1][self.mf.mo_occ[1] > 0])
+                self.log.debugv("alpha-MO energies (vir):\n%r", self.mf.mo_energy[0][self.mf.mo_occ[0] == 0])
+                self.log.debugv("beta-MO energies (vir):\n%r", self.mf.mo_energy[1][self.mf.mo_occ[1] == 0])
+
+    _mf_attrs = ['nao',
+                'nmo',
+                'nkpts',
+                'nkmo',
+                'nkao',
+                'mo_energy',
+                'mo_energy_occ',
+                'mo_energy_vir',
+                'mo_occ',
+                'mo_coeff',
+                'mo_coeff_occ',
+                'mo_coeff_vir',
+                'kmo_occ',
+                'kmo_energy',
+                'kmo_coeff',
+                'kmo_coeff_occ',
+                'kmo_coeff_vir',
+                'kpts',
+                'rvecs',
+                'nocc',
+                'nvir',
+                'ncells',
+                'pbc_dimension',
+                'has_df',
+                'with_df',
+                'has_exxdiv',
+                'get_exxdiv',
+                'mol',
+                'get_ovlp',
+                'get_ovlp_power',
+                'get_hcore',
+                'get_veff',
+                'get_fock',
+                'orbital_ao_to_kao',
+                ]
+    def __getattr__(self, name):
+        if name in self._mf_attrs:
+            return getattr(self.mf, name)
+        else:
+            raise AttributeError("Attribute %r not found in %s or underlying mean-field object!" % (name, type(self).__name__))
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
@@ -423,50 +445,6 @@ class Embedding:
     # Mol/Cell properties
 
     @property
-    def mol(self):
-        """Mole or Cell object."""
-        return self.mf.mol
-
-    @property
-    def has_exxdiv(self):
-        """Correction for divergent exact-exchange potential."""
-        return hasattr(self.mf, "exxdiv") and self.mf.exxdiv is not None
-
-    def get_exxdiv(self):
-        """Get divergent exact-exchange (exxdiv) energy correction and potential.
-
-        Returns
-        -------
-        e_exxdiv: float
-            Divergent exact-exchange energy correction per unit cell.
-        v_exxdiv: array
-            Divergent exact-exchange potential correction in AO basis.
-        """
-        if not self.has_exxdiv:
-            return 0, None
-        sc = np.dot(self.get_ovlp(), self.mo_coeff[:, : self.nocc])
-        e_exxdiv = -self.madelung * self.nocc
-        v_exxdiv = -self.madelung * np.dot(sc, sc.T)
-        self.log.debugv("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
-        return e_exxdiv / self.ncells, v_exxdiv
-
-    @property
-    def pbc_dimension(self):
-        return getattr(self.mol, "dimension", 0)
-
-    @property
-    def nao(self):
-        """Number of atomic orbitals."""
-        return self.mol.nao_nr()
-
-    @property
-    def ncells(self):
-        """Number of primitive cells within supercell."""
-        if self.kpts is None:
-            return 1
-        return len(self.kpts)
-
-    @property
     def has_df(self):
         return (self.df is not None) or (self.kdf is not None)
 
@@ -476,95 +454,6 @@ class Embedding:
             return self.mf.with_df
         return None
 
-    # Mean-field properties
-
-    # def init_vhf_ehf(self):
-    #    """Get Hartree-Fock potential and energy."""
-    #    if self.opts.recalc_vhf:
-    #        self.log.debug("Calculating HF potential from mean-field object.")
-    #        vhf = self.mf.get_veff()
-    #    else:
-    #        self.log.debug("Calculating HF potential from MOs.")
-    #        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
-    #        fock = np.dot(cs.T*self.mo_energy, cs)
-    #        vhf = (fock - self.get_hcore())
-    #    h1e = self.get_hcore_for_energy()
-    #    ehf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
-    #    return vhf, ehf
-
-    @property
-    def mo_energy(self):
-        """Molecular orbital energies."""
-        return self.mf.mo_energy
-
-    @property
-    def mo_coeff(self):
-        """Molecular orbital coefficients."""
-        return self.mf.mo_coeff
-
-    @property
-    def mo_occ(self):
-        """Molecular orbital occupations."""
-        return self.mf.mo_occ
-
-    # MOs setters:
-
-    # @mo_energy.setter
-    # def mo_energy(self, mo_energy):
-    #    """Updating the MOs resets the effective potential cache `_veff`."""
-    #    self.log.debugv("MF attribute 'mo_energy' is updated; deleting cached _veff.")
-    #    #self._veff = None
-    #    self.mf.mo_energy = mo_energy
-
-    # @mo_coeff.setter
-    # def mo_coeff(self, mo_coeff):
-    #    """Updating the MOs resets the effective potential cache `_veff`."""
-    #    self.log.debugv("MF attribute 'mo_coeff' is updated; deleting chached _veff.")
-    #    #self._veff = None
-    #    self.mf.mo_coeff = mo_coeff
-
-    # @mo_occ.setter
-    # def mo_occ(self, mo_occ):
-    #    """Updating the MOs resets the effective potential cache `_veff`."""
-    #    self.log.debugv("MF attribute 'mo_occ' is updated; deleting chached _veff.")
-    #    #self._veff = None
-    #    self.mf.mo_occ = mo_occ
-
-    @property
-    def nmo(self):
-        """Total number of molecular orbitals (MOs)."""
-        return self.mo_coeff.shape[-1]
-
-    @property
-    def nocc(self):
-        """Number of occupied MOs."""
-        return np.count_nonzero(self.mo_occ > 0)
-
-    @property
-    def nvir(self):
-        """Number of virtual MOs."""
-        return np.count_nonzero(self.mo_occ == 0)
-
-    @property
-    def mo_energy_occ(self):
-        """Occupied MO energies."""
-        return self.mo_energy[: self.nocc]
-
-    @property
-    def mo_energy_vir(self):
-        """Virtual MO coefficients."""
-        return self.mo_energy[self.nocc :]
-
-    @property
-    def mo_coeff_occ(self):
-        """Occupied MO coefficients."""
-        return self.mo_coeff[:, : self.nocc]
-
-    @property
-    def mo_coeff_vir(self):
-        """Virtual MO coefficients."""
-        return self.mo_coeff[:, self.nocc :]
-
     @property
     def e_mf(self):
         """Total mean-field energy per unit cell (not folded supercell).
@@ -572,21 +461,22 @@ class Embedding:
         `e_mf` refers to this cell.
         """
         h1e = self.get_hcore_for_energy()
-        vhf = self.get_veff_for_energy()
-        e_mf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
-        return e_mf / self.ncells
+        dm1 = self.mf.make_rdm1()
+        vhf = self.get_veff_for_energy(dm1=dm1)
+        e_mf = self.mf.energy_tot(dm=dm1, h1e=h1e, vhf=vhf)
+        return e_mf / self.mf.ncells
 
     @property
     def e_nuc(self):
         """Nuclear-repulsion energy per unit cell (not folded supercell)."""
-        return self.mol.energy_nuc() / self.ncells
+        return self.mf.mol.energy_nuc() / self.mf.ncells
 
     @property
     def e_nonlocal(self):
         if self.opts.ext_rpa_correction is None:
             return 0.0
         e_local = sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
-        return self.e_rpa - (e_local / self.ncells)
+        return self.e_rpa - (e_local / self.mf.ncells)
 
     # Embedding properties
 
@@ -600,71 +490,16 @@ class Embedding:
         for frag in self.fragments:
             yield frag
 
-    # --- Integral methods
-    # ====================
-
-    # Integrals of the original mean-field object - these cannot be changed:
-
-    def _get_ovlp_orig(self):
-        return self._ovlp_orig
-
-    def _get_hcore_orig(self):
-        return self._hcore_orig
-
-    def _get_veff_orig(self, with_exxdiv=True):
-        if not with_exxdiv and self.has_exxdiv:
-            v_exxdiv = self.get_exxdiv()[1]
-            return self._get_veff_orig() - v_exxdiv
-        return self._veff_orig
-
-    def _get_fock_orig(self, with_exxdiv=True):
-        return self._get_hcore_orig() + self._get_veff_orig(with_exxdiv=with_exxdiv)
-
-    # Integrals which change with mean-field updates or chemical potential shifts:
-
-    def get_ovlp(self):
-        """AO-overlap matrix."""
-        return self._ovlp
-
-    def get_hcore(self):
-        """Core Hamiltonian (kinetic energy plus nuclear-electron attraction)."""
-        return self._hcore
-
-    def get_veff(self, dm1=None, with_exxdiv=True):
-        """Hartree-Fock Coulomb and exchange potential in AO basis."""
-        if not with_exxdiv and self.has_exxdiv:
-            v_exxdiv = self.get_exxdiv()[1]
-            return self.get_veff(dm1=dm1) - v_exxdiv
-        if dm1 is None:
-            return self._veff
-        return self.mf.get_veff(dm=dm1)
-
-    def get_fock(self, dm1=None, with_exxdiv=True):
-        """Fock matrix in AO basis."""
-        return self.get_hcore() + self.get_veff(dm1=dm1, with_exxdiv=with_exxdiv)
-
-    def set_ovlp(self, value):
-        self.log.debug("Changing ovlp matrix.")
-        self._ovlp = value
-
-    def set_hcore(self, value):
-        self.log.debug("Changing hcore matrix.")
-        self._hcore = value
-
-    def set_veff(self, value):
-        self.log.debug("Changing veff matrix.")
-        self._veff = value
-
     # Integrals for energy evaluation
     # Overwriting these allows using different integrals for the energy evaluation
 
     def get_hcore_for_energy(self):
         """Core Hamiltonian used for energy evaluation."""
-        return self.get_hcore()
+        return self.mf.get_hcore()
 
     def get_veff_for_energy(self, dm1=None, with_exxdiv=True):
         """Hartree-Fock potential used for energy evaluation."""
-        return self.get_veff(dm1=dm1, with_exxdiv=with_exxdiv)
+        return self.mf.get_veff(dm=dm1, with_exxdiv=with_exxdiv)
 
     def get_fock_for_energy(self, dm1=None, with_exxdiv=True):
         """Fock matrix used for energy evaluation."""
@@ -672,35 +507,9 @@ class Embedding:
 
     def get_fock_for_bath(self, dm1=None, with_exxdiv=True):
         """Fock matrix used for bath orbitals."""
-        return self.get_fock(dm1=dm1, with_exxdiv=with_exxdiv)
+        return self.mf.get_fock(dm=dm1, with_exxdiv=with_exxdiv)
 
     # Other integral methods:
-
-    def get_ovlp_power(self, power):
-        """get power of AO overlap matrix.
-
-        For folded calculations, this uses the k-point sampled overlap, for better performance and accuracy.
-
-        Parameters
-        ----------
-        power : float
-            Matrix power.
-
-        Returns
-        -------
-        spow : (n(AO), n(AO)) array
-            Matrix power of AO overlap matrix
-        """
-        if power == 1:
-            return self.get_ovlp()
-        if self.kcell is None:
-            e, v = np.linalg.eigh(self.get_ovlp())
-            return np.dot(v * (e**power), v.T.conj())
-        sk = self.kcell.pbc_intor("int1e_ovlp", hermi=1, kpts=self.kpts, pbcopt=pyscf.lib.c_null_ptr())
-        ek, vk = np.linalg.eigh(sk)
-        spowk = einsum("kai,ki,kbi->kab", vk, ek**power, vk.conj())
-        spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
-        return spow
 
     get_cderi = eris.get_cderi
 
@@ -1647,23 +1456,6 @@ class Embedding:
         self._reset()
         self._reset_fragments(*args, **kwargs)
 
-    # --- Mean-field updates
-
-    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
-        """Update underlying mean-field object."""
-        # Chech orthonormal MOs
-        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
-            raise ValueError("MO coefficients not orthonormal!")
-        self.mf.mo_coeff = mo_coeff
-        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
-        if veff is None:
-            veff = self.mf.get_veff(dm=dm)
-        self.set_veff(veff)
-        if mo_energy is None:
-            # Use diagonal of Fock matrix as MO energies
-            mo_energy = einsum("ai,ab,bi->i", mo_coeff, self.get_fock(), mo_coeff)
-        self.mf.mo_energy = mo_energy
-        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
     def check_fragment_symmetry(self, dm1, symtol=1e-6):
         """Check that the mean-field obeys the symmetry between fragments."""
