@@ -1,0 +1,93 @@
+vayesta.core
+============
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.core.ao2mo
+   vayesta.core.bath
+   vayesta.core.bosonic_bath
+   vayesta.core.fragmentation
+   vayesta.core.qemb
+   vayesta.core.scmf
+   vayesta.core.screening
+   vayesta.core.symmetry
+   vayesta.core.types
+
+Submodules
+----------
+
+vayesta.core.cmdargs
+--------------------
+
+.. automodule:: vayesta.core.cmdargs
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.eris
+-----------------
+
+.. automodule:: vayesta.core.eris
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.foldscf
+--------------------
+
+.. automodule:: vayesta.core.foldscf
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.helper
+-------------------
+
+.. automodule:: vayesta.core.helper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.linalg
+-------------------
+
+.. automodule:: vayesta.core.linalg
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.spinalg
+--------------------
+
+.. automodule:: vayesta.core.spinalg
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.util
+-----------------
+
+.. automodule:: vayesta.core.util
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.vlog
+-----------------
+
+.. automodule:: vayesta.core.vlog
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core
+   :members:
+   :show-inheritance:
+   :undoc-members:

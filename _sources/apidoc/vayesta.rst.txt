@@ -1,0 +1,27 @@
+vayesta
+=======
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.core
+   vayesta.dmet
+   vayesta.edmet
+   vayesta.ewf
+   vayesta.lattmod
+   vayesta.misc
+   vayesta.mpi
+   vayesta.rpa
+   vayesta.solver
+   vayesta.tools
+
+Module contents
+---------------
+
+.. automodule:: vayesta
+   :members:
+   :show-inheritance:
+   :undoc-members:
