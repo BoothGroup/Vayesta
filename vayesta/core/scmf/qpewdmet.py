@@ -80,7 +80,7 @@ class QPEWDMET_RHF(SCMF):
         if self.static_potential_init is not None:
             
             e, mo_coeff = self.fock_scf(self.static_potential_init)
-            self.emb.update_mf(mo_coeff)
+            self.emb.mf.update_mf(mo_coeff)
 
             dm1 = self.mf.make_rdm1()
             # Check symmetry - needs fixing

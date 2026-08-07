@@ -381,7 +381,7 @@ class EWF(Embedding):
             raise ValueError
 
         if with_exxdiv is None:
-            if self.has_exxdiv:
+            if self.mf.has_exxdiv:
                 with_exxdiv = np.all([x.solver == "MP2" for x in self.fragments])
                 any_mp2 = np.any([x.solver == "MP2" for x in self.fragments])
                 any_not_mp2 = np.any([x.solver != "MP2" for x in self.fragments])
@@ -392,7 +392,7 @@ class EWF(Embedding):
 
         fock = self.get_fock_for_energy(with_exxdiv=with_exxdiv)
         e1 = np.sum(fock * dm1)
-        return e1 / self.ncells
+        return e1 / self.mf.ncells
 
     @mpi.with_allreduce()
     def get_dm_corr_energy_e2(self, dm2="projected-lambda", t_as_lambda=None):
@@ -422,7 +422,7 @@ class EWF(Embedding):
                 e2 += x.symmetry_factor * x.sym_factor * ex
         else:
             raise ValueError("Unknown value for dm2: '%s'" % dm2)
-        return e2 / self.ncells
+        return e2 / self.mf.ncells
 
     def get_ccsd_corr_energy(self, full_wf=False):
         """Get projected correlation energy from partitioned CCSD WF.

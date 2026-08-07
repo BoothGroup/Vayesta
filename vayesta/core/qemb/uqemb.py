@@ -32,59 +32,6 @@ class UEmbedding(Embedding):
     # Use instead:
     spinsym = "unrestricted"
 
-    # def get_init_veff(self):
-    #    if self.opts.recalc_vhf:
-    #        self.log.debug("Recalculating HF potential from MF object.")
-    #        veff = self.mf.get_veff()
-    #    else:
-    #        self.log.debug("Determining HF potential from MO energies and coefficients.")
-    #        cs = einsum('...ai,ab->...ib', self.mo_coeff, self.get_ovlp())
-    #        fock = einsum('...ia,...i,...ib->ab', cs, self.mo_energy, cs)
-    #        veff = (fock - self.get_hcore())
-    #    e_hf = self.mf.energy_tot(vhf=veff)
-    #    return veff, e_hf
-
-    # def _mpi_bcast_mf(self, mf):
-    #    """Use mo_energy and mo_coeff from master MPI rank only."""
-    #    # Check if all MPI ranks have the same mean-field MOs
-    #    #mo_energy = mpi.world.gather(mf.mo_energy)
-    #    #if mpi.is_master:
-    #    #    moerra = np.max([abs(mo_energy[i][0] - mo_energy[0][0]).max() for i in range(len(mpi))])
-    #    #    moerrb = np.max([abs(mo_energy[i][1] - mo_energy[0][1]).max() for i in range(len(mpi))])
-    #    #    moerr = max(moerra, moerrb)
-    #    #    if moerr > 1e-6:
-    #    #        self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
-    #    #    else:
-    #    #        self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
-    #    # Use MOs of master process
-    #    mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
-    #    mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
-
-    @property
-    def nmo(self):
-        """Total number of molecular orbitals (MOs)."""
-        return (self.mo_coeff[0].shape[-1], self.mo_coeff[1].shape[-1])
-
-    @property
-    def nocc(self):
-        """Number of occupied MOs."""
-        return (np.count_nonzero(self.mo_occ[0] > 0), np.count_nonzero(self.mo_occ[1] > 0))
-
-    @property
-    def nvir(self):
-        """Number of virtual MOs."""
-        return (np.count_nonzero(self.mo_occ[0] == 0), np.count_nonzero(self.mo_occ[1] == 0))
-
-    @property
-    def mo_coeff_occ(self):
-        """Occupied MO coefficients."""
-        return (self.mo_coeff[0][:, : self.nocc[0]], self.mo_coeff[1][:, : self.nocc[1]])
-
-    @property
-    def mo_coeff_vir(self):
-        """Virtual MO coefficients."""
-        return (self.mo_coeff[0][:, self.nocc[0] :], self.mo_coeff[1][:, self.nocc[1] :])
-
     def _check_orthonormal(self, *mo_coeff, mo_name="", **kwargs):
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
@@ -93,28 +40,6 @@ class UEmbedding(Embedding):
             res_s = super()._check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
             results.append(res_s)
         return tuple(zip(*results))
-
-    def get_exxdiv(self):
-        """Get divergent exact-exchange (exxdiv) energy correction and potential.
-
-        Returns
-        -------
-        e_exxdiv: float
-            Divergent exact-exchange energy correction per unit cell.
-        v_exxdiv: array
-            Divergent exact-exchange potential correction in AO basis.
-        """
-        if not self.has_exxdiv:
-            return 0, None
-        ovlp = self.get_ovlp()
-        sca = np.dot(ovlp, self.mo_coeff[0][:, : self.nocc[0]])
-        scb = np.dot(ovlp, self.mo_coeff[1][:, : self.nocc[1]])
-        nocc = (self.nocc[0] + self.nocc[1]) / 2
-        e_exxdiv = -self.madelung * nocc / self.ncells
-        v_exxdiv_a = -self.madelung * np.dot(sca, sca.T)
-        v_exxdiv_b = -self.madelung * np.dot(scb, scb.T)
-        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
-        return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
     @log_method()
     def get_eris_array_uhf(self, mo_coeff, mo_coeff2=None, compact=False):
@@ -201,29 +126,6 @@ class UEmbedding(Embedding):
         if self.opts.ext_rpa_correction is not None:
             raise NotImplementedError("External RPA correlation energy only implemented for restricted references!")
         super().build_screened_eris(*args, **kwargs)
-
-    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
-        """Update underlying mean-field object."""
-        # Chech orthonormal MOs
-        if not (
-            np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
-            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)
-        ):
-            raise ValueError("MO coefficients not orthonormal!")
-        self.mf.mo_coeff = mo_coeff
-        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
-        if veff is None:
-            veff = self.mf.get_veff(dm=dm)
-        self.set_veff(veff)
-        if mo_energy is None:
-            # Use diagonal of Fock matrix as MO energies
-            fock = self.get_fock()
-            mo_energy = (
-                einsum("ai,ab,bi->i", mo_coeff[0], fock[0], mo_coeff[0]),
-                einsum("ai,ab,bi->i", mo_coeff[1], fock[1], mo_coeff[1]),
-            )
-        self.mf.mo_energy = mo_energy
-        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
     def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
         frags = self.get_symmetry_child_fragments(include_parents=True)

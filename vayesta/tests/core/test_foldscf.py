@@ -1,7 +1,7 @@
 import pytest
 import unittest
 from pyscf.pbc import scf
-from vayesta.core import foldscf
+from vayesta.core.mf import read_mf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
@@ -11,7 +11,7 @@ class FoldSCF_RHF_Tests(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.kmf = testsystems.he2_631g_k222.rhf()
-        cls.mf = foldscf.fold_scf(cls.kmf)
+        cls.mf = read_mf(cls.kmf)
         cls.scell = testsystems.he2_631g_s222.mol
         cls.smf = testsystems.he2_631g_s222.rhf()
 
@@ -39,8 +39,7 @@ class FoldSCF_RHF_Tests(TestCase):
 
     def test_fock(self):
         """Compare the Fock matrices."""
-        scell, phase = foldscf.get_phase(self.kmf.mol, self.kmf.kpts)
-        dm = foldscf.k2bvk_2d(self.kmf.get_init_guess(), phase)
+        dm = self.mf.one_body_kao_to_ao(self.kmf.get_init_guess())
         self.assertAllclose(self.mf.get_fock(dm=dm), self.smf.get_fock(dm=dm))
 
 
@@ -49,7 +48,7 @@ class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
     @classmethod
     def setUpClass(cls):
         cls.kmf = testsystems.he2_631g_k222.uhf()
-        cls.mf = foldscf.fold_scf(cls.kmf)
+        cls.mf = read_mf(cls.kmf)
         cls.smf = testsystems.he2_631g_s222.uhf()
 
 

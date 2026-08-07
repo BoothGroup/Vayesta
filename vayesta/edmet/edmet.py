@@ -116,7 +116,7 @@ class EDMET(RDMET):
                 self.reset()
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-                self.update_mf(mo_coeff, mo_energy)
+                self.mf.update_mf(mo_coeff, mo_energy)
                 if self.opts.charge_consistent:
                     fock = self.get_fock()
             self.set_up_fragments(sym_parents, nsym)

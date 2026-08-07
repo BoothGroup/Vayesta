@@ -1,5 +1,6 @@
 import unittest
 
+from vayesta.core.mf import read_mf
 from vayesta import rpa
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
@@ -20,17 +21,18 @@ class MoleculeRPATest(TestCase):
     def test_n2_ccpvdz_dRIRPA(self):
         """Tests for LiH cc-pvdz with dRIRPA."""
 
-        orig_rpa = rpa.ssRPA(testsystems.n2_ccpvdz_df.rhf())
+        mf = read_mf(testsystems.n2_ccpvdz_df.rhf())
+        orig_rpa = rpa.ssRPA(mf)
         orig_rpa.kernel()
 
         known_values = {"e_tot": -109.27376877774732}
         self._test_energy(orig_rpa, known_values)
         # Check dRPA specialised RHF code.
-        rirpa = rpa.rirpa.ssRIdRRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa = rpa.rirpa.ssRIdRRPA(mf)
         rirpa.kernel_energy()
         self._test_energy(rirpa, known_values)
         # Check spin-generic code.
-        rirpa = rpa.rirpa.ssRIRRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa = rpa.rirpa.ssRIRRPA(mf)
         rirpa.kernel_energy()
         self._test_energy(rirpa, known_values)
 
@@ -38,7 +40,8 @@ class MoleculeRPATest(TestCase):
         self._test_mom0(orig_rpa, rirpa_moms)
 
     def test_n2_ccpvdz_dRIRPA_error_estimates(self):
-        rirpa = rpa.rirpa.ssRIRRPA(testsystems.n2_ccpvdz_df.rhf())
+        mf = read_mf(testsystems.n2_ccpvdz_df.rhf())
+        rirpa = rpa.rirpa.ssRIRRPA(mf)
         # Use number of points where errors will be meaningful.
         # Note that with this few points the fact that the quadrature optimisation is not invariant to orbital rotations
         # can cause issues, so we can just use a specific grid spacing.

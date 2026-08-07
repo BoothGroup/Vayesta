@@ -1,5 +1,6 @@
 import pytest
 
+from vayesta.core.mf import read_mf
 from vayesta import rpa
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
@@ -21,8 +22,8 @@ class DiamondRIRPATest(TestCase):
     @pytest.mark.slow
     def test_energy_rhf_opt(self):
         """Tests for diamond with optimised RHF dRPA code."""
-
-        rirpa = rpa.rirpa.ssRIdRRPA(self.sys.rhf())
+        mf = read_mf(self.sys.rhf())
+        rirpa = rpa.rirpa.ssRIdRRPA(mf)
         rirpa.kernel_energy()
         self._test_energy(rirpa)
 
@@ -30,7 +31,8 @@ class DiamondRIRPATest(TestCase):
     def test_energy_rhf_generic(self):
         """Tests for diamond with generic RHF RIRPA code."""
 
-        rirpa = rpa.rirpa.ssRIRRPA(self.sys.rhf())
+        mf = read_mf(self.sys.rhf())
+        rirpa = rpa.rirpa.ssRIRRPA(mf)
         rirpa.kernel_energy()
         self._test_energy(rirpa)
 
@@ -38,14 +40,16 @@ class DiamondRIRPATest(TestCase):
     def test_energy_uhf(self):
         """Tests for diamond with generic UHF RIRPA code."""
 
-        rirpa = rpa.rirpa.ssRIURPA(self.sys.uhf())
+        mf = read_mf(self.sys.uhf())
+        rirpa = rpa.rirpa.ssRIURPA(mf)
         rirpa.kernel_energy()
         self._test_energy(rirpa)
 
     @pytest.mark.fast
     def test_rhf_moments(self):
-        gen_rirpa = rpa.rirpa.ssRIRRPA(self.sys.rhf())
-        opt_rirpa = rpa.rirpa.ssRIdRRPA(self.sys.rhf())
+        mf = read_mf(self.sys.rhf())
+        gen_rirpa = rpa.rirpa.ssRIRRPA(mf)
+        opt_rirpa = rpa.rirpa.ssRIdRRPA(mf)
         mom0_gen = gen_rirpa.kernel_moms(0)[0]
         mom0_opt = opt_rirpa.kernel_moms(0)[0]
         self.assertAllclose(mom0_gen, mom0_opt, self.PLACES)

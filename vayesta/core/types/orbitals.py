@@ -51,7 +51,7 @@ class SpatialOrbitals(MolecularOrbitals):
         self.maxocc = maxocc
         if isinstance(occ, (int, np.integer)):
             occ = np.asarray(occ * [self.maxocc] + (self.norb - occ) * [0])
-        self.occ = np.asarray(occ, dtype=float) if occ is not None else None
+        self._occ = np.asarray(occ, dtype=float) if occ is not None else None
         self.labels = labels
 
     @property
@@ -67,6 +67,10 @@ class SpatialOrbitals(MolecularOrbitals):
         if self.occ is None:
             return None
         return np.count_nonzero(self.occ > 0)
+
+    @property
+    def occ(self):
+        return self._occ
 
     @property
     def nvir(self):
@@ -85,11 +89,11 @@ class SpatialOrbitals(MolecularOrbitals):
 
     @property
     def coeff_occ(self):
-        return self.coeff[:, : self.nocc]
+        return self.coeff[:, : self.nocc] if self.nocc is not None else None
 
     @property
     def coeff_vir(self):
-        return self.coeff[:, self.nocc :]
+        return self.coeff[:, self.nocc :] if self.nocc is not None else None
 
     def basis_transform(self, trafo, inplace=False):
         cp = self if inplace else self.copy()
