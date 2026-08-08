@@ -88,7 +88,14 @@ class TestMolecule:
         # infinite loop if it doesn't.
         for i in range(5):
             # Check stability of current solution.
-            int_c, ext_c, int_stab, ext_stab = uhf.stability(return_status=True)
+            try:
+                int_c, ext_c, int_stab, ext_stab = uhf.stability(return_status=True)
+            except pyscf.lib.exceptions.LinearDependencyError:
+                # Degenerate systems can produce a zero trial vector in the stability solver.
+                # In this case, keep the converged broken-symmetry solution.
+                if uhf.converged:
+                    return uhf
+                raise
             # If we have a converged solution which is stable return.
             if int_stab and uhf.converged:
                 return uhf
