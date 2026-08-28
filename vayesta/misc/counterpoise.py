@@ -121,10 +121,14 @@ def make_cp_mol(mol, atom, rmax, nimages=1, unit="A", **kwargs):
                             )
                             atoms.append((symb, coord))
         log.info("Counterpoise with rmax %.3f A -> %3d ghost atoms", rmax, (len(atoms) - 1))
-    mol_cp = mol.copy()
+    #mol_cp = mol.copy()
+   
+    mol_cp = pyscf.gto.M()
+    mol_cp.__dict__.update(mol.__dict__)
+
     mol_cp.atom = atoms
     mol_cp.unit = "ANG"
-    mol_cp.a = None
+    mol_cp.a = np.eye(3)
     mol_cp.dimension = 0
     for key, val in kwargs.items():
         log.debugv("Counterpoise: setting attribute %s to %r", key, val)
