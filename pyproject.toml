@@ -49,10 +49,10 @@ dynamic = ["version"]
 requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
-[tools.setuptools]
+[tool.setuptools]
 license-files = ["LICENSE"]
 
-[tools.setuptools.dynamic]
+[tool.setuptools.dynamic]
 version = {attr = "vayesta.__version__"}
 
 [project.optional-dependencies]
