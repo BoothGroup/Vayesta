@@ -1,0 +1,77 @@
+vayesta.core.bath
+=================
+
+Submodules
+----------
+
+vayesta.core.bath.bath
+----------------------
+
+.. automodule:: vayesta.core.bath.bath
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.bno
+---------------------
+
+.. automodule:: vayesta.core.bath.bno
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.dmet
+----------------------
+
+.. automodule:: vayesta.core.bath.dmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.ewdmet
+------------------------
+
+.. automodule:: vayesta.core.bath.ewdmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.full
+----------------------
+
+.. automodule:: vayesta.core.bath.full
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.helper
+------------------------
+
+.. automodule:: vayesta.core.bath.helper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.r2bath
+------------------------
+
+.. automodule:: vayesta.core.bath.r2bath
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.bath.rpa
+---------------------
+
+.. automodule:: vayesta.core.bath.rpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.bath
+   :members:
+   :show-inheritance:
+   :undoc-members:

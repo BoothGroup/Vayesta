@@ -1,0 +1,45 @@
+vayesta.rpa
+===========
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.rpa.rirpa
+
+Submodules
+----------
+
+vayesta.rpa.rpa
+---------------
+
+.. automodule:: vayesta.rpa.rpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.ssrpa
+-----------------
+
+.. automodule:: vayesta.rpa.ssrpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.ssurpa
+------------------
+
+.. automodule:: vayesta.rpa.ssurpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.rpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
