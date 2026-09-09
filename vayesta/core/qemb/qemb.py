@@ -1153,6 +1153,13 @@ class Embedding:
     def _check_orthonormal(self, *mo_coeff, mo_name="", crit_tol=1e-2, err_tol=1e-7):
         """Check orthonormality of mo_coeff."""
         mo_coeff = hstack(*mo_coeff)
+        valid = np.linalg.norm(mo_coeff, axis=0) > 1e-10
+        if not np.all(valid):
+            self.log.debugv(
+                "Excluding %d zero-norm placeholder orbital(s) from orthonormality check%s.",
+                int((~valid).sum()), (" of %ss" % mo_name) if mo_name else "",
+            )
+        mo_coeff = mo_coeff[:, valid]
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
         l2 = np.linalg.norm(err)
         linf = abs(err).max()

@@ -370,8 +370,19 @@ def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=
     # --- Make MOs real
     if make_real:
         mo_energy, mo_coeff = make_mo_coeff_real(mo_energy, mo_coeff, ovlp)
-    # Check orthonormality of folded MOs
-    err = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
+
+    valid = np.linalg.norm(mo_coeff, axis=0) > 1e-10
+    if not np.all(valid):
+        log.warning(
+            "%d supercell orbital(s) are zero-padded placeholders for linearly-dependent "
+            "directions of the overlap matrix (from PySCF's overlap linear-dependency "
+            "treatment). Excluded from the orthonormality check; occ=0, no contribution "
+            "to any expectation value.",
+            int((~valid).sum()),
+        )
+    # Check orthonormality of the valid, physically-defined folded MOs
+    mo_valid = mo_coeff[:, valid]
+    err = abs(dot(mo_valid.T.conj(), ovlp, mo_valid) - np.eye(mo_valid.shape[-1])).max()
     if err > 1e-4:
         log.critical("Supercell MOs are not orthonormal (max error= %.3e)", err)
         raise OrthonormalityError("Supercell MOs are not orthonormal")
