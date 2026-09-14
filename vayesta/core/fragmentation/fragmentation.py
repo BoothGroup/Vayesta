@@ -344,14 +344,30 @@ class Fragmentation:
         """Get the base atom for each fragment orbital."""
         return [l[0] for l in self.labels]
 
-    def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-15):
-        """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""
+    def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-8):
+        """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals.
+
+        Eigenvalues of the metric below `tol` are discarded rather than kept and
+        divided by, since keeping them just amplifies noise from directions that are
+        (numerically) linearly dependent -- e.g. inherited from AO linear dependency
+        in a folded supercell overlap matrix that PySCF already zero-pads at the MO
+        level, but which still contaminates the raw AO overlap used here.
+        """
         if ovlp is None:
             ovlp = self.get_ovlp()
         m = dot(mo_coeff.T, ovlp, mo_coeff)
         e, v = scipy.linalg.eigh(m)
         e_min = e.min()
         keep = e >= tol
+        ndropped = np.count_nonzero(~keep)
+        if ndropped:
+            self.log.warning(
+                "Discarding %d linearly-dependent direction(s) in symmetric orthogonalization "
+                "(eigenvalue(s) below tol= %.1e, min= %.3e)",
+                ndropped,
+                tol,
+                e_min,
+            )
         e, v = e[keep], v[:, keep]
         x = dot(v / np.sqrt(e), v.T)
         x = fix_orbital_sign(x)[0]

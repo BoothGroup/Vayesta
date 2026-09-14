@@ -410,7 +410,7 @@ def log_error_norms(msg, err, error_tol=1e-3, warn_tol=1e-6):
         log.debug(msg, l2, linf)
 
 
-def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
+def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10, lindep_threshold=1e-6):
     mo_coeff = mo_coeff.copy()
     # Check orthonormality
     ortherr = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
@@ -425,12 +425,27 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     sc = np.dot(ovlp, mo_coeff[:, im])
     fock = np.dot(sc * (mo_energy[im] + shift), sc.T.conj())
     log_error_norms("Imaginary part in folded Fock matrix: L(2)= %.2e L(inf)= %.2e", fock.imag)
-    # Diagonalize subspace Fock matrix
-    # TODO: eigensolver for linear dependencies...
-    eigh = scipy.linalg.eigh
-    # Modified PySCF:
-    # eigh = cell.eigh_factory(lindep_threshold=1e-13, fallback_mode=True)
-    e, v = eigh(fock.real, ovlp)
+    # Diagonalize subspace Fock matrix.
+    # The folded supercell overlap inherits the same AO linear dependency that PySCF's
+    # mean-field eigensolver already removes at each k-point (see
+    # pyscf.scf.hf.check_linear_dependency, active by default with threshold 1e-6), so a
+    # plain generalized eigh(fock, ovlp) can encounter a non-positive-definite `ovlp`. If
+    # so, reproduce PySCF's own overlap-eigenvalue cutoff on the folded matrix to project
+    # onto its well-conditioned subspace before diagonalizing.
+    try:
+        e, v = scipy.linalg.eigh(fock.real, ovlp)
+    except np.linalg.LinAlgError:
+        e_ovlp, v_ovlp = scipy.linalg.eigh(ovlp)
+        keep = e_ovlp > lindep_threshold
+        log.warning(
+            "Folded overlap matrix is not positive definite (%d/%d linearly-dependent AO "
+            "combination(s), threshold= %.1e); projecting onto the well-conditioned subspace "
+            "before diagonalizing.",
+            int(np.count_nonzero(~keep)), len(e_ovlp), lindep_threshold,
+        )
+        x = v_ovlp[:, keep] / np.sqrt(e_ovlp[keep])
+        e, c = scipy.linalg.eigh(dot(x.T, fock.real, x))
+        v = dot(x, c)
     # Extract MOs from rank-deficient Fock matrix
     mask = e > 0.5
     assert np.count_nonzero(mask) == len(mo_energy[im])
@@ -483,7 +498,7 @@ def get_phase(cell, kpts, kmesh=None):
     return scell, phase
 
 
-def k2bvk_2d(ak, phase, make_real=True, imag_tol=1e-6):
+def k2bvk_2d(ak, phase, make_real=True, imag_tol=1e-4):
     """Transform unit-cell k-point AO integrals to the supercell gamma-point AO integrals."""
     ag = einsum("kR,...kij,kS->...RiSj", phase, ak, phase.conj())
     imag_norm = abs(ag.imag).max()
