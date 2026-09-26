@@ -129,7 +129,7 @@ class UERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseUHamiltonian):
                 array=array,
             )
         return self._members[key]
-        
+
 
 class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
@@ -362,7 +362,7 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
         g = np.zeros((2, sh[0], sh[2], sh[1]), dtype=self.hamil.couplings[0].dtype)
         g[0,:,:,:] = self.hamil.couplings[0].transpose(0,2,1)
         g[1,:,:,:] = self.hamil.couplings[1].transpose(0,2,1)
-        return g 
+        return g
 
     def construct_wavefunction(self, mycc, mo, mbos=None):
         self.wf = EBCC_WaveFunction(

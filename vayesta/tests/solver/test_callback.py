@@ -42,7 +42,7 @@ def ccsd_solver(mf, dm=False):
         return dict(dm1=dm1, dm2=dm2, converged=True, energy=cc.e_corr)
     else:
         return dict(t1=t1, t2=t2, l1=l1, l2=l2, converged=True, energy=cc.e_corr)
-    
+
 def cisd_solver(mf, dm=False):
     if type(mf.mo_coeff) == tuple:
         ci = UCISD(mf)
@@ -55,7 +55,7 @@ def cisd_solver(mf, dm=False):
         return dict(dm1=dm1, dm2=dm2, converged=True, energy=ci.e_corr)
     else:
         return dict(c0=c0, c1=c1, c2=c2, converged=True, energy=ci.e_corr)
-    
+
 callbacks = dict(FCI=fci_solver, CCSD=ccsd_solver, CISD=cisd_solver)
 
 class TestSolvers(TestCase):
@@ -82,7 +82,7 @@ class TestSolvers(TestCase):
 
     def test_rccsd_water(self):
         self._test(("water_ccpvdz", "rhf", "CCSD"))
-    
+
     def test_rfci_h6(self):
         self._test(("h6_sto6g", "rhf", "FCI"))
 
@@ -91,10 +91,10 @@ class TestSolvers(TestCase):
 
     def test_uccsd_water(self):
         self._test(("water_ccpvdz", "uhf", "CCSD"))
-    
+
     def test_ufci_h6(self):
         self._test(("h6_sto6g", "uhf", "FCI"))
-    
+
     # def test_ucisd_lih(self):
     #     self._test(("lih_ccpvdz", "uhf", "CISD"))
 

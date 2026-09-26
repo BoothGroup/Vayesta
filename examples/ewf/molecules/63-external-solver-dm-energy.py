@@ -49,7 +49,7 @@ with emb.iaopao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 
@@ -64,7 +64,7 @@ with emb_dump.iaopao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 print('Total number of fragments (inc. sym related): {}'.format(len(emb_dump.fragments)))
 emb_dump.kernel()
@@ -150,7 +150,7 @@ dm1_dpart = np.zeros_like(mf.mo_coeff)
 for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
-    
+
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
     wf = FCI_WaveFunction(orbs, ci_vec)#.as_cisd(c0=1.0)
     dm1_cls, dm2_cls = wf.make_rdm1(), wf.make_rdm2()
@@ -169,7 +169,7 @@ for ind, cluster in enumerate(clusters):
 
     e1_dpart+= np.einsum('pq,pq->', cluster.h1e, dm1_cls)
     e2_dpart+= 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_cls)
-    
+
     #e2_dpart += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_1 + dm2_2)
 
 if use_sym:
@@ -203,13 +203,13 @@ e1_pc = np.einsum('pq,pq->', mf.get_hcore(), dm1_dpart)
 for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
-    
+
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
     wf = FCI_WaveFunction(orbs, ci_vec)#.as_cisd(c0=1.0)
     dm1_cls, dm2_cls = wf.make_rdm1(), wf.make_rdm2()
 
     #dm1_cls[np.diag_indices(cluster.nocc)] -= 2
-    
+
     dm1_cls = proj @ dm1_cls
     dm2_cls = np.einsum('Ijkl,iI->ijkl', dm2_cls, proj)
     dm2_0, dm2_1, dm2_2 = split_dm2(cluster.nocc, dm1_cls, dm2_cls)
@@ -218,7 +218,7 @@ for ind, cluster in enumerate(clusters):
     e20_pc += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_0)
     e21_pc += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_1)
     e22_pc += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_2)
-    
+
     #e2_dpart += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_1 + dm2_2)
 
 if use_sym:

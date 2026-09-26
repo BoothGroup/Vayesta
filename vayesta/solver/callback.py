@@ -44,7 +44,7 @@ class CallbackSolver(ClusterSolver):
         if 'particle_moments' in results:
             self.log.info("Particle moments found in callback results.")
             self.particle_moments = results['particle_moments']
-            
+
         results['wf'] = wf
         self.wf = wf
         self.converged = results['converged'] if 'converged' in results else False

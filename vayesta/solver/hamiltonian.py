@@ -338,7 +338,7 @@ class RClusterHamiltonian:
             allow_df
             and np.ndim(clusmf.mo_coeff[1]) == 1
             and self.opts.screening is None
-            and not (self._fragment.base.pbc_dimension in (1, 2))
+            and self._fragment.base.pbc_dimension not in (1, 2)
             and hasattr(self.orig_mf, "with_df")
             and self.orig_mf.with_df is not None
         )

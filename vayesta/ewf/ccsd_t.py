@@ -36,7 +36,7 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
 
     if t2 is None:
         t2T = fragment.results.wf.as_ccsd().t2.transpose(2,3,0,1)
-        
+
 
     fvo = fragment.hamil.get_fock(with_exxdiv=True)[nocc:,:nocc]
 
@@ -54,7 +54,7 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         eris_vvov = fragment.hamil.get_eris_bare(block='ovvv').conj().transpose(1,3,0,2)
         eris_vooo = fragment.hamil.get_eris_bare(block='ovoo').conj().transpose(1,0,2,3)
         eris_vvoo = fragment.hamil.get_eris_bare(block='ovov').conj().transpose(1,3,0,2)
-        
+
     def get_w(a, b, c):
         w = einsum('if,fkj->ijk', eris_vvov[a,b], t2T[c,:])
         w-= einsum('ijm,mk->ijk', eris_vooo[a,:], t2T[b,c])
@@ -63,7 +63,7 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         v = einsum('ij,k->ijk', eris_vvoo[a,b], t1T[c])
         v+= einsum('ij,k->ijk', t2T[a,b], fvo[c])
         return v
-    
+
     def sym_proj(expr):
         assert len(expr.shape) == 3
         cf = fragment.get_overlap('cluster[occ]|frag[occ]')
@@ -92,7 +92,7 @@ def calc_fragment_rccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
                 wbca = get_w(b, c, a)
                 wcab = get_w(c, a, b)
                 wcba = get_w(c, b, a)
-                
+
                 vabc = get_v(a, b, c)
                 vacb = get_v(a, c, b)
                 vbac = get_v(b, a, c)
@@ -195,7 +195,7 @@ def calc_fragment_uccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         return (w + w.transpose(2,0,1,3,4,5) + w.transpose(1,2,0,3,4,5)
                 - w.transpose(2,1,0,3,4,5) - w.transpose(0,2,1,3,4,5)
                 - w.transpose(1,0,2,3,4,5))
-    
+
     def sym_proj(expr, spin):
         assert len(expr.shape) == 6
         cfa, cfb = fragment.get_overlap('cluster[occ]|frag[occ]')
@@ -255,7 +255,7 @@ def calc_fragment_uccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
         eris_ovOO = fragment.hamil.get_eris_bare(block='ovOO').conj()
         eris_OVoo = fragment.hamil.get_eris_bare(block='OVoo').conj()
         eris_ovOV = fragment.hamil.get_eris_bare(block='ovOV').conj()
-        
+
     # aaa
     d3 = lib.direct_sum('ia+jb+kc->ijkabc', eia, eia, eia)
     w = einsum('ijae,kceb->ijkabc', t2aa, eris_ovvv)

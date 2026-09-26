@@ -3,7 +3,7 @@ import scipy.linalg
 from vayesta.rpa import ssRPA
 from .screening_moment import _get_target_rot
 import copy
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 import numpy as np
 from pyscf import lib
 from pyscf.lib import logger

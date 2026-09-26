@@ -42,7 +42,7 @@ class Test_Spectral_Moments(TestCase):
             cx = f.get_overlap("mo|cluster")
             ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
             ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
-            
+
             self.assertTrue(np.allclose(ip, fci_ip))
             self.assertTrue(np.allclose(ea, fci_ea))
 
@@ -55,7 +55,7 @@ class Test_Spectral_Moments(TestCase):
 
         cc = CCSD.hole.from_mf(mf)
         cc_ip = cc.build_gf_moments(4)
-          
+
         cc = CCSD.particle.from_mf(mf)
         cc_ea = cc.build_gf_moments(4)
 

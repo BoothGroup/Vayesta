@@ -47,7 +47,7 @@ with emb.iao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 
@@ -62,7 +62,7 @@ with emb_dump.iao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 print('Total number of fragments (inc. sym related): {}'.format(len(emb_dump.fragments)))
 emb_dump.kernel()
@@ -130,7 +130,7 @@ e1_dpart, e2_dpart = 0, 0
 for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
-    
+
     # Build cluster denisty matrices
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
     wf = FCI_WaveFunction(orbs, ci_vec)#.as_cisd(c0=1.0)
@@ -144,7 +144,7 @@ for ind, cluster in enumerate(clusters):
 
     # Project 2DM
     dm2_cls = np.einsum('Ijkl,iI->ijkl', dm2_cls, proj)
-    
+
     # Calculate effective 1 body Hamiltonian and subtract cluster contribution to Veff
     nocc = cluster.nocc
     heff = cluster.c_cluster.T @  (mf.get_hcore() + mf.get_veff()/2) @ cluster.c_cluster
@@ -176,7 +176,7 @@ dm1_ao_pc = np.zeros_like(dm1_ao_fci)
 for ind, cluster in enumerate(clusters):
     # Solve, and return energy and FCI wave function
     energy, ci_vec = pyscf.fci.direct_spin0.kernel(cluster.h1e, cluster.h2e, cluster.norb, nelec=(cluster.nocc, cluster.nocc), conv_tol=1.e-14)
-    
+
     # Build cluster denisty matrices and split into seperate contributions
     orbs = Orbitals(cluster.c_cluster, occ=cluster.nocc)
     wf = FCI_WaveFunction(orbs, ci_vec)
@@ -196,7 +196,7 @@ for ind, cluster in enumerate(clusters):
     e22_pc += 0.5 * np.einsum('pqrs,pqrs->', cluster.h2e, dm2_2)
 
 # Calculate correlated non-cumulant contribution over full system
-e1_pc = np.einsum('pq,pq->', mf.get_fock(), dm1_ao_pc) 
+e1_pc = np.einsum('pq,pq->', mf.get_fock(), dm1_ao_pc)
 
 if use_sym:
     e1_pc *= natom // nfrag

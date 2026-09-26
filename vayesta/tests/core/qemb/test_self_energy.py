@@ -60,7 +60,7 @@ class Test_SelfEnergy(TestCase):
         se_mom_ewf_2proj = [se2_ewf.moment(i) for i in range(se_mom_order)]
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
-        self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_2proj, atol=1e-5))  
+        self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_2proj, atol=1e-5))
 
     def test_fci_H6_full_bath(self):
         # RHF
@@ -105,8 +105,8 @@ class Test_SelfEnergy(TestCase):
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj_sym, atol=1e-5))
-        
-        
+
+
         self.assertTrue(np.allclose(se1_static_ewf, se_static_fci, atol=1e-6))
         self.assertTrue(np.allclose(se1_static_ewf_sym, se_static_fci, atol=1e-6))
 
@@ -155,8 +155,8 @@ class Test_SelfEnergy(TestCase):
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj_sym, atol=1e-5))
-        
-        
+
+
         self.assertTrue(np.allclose(se1_static_ewf, se_static_fci, atol=1e-6))
         self.assertTrue(np.allclose(se1_static_ewf_sym, se_static_fci, atol=1e-6))
 

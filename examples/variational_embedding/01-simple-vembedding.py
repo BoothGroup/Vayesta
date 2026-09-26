@@ -73,7 +73,7 @@ def get_density_projected(emb, inc_mf=False):
     wfs = [x.project(y) for x, y in zip(barewfs, p_frags)]
     # Now, optimize their relative weights as above.
     h, s, dm = variational_params.get_wf_couplings(emb, emb.fragments, wfs, inc_mf=inc_mf)
-    # Also compute the variational energy of the state without optimization 
+    # Also compute the variational energy of the state without optimization
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
@@ -94,7 +94,7 @@ def get_occ_projected(emb):
     # Note that inc_mf is True, meaning that the Hartree--Fock is explicitly included to the
     # list of states considered, and its relative weight also variationally optimized.
     h, s, dm = variational_params.get_wf_couplings(emb, wfs=wfs, inc_mf=True)
-    # Also compute the variational energy of the state without optimization 
+    # Also compute the variational energy of the state without optimization
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
@@ -131,7 +131,7 @@ def plot_results(fname="results.txt", vsfci=False, ax=None, nodmenergy=True):
         ax = plt.subplots(1, 1)[1]
     res = np.genfromtxt(fname)
     labs = [
-        "$r_{HH}/\AA$",
+        r"$r_{HH}/\AA$",
         "HF",
         "FCI",
         "CCSD",

@@ -57,15 +57,15 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
-        
+
         # Fock matrix in cluster basis
         fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
-        
+
         if proj == 1:
             # Static potential
             v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
-            v_frag = cfc @ v_cls  
+            v_frag = cfc @ v_cls
             v_frag = 0.5 * (v_frag + v_frag.T)
             static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
 
@@ -85,10 +85,10 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
                     mc_child = child.get_overlap('mo|cluster')
                     static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
                     self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
-            
+
         elif proj == 2:
-            # Static potential 
-            v_cls = se.as_static_potential(e_cls, eta=eta) 
+            # Static potential
+            v_cls = se.as_static_potential(e_cls, eta=eta)
             v_frag = fc @ v_cls @ fc.T
             static_potential += f.c_frag @ v_frag @ f.c_frag.T
 
@@ -178,14 +178,14 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
         mc = f.get_overlap('mo|cluster')
         fc = f.get_overlap('frag|cluster')
         cfc = fc.T @ fc
-        
+
         # Fock matrix in cluster basis
         fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
-        
+
         # Static potential
         v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
-        v_frag = cfc @ v_cls  
+        v_frag = cfc @ v_cls
         v_frag = 0.5 * (v_frag + v_frag.T)
         static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
 
@@ -211,7 +211,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
                 couplings_l_frag.append(u)
                 couplings_r_frag.append(v)
                 energies_frag += [se.energies[a] for e in range(idx.sum())]
-            
+
             couplings_l_frag, couplings_r_frag = np.hstack(couplings_l_frag), np.hstack(couplings_r_frag)
             couplings_l.append(mc @ couplings_l_frag)
             couplings_r.append(mc @ couplings_r_frag)
@@ -299,13 +299,13 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
 
         mf = f.get_overlap('mo|frag')
         fc = f.get_overlap('frag|cluster')
-        
+
         # Fock matrix in cluster basis
         fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
-        
-        # Static potential 
-        v_cls = se.as_static_potential(e_cls, eta=eta) 
+
+        # Static potential
+        v_cls = se.as_static_potential(e_cls, eta=eta)
         v_frag = fc @ v_cls @ fc.T
         static_potential += f.c_frag @ v_frag @ f.c_frag.T
 
@@ -382,11 +382,11 @@ def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
     return Lehmann(np.array(energies), np.array(couplings))
 
 def get_unique(array, atol=1e-15):
-    
+
     # Find elements of a sorted float array which are unique up to a tolerance
-    
+
     assert len(array.shape) == 1
-    
+
     i = 0
     slices = []
     while i < len(array):
@@ -396,7 +396,7 @@ def get_unique(array, atol=1e-15):
             if np.abs(array[i] - array[i+j]) < atol:
                 idxs.append(i+j)
                 j += 1
-            else: 
+            else:
                 break
         i = i + j
         slices.append(np.s_[idxs[0]:idxs[-1]+1])
@@ -442,7 +442,7 @@ def fit_hermitian(se):
         val, err = scipy.integrate.quad(integrand, -lim, lim)
         print("obj: %s err: %s"%(val, err))
         return val
-    
+
     def grad(x):
         x = x.reshape(shape)
         V, e = x[:-1], x[-1]
@@ -458,7 +458,7 @@ def fit_hermitian(se):
             ret += np.einsum('rq,qb,b->rb', d.imag, V, omegaIm)
             ret += np.einsum('pr,pb,b->rb', d.imag, V, omegaIm)
             return -2 * ret
-        
+
         def integrand_e(w):
             a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, 1 / (1j*w - energies))
             b = np.einsum('pa,qa,a->pq', V, V, 1 / (1j*w - e))
@@ -479,7 +479,7 @@ def fit_hermitian(se):
         print('grad norm: %s err: %s'%(np.linalg.norm(jac),err_V))
         #print(grad)
         return jac
-        
+
 
     x0 = np.vstack([couplings_l, energies])
     shape = x0.shape

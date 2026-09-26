@@ -312,7 +312,7 @@ class Test_UCCSD(Test_CCSD):
 
     def test_dm2_demo(self):
         pass
-    
+
 # --- 2D
 
 

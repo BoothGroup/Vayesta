@@ -41,8 +41,8 @@ kmf = kmf.rs_density_fit()
 kmf.kernel()
 
 # Vayesta options
-nfrag = 1 
-bath_opts = dict(bathtype="mp2", dmet_threshold=1e-15)   
+nfrag = 1
+bath_opts = dict(bathtype="mp2", dmet_threshold=1e-15)
 
 # Run vayesta with user defined solver
 emb = vayesta.ewf.EWF(kmf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))

@@ -90,7 +90,7 @@ class Fragment(RFragment, BaseFragment):
             caa = caa[oa, oa, va, va]
             cab = cab[oa, ob, va, vb]
             cbb = cbb[ob, ob, vb, vb]
-            
+
             e_doubles = (
                 einsum("ijab,iajb", caa, gaa) / 4
                 - einsum("ijab,ibja", caa, gaa) / 4

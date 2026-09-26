@@ -44,8 +44,8 @@ mf.kernel()
 
 # Vayesta options
 use_sym = True
-nfrag = 1 
-bath_opts = dict(bathtype="ewdmet", order=1, max_order=1)   
+nfrag = 1
+bath_opts = dict(bathtype="ewdmet", order=1, max_order=1)
 
 # Run vayesta with user defined solver
 emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
@@ -57,7 +57,7 @@ with emb.iao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 

@@ -187,7 +187,7 @@ class EWF(Embedding):
         except AttributeError as e:
             self.log.error("Could not calculate correlation energy")
             self.e_corr = np.nan
-        
+
         self.log.output("E(MF)=   %s", energy_string(self.e_mf))
         self.log.output("E(corr)= %s", energy_string(self.e_corr))
         self.log.output("E(tot)=  %s", energy_string(self.e_tot))
@@ -253,9 +253,9 @@ class EWF(Embedding):
             try:
                 return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
             except AttributeError:
-                return self.make_rdm1_demo(*args, **kwargs)     
+                return self.make_rdm1_demo(*args, **kwargs)
         if self.solver.lower() == "fci":
-            return self.make_rdm1_demo(*args, **kwargs)        
+            return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
 
     def make_rdm2(self, *args, **kwargs):
@@ -317,7 +317,7 @@ class EWF(Embedding):
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = "wf"
         if functional == "wf":
-            # CCSD projected energy expression 
+            # CCSD projected energy expression
             return self.get_wf_corr_energy(**kwargs)
         if functional == "dm-t2only":
             # Builds density matrices from projected amplitudes
@@ -347,12 +347,12 @@ class EWF(Embedding):
                 )
             e_corr += x.symmetry_factor * ex
         return e_corr / self.ncells
-    
+
     @mpi.with_allreduce()
     def get_ccsd_t_corr_energy(self, project='w', **kwargs):
         # TODO: Check MPI
         e_ccsd_t = 0
-        
+
         # Only loop over fragments of own MPI rank
         for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
             # if x.results.e_corr_ccsd_t is not None:

@@ -7,7 +7,7 @@ if len(sys.argv) > 1:
 else:
     directory = os.path.abspath(os.path.dirname(__file__))
 
-examples = os.popen("find . | grep \.py$").readlines()
+examples = os.popen(r"find . | grep \.py$").readlines()
 assert len(examples) > 0
 
 N = len(examples)

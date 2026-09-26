@@ -47,7 +47,7 @@ bath_opts = dict(bathtype="dmet")   # This is the smallest bath size
 # bath_opts = dict(bathtype='mp2', threshold=1.e-6)
 
 # Run vayesta for comparison with FCI solver
-emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=bath_opts, solver_options=dict(conv_tol=1.e-14)
+emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=bath_opts, solver_options=dict(conv_tol=1.e-14))
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:
@@ -57,7 +57,7 @@ with emb.iao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 
@@ -72,7 +72,7 @@ with emb_dump.iao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 print('Total number of fragments (inc. sym related): {}'.format(len(emb_dump.fragments)))
 emb_dump.kernel()

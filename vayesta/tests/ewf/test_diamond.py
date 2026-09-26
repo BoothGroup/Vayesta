@@ -102,7 +102,7 @@ class DiamondTest(TestCase):
         return self._test_ccsd_t_symmetry("inversion")
 
     # def test_ccsd_t_symmetry_mirror(self):
-    #     return self._test_ccsd_t_symmetry("mirror")    
+    #     return self._test_ccsd_t_symmetry("mirror")
 
 if __name__ == "__main__":
     print("Running %s" % __file__)

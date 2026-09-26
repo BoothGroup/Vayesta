@@ -23,7 +23,7 @@ mf.kernel()
 
 # Full system FCI GF
 expr = FCI["1h"](mf)
-th = expr.build_gf_moments(nmom_max_fci[0]) 
+th = expr.build_gf_moments(nmom_max_fci[0])
 expr = FCI["1p"](mf)
 tp = expr.build_gf_moments(nmom_max_fci[1])
 
@@ -42,7 +42,7 @@ print("Exact GF nelec: %s"%nelec_gf)
 
 sc = mf.get_ovlp() @ mf.mo_coeff
 new_fock = sc @ (th[1] + tp[1] + static_potential) @ sc.T
-e, mo_coeff = np.linalg.eigh(new_fock) 
+e, mo_coeff = np.linalg.eigh(new_fock)
 chempot = (e[nelec//2-1] + e[nelec//2] ) / 2
 gf_static = Lehmann(e, mo_coeff, chempot=chempot)
 

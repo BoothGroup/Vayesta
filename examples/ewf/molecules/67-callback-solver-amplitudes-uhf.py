@@ -22,7 +22,7 @@ def cisd_solver(mf):
     # return dict(c0=c0, c1=c1, c2=c2, converged=True, energy=ci.e_corr)
 
     # Convert CISD amplitudes to CCSD amplitudes to be able to make use of the patitioned cumulant energy functional
-    t1 = t1_uhf(c1/c0) 
+    t1 = t1_uhf(c1/c0)
     t2 = t2_uhf(t1, c2/c0)
     return dict(t1=t1, t2=t2, l1=t1, l2=t2, converged=True, energy=ci.e_corr)
 
@@ -68,8 +68,8 @@ fci.kernel()
 
 # Vayesta options
 use_sym = True
-nfrag = 1 
-bath_opts = dict(bathtype="dmet") 
+nfrag = 1
+bath_opts = dict(bathtype="dmet")
 
 
 def init_frag(emb):
@@ -80,13 +80,13 @@ def init_frag(emb):
             with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
                 f.add_atomic_fragment(range(nfrag))
         else:
-            # Add all atoms as separate fragments 
+            # Add all atoms as separate fragments
             f.add_all_atomic_fragments()
     return emb
 
 # Run vayesta with user defined CISD solver
 emb_ci = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dm-t2only', bath_options=bath_opts, solver_options=dict(callback=cisd_solver))
-emb_ci = init_frag(emb_ci)  
+emb_ci = init_frag(emb_ci)
 emb_ci.kernel()
 
 # Run vayesta with user defined CCSD solver

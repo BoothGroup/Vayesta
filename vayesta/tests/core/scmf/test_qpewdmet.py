@@ -13,7 +13,7 @@ class Test_FCI_H6_1Projector(TestCase):
     proj = 1
     nfrag = 1
     @classmethod
-    def setUpClass(cls):        
+    def setUpClass(cls):
         cls.mf = testsystems.h6_sto6g.rhf()
         cls.run_dyson()
 
@@ -58,7 +58,7 @@ class Test_FCI_H6_1Projector(TestCase):
                 f.add_atomic_fragment(list(range(i,i+cls.nfrag)))
         emb.kernel()
         return emb
-    
+
     #def test_energy(self):
         #emb = self.emb()
         #self.assertAllclose(emb.e_tot, self.fci_ip.e_ci, atol=1e-5, rtol=1e-4)
@@ -69,13 +69,13 @@ class Test_FCI_H6_1Projector(TestCase):
         se_moms = np.array([self.se.moment(i) for i in range(n_se_mom)])
         emb_se_moms = np.array([emb.with_scmf.se_shifted.moment(i) for i in range(n_se_mom)])
         self.assertTrue(np.allclose(se_moms, emb_se_moms, atol=1e-4))
-        
+
     def test_static_self_energy(self):
         emb = self.emb()
-        static_self_energy = self.fci_ip_moms[1] + self.fci_ea_moms[1] 
-        emb_static_self_energy = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + emb.with_scmf.static_self_energy 
+        static_self_energy = self.fci_ip_moms[1] + self.fci_ea_moms[1]
+        emb_static_self_energy = self.mf.mo_coeff.T @ self.mf.get_fock() @ self.mf.mo_coeff + emb.with_scmf.static_self_energy
         self.assertTrue(np.allclose(static_self_energy, emb_static_self_energy, atol=1e-4))
-    
+
     def test_static_potential(self):
         emb = self.emb()
         static_potential = self.se.as_static_potential(self.mf.mo_energy, eta=1e-2)
@@ -101,7 +101,7 @@ class Test_FCI_H6_2Projector(Test_FCI_H6_1Projector):
 
 class Test_FCI_Hubbard10_1Projector(Test_FCI_H6_1Projector):
     @classmethod
-    def setUpClass(cls):        
+    def setUpClass(cls):
         cls.mf = testsystems.hubb_10_u2.rhf()
         cls.run_dyson()
 

@@ -122,7 +122,7 @@ def make_cp_mol(mol, atom, rmax, nimages=1, unit="A", **kwargs):
                             atoms.append((symb, coord))
         log.info("Counterpoise with rmax %.3f A -> %3d ghost atoms", rmax, (len(atoms) - 1))
     #mol_cp = mol.copy()
-   
+
     mol_cp = pyscf.gto.M()
     mol_cp.__dict__.update(mol.__dict__)
 

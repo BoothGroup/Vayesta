@@ -48,10 +48,10 @@ print(
 )
 print("E(Emb. Screened CCSD)=                %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot, emb.e_tot - cc.e_tot))
 print(
-    "E(Emb. Screened CCSD + \Delta E_k)=   %+16.8f Ha  (error= %+.8f Ha)"
+    r"E(Emb. Screened CCSD + \Delta E_k)=   %+16.8f Ha  (error= %+.8f Ha)"
     % (emb.e_tot + e_nonlocal_cumulant, emb.e_tot + e_nonlocal_cumulant - cc.e_tot)
 )
 print(
-    "E(Emb. Screened CCSD + \Delta RPA)=   %+16.8f Ha  (error= %+.8f Ha)"
+    r"E(Emb. Screened CCSD + \Delta RPA)=   %+16.8f Ha  (error= %+.8f Ha)"
     % (emb.e_tot + e_nonlocal_erpa, emb.e_tot + e_nonlocal_erpa - cc.e_tot)
 )

@@ -39,7 +39,7 @@ mf.kernel()
 # Vayesta options
 use_sym = True
 nfrag = 1
-bath_opts = dict(bathtype="dmet")   
+bath_opts = dict(bathtype="dmet")
 
 # Run vayesta with user defined solver
 # NOTE: if the callback solver only returns RDMs, then energy_functional must be set to 'dmet'
@@ -51,7 +51,7 @@ with emb.iaopao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 
@@ -63,7 +63,7 @@ with emb_cb.iaopao_fragmentation() as f:
         with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
-        # Add all atoms as separate fragments 
+        # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb_cb.kernel()
 

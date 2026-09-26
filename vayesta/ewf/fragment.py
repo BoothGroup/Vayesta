@@ -76,7 +76,7 @@ class Fragment(BaseFragment):
         ea_energy: np.ndarray = None
         moms: tuple = None
         callback_results: dict = None
-        
+
         @property
         def dm1(self):
             """Cluster 1DM"""
