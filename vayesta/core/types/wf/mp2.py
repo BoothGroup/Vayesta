@@ -2,7 +2,7 @@ import numpy as np
 from vayesta.core import spinalg
 from vayesta.core.util import callif, dot, einsum
 from vayesta.core.types import wf as wf_types
-from vayesta.core.types.orbitals import SpatialOrbitals
+from vayesta.core.types.orbitals import SpatialOrbitals, SpinOrbitals
 from vayesta.core.types.wf.project import project_c2, project_uc2, symmetrize_c2, symmetrize_uc2
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
@@ -144,6 +144,27 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
     def t2bb(self):
         return self.t2[-1]
 
+    def pack(self, dtype=float):
+        """Pack into a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo = self.mo.pack(dtype=dtype)
+        t2 = (self.t2aa, self.t2ab, self.t2ba, self.t2bb)
+        projector = self.projector if self.projector is not None else 2 * [None]
+        data = (mo, *t2, *projector)
+        pack = pack_arrays(*data, dtype=dtype)
+        return pack
+
+    @classmethod
+    def unpack(cls, packed):
+        """Unpack from a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo, t2aa, t2ab, t2ba, t2bb, proja, projb = unpack_arrays(packed)
+        mo = SpinOrbitals.unpack(mo)
+        projector = (proja, projb) if proja is not None else None
+        return cls(mo, (t2aa, t2ab, t2ba, t2bb), projector=projector)
+
     def make_rdm1(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -190,7 +211,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         return wf_types.UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
     def as_fci(self):
-        return NotImplementedError
+        raise NotImplementedError
 
     def multiply(self, factor):
         self.t2 = spinalg.multiply(self.t2, len(self.t2) * [factor])

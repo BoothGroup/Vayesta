@@ -38,7 +38,7 @@ class NumericalIntegratorBase:
 
     def get_quad(self, a):
         """Generate the appropriate Clenshaw-Curtis quadrature points and weights."""
-        return NotImplementedError
+        raise NotImplementedError
 
     def eval_contrib(self, freq):
         """Evaluate contribution to numerical integral of result at given frequency point."""

@@ -124,7 +124,7 @@ class QPEWDMET_RHF(SCMF):
         elif self.proj == 2:
             self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
         else:
-            return NotImplementedError()
+            raise NotImplementedError()
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy 
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0

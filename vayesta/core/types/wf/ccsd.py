@@ -402,10 +402,11 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         """Pack into a single array of data type `dtype`.
         Useful for communication via MPI."""
         mo = self.mo.pack(dtype=dtype)
-        l1 = self.l1 if self.l1 is not None else [None, None]
-        l2 = self.l2 if self.l2 is not None else len(self.t2) * [None]
-        projector = self.projector
-        data = (mo, *self.t1, *self.t2, *l1, *l2, *projector)
+        t2 = (self.t2aa, self.t2ab, self.t2ba, self.t2bb)
+        l1 = self.l1 if self.l1 is not None else 2 * [None]
+        l2 = (self.l2aa, self.l2ab, self.l2ba, self.l2bb) if self.l2 is not None else 4 * [None]
+        projector = self.projector if self.projector is not None else 2 * [None]
+        data = (mo, *self.t1, *t2, *l1, *l2, *projector)
         pack = pack_arrays(*data, dtype=dtype)
         return pack
 
@@ -416,11 +417,8 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         mo, t1a, t1b, t2aa, t2ab, t2ba, t2bb, l1a, l1b, l2aa, l2ab, l2ba, l2bb, proja, projb = unpack_arrays(packed)
         t1 = (t1a, t1b)
         t2 = (t2aa, t2ab, t2ba, t2bb)
-        l1 = (l1a, l1b)
-        l2 = (l2aa, l2ab, l2ba, l2bb)
-        projector = (proja, projb)
+        l1 = (l1a, l1b) if l1a is not None else None
+        l2 = (l2aa, l2ab, l2ba, l2bb) if l2aa is not None else None
+        projector = (proja, projb) if proja is not None else None
         mo = SpinOrbitals.unpack(mo)
-        wf = cls(mo, t1, t2, l1=l1, l2=l2)
-        if projector is not None:
-            wf.projector = projector
-        return wf
+        return cls(mo, t1, t2, l1=l1, l2=l2, projector=projector)
