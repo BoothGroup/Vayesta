@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 
+from vayesta.core.helper import pack_arrays, unpack_arrays
 from vayesta.core.types import SpatialOrbitals, SpinOrbitals
 from vayesta.core.types.wf.ccsd import RCCSD_WaveFunction, UCCSD_WaveFunction
 from vayesta.core.types.wf.mp2 import RMP2_WaveFunction, UMP2_WaveFunction
@@ -46,6 +47,26 @@ class TestPack(TestCase):
         if a is None:
             self.assertIsNone(b)
         else:
+            self.assertAllclose(a, b)
+
+    def test_pack_arrays(self):
+        rng = np.random.default_rng(4)
+        arrays = [
+            rng.random((3, 4)),
+            None,
+            np.arange(5),
+            rng.random(2) + 1j * rng.random(2),
+            rng.random((2, 1, 3)).astype(complex),
+            np.zeros(0),
+        ]
+        unpacked = unpack_arrays(pack_arrays(*arrays))
+        self.assertEqual(len(unpacked), len(arrays))
+        for a, b in zip(arrays, unpacked):
+            if a is None:
+                self.assertIsNone(b)
+                continue
+            self.assertEqual(a.dtype, b.dtype)
+            self.assertEqual(a.shape, b.shape)
             self.assertAllclose(a, b)
 
     def test_rccsd(self):
