@@ -566,7 +566,7 @@ class Fragment:
         dm = dot(sc.T, dm1, sc)
         e, r = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e - norm)), 0, atol=2 * tol, rtol=0):
-            self.log.warn("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
+            self.log.warning("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
         e, r = e[::-1], r[:, ::-1]
         c_cluster = np.dot(c_cluster, r)
         c_cluster = fix_orbital_sign(c_cluster)[0]
