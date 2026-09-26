@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 
@@ -56,7 +56,7 @@ class ssRIRRPA:
     ):
         self.mf = dfmf
         self.rixc = rixc
-        self.log = log or logging.getLogger(__name__)
+        self.log = log or vlog.getLogger(__name__)
         self.err_tol = err_tol
         self.svd_tol = svd_tol
         self.e_corr_ss = None

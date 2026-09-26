@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from vayesta.core.util import brange, dot, replace_attr
 from vayesta.core.ao2mo.kao2gmo import kao2gmo_cderi
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 pyscf_version = [int(x) for x in pyscf.__version__.split(".")]
 pyscf_version_atleast_2_1 = np.all(np.asarray(pyscf_version) >= (2, 1, 0))

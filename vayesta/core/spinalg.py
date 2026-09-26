@@ -1,13 +1,22 @@
 """Some utility to perform operations for RHF and UHF using the
 same functions"""
 
+from __future__ import annotations
+
+from typing import Any, Callable, Literal, Tuple, Union
+
 import numpy as np
+import scipy.linalg
+
 from vayesta.core import util
 
 __all__ = ["add_numbers", "hstack_matrices"]
 
+#: A spin-restricted array, or a tuple of arrays for each spin channel
+SpinArray = Union[np.ndarray, Tuple["SpinArray", ...]]
 
-def add_numbers(*args):
+
+def add_numbers(*args: float | tuple[float, float]) -> float | tuple[float, float]:
     # RHF
     if np.all([np.isscalar(arg) for arg in args]):
         return sum(args)
@@ -17,7 +26,7 @@ def add_numbers(*args):
     raise ValueError
 
 
-def hstack_matrices(*args, ignore_none=True):
+def hstack_matrices(*args: SpinArray | None, ignore_none: bool = True) -> SpinArray:
     if ignore_none:
         args = [x for x in args if x is not None]
     ndims = np.asarray([(arg[0].ndim + 1) for arg in args])
@@ -30,7 +39,7 @@ def hstack_matrices(*args, ignore_none=True):
     raise ValueError("ndims= %r" % ndims)
 
 
-def dot(*args, out=None):
+def dot(*args: SpinArray, out: SpinArray | None = None) -> SpinArray:
     """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik
 
     Additional non spin-dependent matrices can be present, eg. Sij,jk,Skl->Skl.
@@ -49,7 +58,7 @@ def dot(*args, out=None):
     return (util.dot(*args_a, out=out[0]), util.dot(*args_b, out=out[1]))
 
 
-def eigh(a, b=None, *args, **kwargs):
+def eigh(a: SpinArray, b: SpinArray | None = None, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
     ndim = np.ndim(a[0]) + 1
     # RHF
     if ndim == 2:
@@ -61,7 +70,7 @@ def eigh(a, b=None, *args, **kwargs):
     return tuple(zip(*results))
 
 
-def transpose(a, axes=None):
+def transpose(a: SpinArray, axes: tuple[int, ...] | None = None) -> SpinArray:
     if np.ndim(a[0]) == 1:
         return np.transpose(a, axes=axes)
     return (transpose(a[0], axes=axes), transpose(a[1], axes=axes))
@@ -70,14 +79,14 @@ def transpose(a, axes=None):
 T = transpose
 
 
-def _guess_spinsym(a):
+def _guess_spinsym(a: SpinArray) -> Literal["restricted", "unrestricted"]:
     if isinstance(a, (tuple, list)):
         return "unrestricted"
     return "restricted"
 
 
-def _make_func(func, nargs=1):
-    def _func(a, *args, spinsym=None, **kwargs):
+def _make_func(func: Callable[..., Any], nargs: int = 1) -> Callable[..., Any]:
+    def _func(a: Any, *args: Any, spinsym: str | None = None, **kwargs: Any) -> Any:
         spinsym = spinsym or _guess_spinsym(a)
         if spinsym == "restricted":
             return func(a, *args, **kwargs)

@@ -3,7 +3,7 @@ from copy import deepcopy
 import itertools
 import dataclasses
 import functools
-import logging
+from vayesta.core import vlog
 import os
 import re
 import string
@@ -19,7 +19,7 @@ except (ModuleNotFoundError, ImportError):
 import numpy as np
 
 
-modlog = logging.getLogger(__name__)
+modlog = vlog.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
 __all__ = [

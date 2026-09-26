@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 import numpy as np
 import pyscf
 import pyscf.lib
@@ -6,7 +6,7 @@ import pyscf.ao2mo
 from vayesta.core.util import Object, dot, einsum, energy_string, getif
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def get_kconserv(cell, kpts, nk=3):

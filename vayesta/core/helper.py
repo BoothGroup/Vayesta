@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import DTypeLike
 
 
-def orbital_sign_convention(mo_coeff, inplace=True):
+def orbital_sign_convention(mo_coeff: np.ndarray, inplace: bool = True) -> tuple[np.ndarray, np.ndarray]:
     if not inplace:
         mo_coeff = mo_coeff.copy()
     absmax = np.argmax(abs(mo_coeff), axis=0)
@@ -16,14 +19,14 @@ def orbital_sign_convention(mo_coeff, inplace=True):
 # --- Packing/unpacking arrays
 
 
-def get_dtype_int(obj):
+def get_dtype_int(obj: np.ndarray | None) -> int:
     if obj is None:
         return 0
     dtint = np.asarray(obj.dtype.char, dtype="a8").view(int)[()]
-    return dtint
+    return int(dtint)
 
 
-def get_dtype(dtint):
+def get_dtype(dtint: int) -> np.dtype | None:
     if dtint == 0:
         return None
     val = np.asarray(dtint).view("a8")[()]
@@ -31,11 +34,11 @@ def get_dtype(dtint):
     return dtype
 
 
-def pack_metadata(array, maxdim=8):
+def pack_metadata(array: np.ndarray | None, maxdim: int = 8) -> np.ndarray:
     if np.ndim(array) > maxdim:
         raise NotImplementedError
     dtint = get_dtype_int(array)
-    if dtint:
+    if array is not None:
         ndim = array.ndim
         shape = list(array.shape) + (maxdim - array.ndim) * [0]
     else:
@@ -45,19 +48,19 @@ def pack_metadata(array, maxdim=8):
     return np.asarray(metadata, dtype=int)
 
 
-def unpack_metadata(array, maxdim=8):
+def unpack_metadata(array: np.ndarray, maxdim: int = 8) -> tuple[np.dtype | None, int, np.ndarray]:
     metadata = array[: maxdim + 2].view(int)
     dtype = get_dtype(metadata[0])
     ndim, shape = metadata[1], metadata[2:]
     return dtype, ndim, shape
 
 
-def pack_arrays(*arrays, dtype=float, maxdim=8):
+def pack_arrays(*arrays: np.ndarray | None, dtype: DTypeLike = float, maxdim: int = 8) -> np.ndarray:
     """Pack multiple arrays into a single array of data type `dtype`.
 
     Useful for MPI communication."""
 
-    def pack(array):
+    def pack(array: np.ndarray | None) -> np.ndarray:
         metadata = pack_metadata(array).view(dtype)
         if array is None:
             return metadata
@@ -70,7 +73,7 @@ def pack_arrays(*arrays, dtype=float, maxdim=8):
     return np.hstack(packed)
 
 
-def unpack_arrays(packed, dtype=float, maxdim=8):
+def unpack_arrays(packed: np.ndarray, dtype: DTypeLike = float, maxdim: int = 8) -> list[np.ndarray | None]:
     """Unpack a single array of data type `dtype` into multiple arrays.
 
     Useful for MPI communication."""

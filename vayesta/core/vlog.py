@@ -1,10 +1,12 @@
 """Vayesta logging module"""
 
+from __future__ import annotations
+
 import functools
 import contextlib
 import logging
+from typing import TYPE_CHECKING, Any, cast
 
-from vayesta.mpi import mpi
 
 """
 Log levels (* are custom levels):
@@ -37,6 +39,44 @@ LVL_PREFIX = {
     "DEBUGV": "DEBUG",
     "TRACE": "TRACE",
 }
+
+
+def _get_mpi():
+    # Import at runtime to avoid circular import
+    from vayesta.mpi import mpi
+
+    return mpi
+
+
+if TYPE_CHECKING:
+
+    class VLogger(logging.Logger):
+        """Type of loggers used in Vayesta, with the additional methods added by `init_logging`.
+
+        Only used for type checking; at runtime, the methods are added to `logging.Logger` directly.
+        """
+
+        indentLevel: int
+
+        def deprecated(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def output(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def infov(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def timing(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def debugv(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def timingv(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def trace(self, msg: object, *args: object, **kwargs: Any) -> None: ...
+        def setIndentLevel(self, level: int) -> int: ...
+        def changeIndentLevel(self, delta: int) -> int: ...
+        def indent(self, delta: int = 1) -> contextlib.ContextDecorator: ...
+        def withIndentLevel(self, delta: int = 1) -> contextlib.ContextDecorator: ...
+
+else:
+    VLogger = logging.Logger
+
+
+def getLogger(name: str | None = None) -> VLogger:
+    """Return a logger, as `logging.getLogger`, typed with Vayesta's additional logging methods."""
+    return cast("VLogger", logging.getLogger(name))
 
 
 class NoLogger:
@@ -106,7 +146,7 @@ class VFormatter(logging.Formatter):
         if show_level:
             self.prefix_width += len(max(LVL_PREFIX.values(), key=len)) + 2
         if show_mpi_rank:
-            self.prefix_width += len(str(mpi.size - 1)) + 6
+            self.prefix_width += len(str(_get_mpi().size - 1)) + 6
 
         self.prefix_sep = prefix_sep
         self.indent = indent
@@ -121,7 +161,7 @@ class VFormatter(logging.Formatter):
             if prefix:
                 prefix = "[%s]" % prefix
         if self.show_mpi_rank:
-            prefix += "[MPI %d]" % mpi.rank
+            prefix += "[MPI %d]" % _get_mpi().rank
         prefix = "%-*s%s" % (self.prefix_width, prefix, self.prefix_sep)
         if self.indent:
             root = logging.getLogger()
@@ -154,6 +194,7 @@ class VFileHandler(logging.FileHandler):
 
 
 def get_logname(name, add_mpi_rank=True, ext="txt"):
+    mpi = _get_mpi()
     if mpi and add_mpi_rank:
         name = "%s.mpi%d" % (name, mpi.rank)
     if ext and not name.endswith(".%s" % ext):
