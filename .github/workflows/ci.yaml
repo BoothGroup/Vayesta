@@ -27,6 +27,23 @@ env:
 
 
 jobs:
+  pyright:
+    name: pyright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install dependencies
+        run: |
+          uv sync --locked --no-install-project --extra dmet --extra ebcc --extra dyson
+      - name: Run pyright
+        run: |
+          uv run --no-sync pyright
+
   full_gnu:
     name: python ${{ matrix.python-version }} on ${{ matrix.os }} with GNU compilers + OpenBLAS
     runs-on: ${{ matrix.os }}

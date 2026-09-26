@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import *
+
+from logging import Logger
+from typing import Callable, Dict, Tuple, Type
 
 from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
@@ -35,7 +37,7 @@ def check_solver_config(solver, is_uhf, is_eb, log):
     _get_solver_class(solver, is_uhf, is_eb, log)
 
 
-def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type:
+def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type | Callable:
     try:
         solver_cls = _get_solver_class_internal(solver, is_uhf, is_eb, log)
         return solver_cls

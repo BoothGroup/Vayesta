@@ -83,6 +83,7 @@ test = [
 dev = [
     {include-group = "test"},
     "pre-commit",
+    "pyright",
     "ruff",
 ]
 docs = [
@@ -141,3 +142,28 @@ extend-exclude = """
     __pycache__*
 /)
 """
+
+[tool.pyright]
+include = ["vayesta"]
+exclude = ["**/__pycache__", "vayesta/tests"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+# Optional dependencies may not be installed
+reportMissingImports = "warning"
+# TODO: the following rules currently have many violations and are only reported as warnings.
+# Fix the violations and remove the rules here to report them as errors.
+reportArgumentType = "warning"
+reportAssignmentType = "warning"
+reportAttributeAccessIssue = "warning"
+reportCallIssue = "warning"
+reportGeneralTypeIssues = "warning"
+reportIndexIssue = "warning"
+reportOperatorIssue = "warning"
+reportOptionalCall = "warning"
+reportOptionalIterable = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalOperand = "warning"
+reportOptionalSubscript = "warning"
+reportPossiblyUnbound = "warning"
+reportRedeclaration = "warning"
+reportUndefinedVariable = "warning"
