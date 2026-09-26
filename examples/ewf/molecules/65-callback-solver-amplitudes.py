@@ -3,6 +3,8 @@ import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.fci
+import pyscf.cc
+import pyscf.ci
 import vayesta
 import vayesta.ewf
 from vayesta.misc.molecules import ring
@@ -26,7 +28,7 @@ def cisd_solver(mf):
 
 def ccsd_solver(mf, dm=False):
     if type(mf.mo_coeff) == tuple:
-        cc = UCCSD(mf)
+        cc = pyscf.cc.UCCSD(mf)
     else:
         cc = pyscf.cc.CCSD(mf)
     cc.kernel()

@@ -3,6 +3,8 @@ import numpy as np
 from vayesta.core import spinalg
 from vayesta.core.util import dot, einsum, callif
 from vayesta.core.types import wf as wf_types
+from vayesta.core.types.orbitals import SpatialOrbitals
+from vayesta.core.helper import pack_arrays, unpack_arrays
 from vayesta.core.types.wf.project import (
     project_c1,
     project_c2,
@@ -88,7 +90,7 @@ class RRDM_WaveFunction(wf_types.WaveFunction):
 
         Useful for communication via MPI."""
         mo = self.mo.pack(dtype=dtype)
-        data = (mo, dm1, dm2, self.projector)
+        data = (mo, self.dm1, self.dm2, self.projector)
         pack = pack_arrays(*data, dtype=dtype)
         return pack
 

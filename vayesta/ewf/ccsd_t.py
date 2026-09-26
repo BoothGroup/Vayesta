@@ -232,17 +232,17 @@ def calc_fragment_uccsd_t_energy(fragment, t1=None, t2=None, eris=None, project=
     fVO = fockb[noccb:,:noccb]
 
     if eris is not None:
-        eris_ovvv = numpy.asarray(eris.get_ovvv()).conj()
-        eris_ovoo = numpy.asarray(eris.ovoo).conj()
-        eris_ovov = numpy.asarray(eris.ovov).conj()
-        eris_OVVV = numpy.asarray(eris.get_OVVV()).conj()
-        eris_OVOO = numpy.asarray(eris.OVOO).conj()
-        eris_OVOV = numpy.asarray(eris.OVOV).conj()
-        eris_ovVV = numpy.asarray(eris.get_ovVV()).conj()
-        eris_OVvv = numpy.asarray(eris.get_OVvv()).conj()
-        eris_ovOO = numpy.asarray(eris.ovOO).conj()
-        eris_OVoo = numpy.asarray(eris.OVoo).conj()
-        eris_ovOV = numpy.asarray(eris.ovOV).conj()
+        eris_ovvv = np.asarray(eris.get_ovvv()).conj()
+        eris_ovoo = np.asarray(eris.ovoo).conj()
+        eris_ovov = np.asarray(eris.ovov).conj()
+        eris_OVVV = np.asarray(eris.get_OVVV()).conj()
+        eris_OVOO = np.asarray(eris.OVOO).conj()
+        eris_OVOV = np.asarray(eris.OVOV).conj()
+        eris_ovVV = np.asarray(eris.get_ovVV()).conj()
+        eris_OVvv = np.asarray(eris.get_OVvv()).conj()
+        eris_ovOO = np.asarray(eris.ovOO).conj()
+        eris_OVoo = np.asarray(eris.OVoo).conj()
+        eris_ovOV = np.asarray(eris.ovOV).conj()
     else:
         eris_ovvv = fragment.hamil.get_eris_bare(block='ovvv').conj()
         eris_ovoo = fragment.hamil.get_eris_bare(block='ovoo').conj()

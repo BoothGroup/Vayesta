@@ -116,7 +116,7 @@ def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
 
 if __name__ == "__main__":
     vals = sorted(np.random.rand(30))
-    print(make_vertical_histogram(vals))
+    print(make_horizontal_histogram(vals))
     print("")
     bins = np.linspace(0, 1, 12)
     # for line in horizontal_histogram(vals, bins):

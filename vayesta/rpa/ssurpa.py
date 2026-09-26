@@ -1,6 +1,7 @@
 from vayesta.rpa.ssrpa import ssRPA
 import numpy as np
 import scipy.linalg
+import pyscf.ao2mo
 
 from timeit import default_timer as timer
 from vayesta.core.util import dot, time_string, einsum
@@ -134,11 +135,12 @@ class ssURPA(ssRPA):
         mo_coeff = self.mo_coeff if mo_coeff is None else mo_coeff
         # Just in case have spin dependent integrals...
         if isinstance(self.mf._eri, tuple):
-            eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False)
-            eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False)
+            na, nb = mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]
+            eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False).reshape(4 * [na])
+            eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False).reshape(4 * [nb])
             eris_ab = pyscf.ao2mo.kernel(
                 self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=False
-            )
+            ).reshape(2 * [na] + 2 * [nb])
         else:
             # Call three-times to spin-restricted embedding
             self.log.debugv("Making (aa|aa) ERIs...")

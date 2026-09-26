@@ -2,7 +2,7 @@ import pytest
 import unittest
 
 import numpy as np
-from vayesta.core.util import einsum
+from vayesta.core.util import einsum, getattr_recursive, setattr_recursive
 
 from vayesta.tests.common import TestCase
 
@@ -131,6 +131,31 @@ class TestEinsum(TestCase):
 
         res = einsum("ab,(bcd,de)->e", *ops)
         self.assertAllclose(res, expected)
+
+
+@pytest.mark.fast
+class TestAttrRecursive(TestCase):
+    class Obj:
+        pass
+
+    def make_obj(self):
+        obj = self.Obj()
+        obj.a = self.Obj()
+        obj.a.b = self.Obj()
+        obj.a.b.c = 1
+        return obj
+
+    def test_getattr_recursive(self):
+        obj = self.make_obj()
+        self.assertEqual(getattr_recursive(obj, "a.b.c"), 1)
+        self.assertIsNone(getattr_recursive(obj, "a.b.d", None))
+
+    def test_setattr_recursive(self):
+        obj = self.make_obj()
+        setattr_recursive(obj, "a.b.c", 2)
+        self.assertEqual(obj.a.b.c, 2)
+        setattr_recursive(obj, "d", 3)
+        self.assertEqual(obj.d, 3)
 
 
 if __name__ == "__main__":

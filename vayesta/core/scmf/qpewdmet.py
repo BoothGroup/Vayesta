@@ -5,6 +5,7 @@ import pyscf.scf
 
 import vayesta
 from vayesta.core.scmf.scmf import SCMF
+from vayesta.core.util import SymmetryError
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
