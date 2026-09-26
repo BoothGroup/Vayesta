@@ -14,7 +14,8 @@ N = len(examples)
 errs = []
 for eg in examples[1:]:
     print(eg)
-    if 'run_examples.py' in eg: continue
+    if "run_examples.py" in eg:
+        continue
     print("Running %s" % eg)
     errno = subprocess.call("python " + eg[:-1] + " -q", shell=True)
     if errno != 0:

@@ -8,7 +8,7 @@ import numpy as np
 
 
 def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype": "dmet"}):
-    '''Run Vayesta on an natom hydrogen rings in a minimal basis, with bond_length r.
+    """Run Vayesta on an natom hydrogen rings in a minimal basis, with bond_length r.
     Note that since this is a minimal basis, the fragmentation is completely spanning.
 
     Optional args:
@@ -18,7 +18,7 @@ def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype": "dmet"}):
     Returns:
         Vayesta embedding object
         Mean-field object
-    '''
+    """
 
     if abs(natom / n_per_frag - natom // n_per_frag) > 1e-6:
         raise ValueError(f"Atoms per fragment ({n_per_frag}) doesn't exactly divide natoms ({natom})")
@@ -61,7 +61,7 @@ def get_wf_composite(emb, inc_mf=False):
 
 
 def get_density_projected(emb, inc_mf=False):
-    """ Construct the one-body fragment density projectors for each cluster, and apply them
+    """Construct the one-body fragment density projectors for each cluster, and apply them
     to their respective cluster solutions. Then, optimize their relative weights
     in a variational fashion, as above."""
 
@@ -80,7 +80,7 @@ def get_density_projected(emb, inc_mf=False):
 
 
 def get_occ_projected(emb):
-    """ Construct the N-body fragment hole projectors for each cluster, and apply them
+    """Construct the N-body fragment hole projectors for each cluster, and apply them
     to their respective cluster solutions. Then, optimize their relative weights
     in a variational fashion, as above."""
 
@@ -151,7 +151,6 @@ def plot_results(fname="results.txt", vsfci=False, ax=None, nodmenergy=True):
     # NO-oproj-CAS-CI = Occupied hole projector. Variationally optimize relative cluster contributions.
     # var-NO-FCI = Full variational optimization over clusters. No projectors.
 
-
     def remove_ind(results, labels, i):
         labels = labels[:i] + labels[i + 1 :]
         results = np.concatenate([results[:, :i], results[:, i + 1 :]], axis=1)
@@ -186,9 +185,11 @@ if __name__ == "__main__":
     for r in list(np.arange(0.6, 2.0, 0.1)) + list(np.arange(2.5, 10.0, 0.5)):
         emb, mf = run_ewf(nat, r, n_per_frag)
         # These calculate the standard EWF energy estimators.
-        eewf_wf = emb.get_wf_energy()   # Linear estimator, occupied-fluctuation projector
-        eewf_dm = emb.get_dm_energy()   # Convert to CCSD wavefunction, and compute approximate global CCSD density matrix contribution,
-                                        # where each CCSD is projected with the occupied-fluctuation projector.
+        eewf_wf = emb.get_wf_energy()  # Linear estimator, occupied-fluctuation projector
+        eewf_dm = (
+            emb.get_dm_energy()
+        )  # Convert to CCSD wavefunction, and compute approximate global CCSD density matrix contribution,
+        # where each CCSD is projected with the occupied-fluctuation projector.
 
         # This calculates the energy of the variationally optimal combination of each cluster wavefunctions in each case.
         # This uses the bare local wavefunctions with no projectors

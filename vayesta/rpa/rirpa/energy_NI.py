@@ -1,4 +1,4 @@
-"""Functionality to calculate zeroth moment via numerical integration """
+"""Functionality to calculate zeroth moment via numerical integration"""
 
 import numpy as np
 

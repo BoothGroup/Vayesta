@@ -84,7 +84,6 @@ class DiamondTest(TestCase):
     # def test_dm1_mirror_symmetry(self):
     #    return self._test_dm1_symmetry('mirror')
 
-
     def _test_ccsd_t_symmetry(self, symmetry):
         emb_sym = self.emb(1e-4, symmetry=symmetry)
         emb = self.emb(1e-4)
@@ -103,6 +102,7 @@ class DiamondTest(TestCase):
 
     # def test_ccsd_t_symmetry_mirror(self):
     #     return self._test_ccsd_t_symmetry("mirror")
+
 
 if __name__ == "__main__":
     print("Running %s" % __file__)

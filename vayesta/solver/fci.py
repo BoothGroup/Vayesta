@@ -89,7 +89,7 @@ class FCI_Solver(ClusterSolver):
                 self.log.info("Skipping cluster moment calculations")
                 return
 
-            self.log.info("Calculating cluster FCI moments %s"%str(nmom))
+            self.log.info("Calculating cluster FCI moments %s" % str(nmom))
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
 
             with log_time(self.log.timing, "Time for hole moments: %s"):
@@ -98,6 +98,7 @@ class FCI_Solver(ClusterSolver):
             with log_time(self.log.timing, "Time for hole moments: %s"):
                 expr = FCI.particle.from_fci(self.solver, heff, eris)
                 self.particle_moments = expr.build_gf_moments(nmom[1])
+
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
     @dataclasses.dataclass

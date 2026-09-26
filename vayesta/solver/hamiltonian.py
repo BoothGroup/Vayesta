@@ -365,12 +365,11 @@ class RClusterHamiltonian:
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: np.asarray(pad_to_match(
-                self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy
-                )
+            clusmf.get_fock = lambda *args, **kwargs: np.asarray(
+                pad_to_match(self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
             )
-            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
-                clusmf.get_hcore()
+            clusmf.get_veff = lambda *args, **kwargs: (
+                np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
             )
 
         return clusmf, orbs_to_freeze

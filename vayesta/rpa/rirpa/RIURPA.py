@@ -105,7 +105,7 @@ class ssRIURPA(ssRIRRPA):
         if lova_neg is not None:
             if lovb_neg is None:
                 raise RuntimeError(
-                    "Encountered negative cderi contribution in only one spin channel." "Isn't this impossible?"
+                    "Encountered negative cderi contribution in only one spin channel.Isn't this impossible?"
                 )
             lova_neg = lova_neg.reshape((lova_neg.shape[0], -1))
             lovb_neg = lovb_neg.reshape((lovb_neg.shape[0], -1))

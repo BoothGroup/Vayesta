@@ -28,6 +28,7 @@ casscf.kernel()
 # emb = vayesta.ewf.EWF(mf, solver=f'EB{ansatz}',  solver_options=dict(solve_lambda=False))
 # emb = vayesta.ewf.EWF(mf, solver='ebcc', solver_options=dict(solve_lambda=False, ansatz=ansatz))
 
+
 def get_emb_result(ansatz, bathtype="full"):
     # Uses fastest available solver for given ansatz; PySCF if available, otherwise ebcc.
     emb = vayesta.ewf.EWF(

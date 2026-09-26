@@ -152,7 +152,7 @@ class ClusterRHF(Cluster):
         return list(range(self.nocc_frozen)) + list(range(self.norb_total - self.nvir_frozen, self.norb_total))
 
     def make_frozen_rdm1(self) -> np.ndarray:
-        return 2*np.dot(self.c_frozen_occ, self.c_frozen_occ.T)
+        return 2 * np.dot(self.c_frozen_occ, self.c_frozen_occ.T)
 
     def repr_size(self):
         lines = []
@@ -200,8 +200,10 @@ class ClusterUHF(Cluster):
         )
 
     def make_frozen_rdm1(self) -> Tuple[np.ndarray, np.ndarray]:
-        return (np.dot(self.c_frozen_occ[0], self.c_frozen_occ[0].T),
-                np.dot(self.c_frozen_occ[1], self.c_frozen_occ[1].T))
+        return (
+            np.dot(self.c_frozen_occ[0], self.c_frozen_occ[0].T),
+            np.dot(self.c_frozen_occ[1], self.c_frozen_occ[1].T),
+        )
 
     def repr_size(self):
         lines = []

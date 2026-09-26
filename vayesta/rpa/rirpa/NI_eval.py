@@ -195,7 +195,7 @@ class NumericalIntegratorBase:
                 raise NIException("Could not optimise `a' value.")
             solve = res.x
             self.log.info(
-                "Used minimisation to optimise quadrature grid: a= %.2e  penalty value= %.2e " "(smaller is better)",
+                "Used minimisation to optimise quadrature grid: a= %.2e  penalty value= %.2e (smaller is better)",
                 solve,
                 res.fun,
             )
@@ -224,8 +224,7 @@ class NumericalIntegratorBase:
         else:
             if a is None:
                 raise ValueError(
-                    "A value for the quadrature scaling parameter a must be provided if optimisation is not"
-                    "permitted."
+                    "A value for the quadrature scaling parameter a must be provided if optimisation is notpermitted."
                 )
         integral, errors = self.eval_NI_approx(a)
         return integral + self.get_offset(), errors

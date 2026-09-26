@@ -102,7 +102,6 @@ class RCCSD_Solver(ClusterSolver):
                 # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
                 # self.ea_moment_amplitudes = (amps_bra, amps_ket)
 
-
     def get_solver_class(self, mf):
         if hasattr(mf, "with_df") and mf.with_df is not None:
             return pyscf.cc.dfccsd.RCCSD

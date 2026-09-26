@@ -144,8 +144,8 @@ def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.
 
 
 def calc_full_couplings(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore1, ncore2, enuc=0.0):
-    '''Calculate and return the full Hamiltonian and overlap matrices between two sets of CAS configurations in
-    different (non-orthogonal) representations (RHF)'''
+    """Calculate and return the full Hamiltonian and overlap matrices between two sets of CAS configurations in
+    different (non-orthogonal) representations (RHF)"""
     h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
     mo1, mo2 = owndata(mo1), owndata(mo2)
 
@@ -179,8 +179,8 @@ def calc_full_couplings(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore
 
 
 def calc_full_couplings_uhf(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore1, ncore2, enuc=0.0):
-    '''Calculate and return the full Hamiltonian and overlap matrices between two sets of CAS configurations in
-    different (non-orthogonal) representations (UHF)'''
+    """Calculate and return the full Hamiltonian and overlap matrices between two sets of CAS configurations in
+    different (non-orthogonal) representations (UHF)"""
     h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
     mo1, mo2 = [owndata(x) for x in mo1], [owndata(x) for x in mo2]
 

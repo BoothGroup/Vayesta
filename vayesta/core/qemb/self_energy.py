@@ -3,11 +3,13 @@
 import numpy as np
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
+
 try:
     from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
 except ImportError as e:
     print(e)
     print("Dyson required for self-energy calculations")
+
 
 def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
     """
@@ -53,9 +55,9 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
         se = solver.get_self_energy()
         se_moms_clus = [se.moment(i) for i in range(n_se_mom)]
 
-        mc = f.get_overlap('mo|cluster')
-        mf = f.get_overlap('mo|frag')
-        fc = f.get_overlap('frag|cluster')
+        mc = f.get_overlap("mo|cluster")
+        mf = f.get_overlap("mo|frag")
+        fc = f.get_overlap("frag|cluster")
         cfc = fc.T @ fc
 
         # Fock matrix in cluster basis
@@ -64,7 +66,9 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
 
         if proj == 1:
             # Static potential
-            v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+            v_cls = se.as_static_potential(
+                e_cls, eta=eta
+            )  # Static potential (used to update MF for the self-consistnecy)
             v_frag = cfc @ v_cls
             v_frag = 0.5 * (v_frag + v_frag.T)
             static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
@@ -76,13 +80,13 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
             static_self_energy += mc @ static_self_energy_frag @ mc.T
 
             # Self-energy moments
-            se_moms_frag = [0.5*(cfc @ mom + mom @ cfc) for mom in se_moms_clus]
+            se_moms_frag = [0.5 * (cfc @ mom + mom @ cfc) for mom in se_moms_clus]
             self_energy_moms += np.array([mc @ mom @ mc.T for mom in se_moms_frag])
 
             if use_sym:
                 for child in f.get_symmetry_children():
                     static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
-                    mc_child = child.get_overlap('mo|cluster')
+                    mc_child = child.get_overlap("mo|cluster")
                     static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
                     self_energy_moms += np.array([mc_child @ mom @ mc_child.T for mom in se_moms_frag])
 
@@ -98,20 +102,30 @@ def make_self_energy_moments(emb, n_se_mom, use_sym=True, proj=1, eta=1e-2):
             static_self_energy += mf @ static_se_frag @ mf.T
 
             # Self-energy moments
-            se_moms_frag = [0.5*(fc @ mom @ fc.T) for mom in se_moms_clus]
+            se_moms_frag = [0.5 * (fc @ mom @ fc.T) for mom in se_moms_clus]
             self_energy_moms += np.array([mf @ mom @ mf.T for mom in se_moms_frag])
 
             if use_sym:
                 for child in f.get_symmetry_children():
                     static_potential += child.c_frag @ v_frag @ child.c_frag.T
-                    mf_child = child.get_overlap('mo|frag')
-                    fc_child = child.get_overlap('frag|cluster')
+                    mf_child = child.get_overlap("mo|frag")
+                    fc_child = child.get_overlap("frag|cluster")
                     static_self_energy += mf_child @ static_se_frag @ mf_child.T
                     self_energy_moms += np.array([mf_child @ mom @ mf_child.T for mom in se_moms_frag])
 
     return self_energy_moms, static_self_energy, static_potential
 
-def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_frag=False, se_degen_tol=1e-4, se_eval_tol=1e-6, drop_non_causal=False):
+
+def make_self_energy_1proj(
+    emb,
+    use_sym=True,
+    use_svd=True,
+    eta=1e-2,
+    aux_shift_frag=False,
+    se_degen_tol=1e-4,
+    se_eval_tol=1e-6,
+    drop_non_causal=False,
+):
     """
     Construct full system self-energy in Lehmann representation from cluster spectral moments using 1 projector
 
@@ -165,26 +179,26 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
         gf = solver.get_greens_function()
         dm = gf.occupied().moment(0) * 2
         nelec = np.trace(dm)
-        emb.log.info("Fragment %s: Electron target %f %f without shift"%(f.id, f.nelectron, nelec))
+        emb.log.info("Fragment %s: Electron target %f %f without shift" % (f.id, f.nelectron, nelec))
         if aux_shift_frag:
-            aux = AuxiliaryShift(th[0]+tp[0], se, f.nelectron, occupancy=2, log=emb.log)
+            aux = AuxiliaryShift(th[0] + tp[0], se, f.nelectron, occupancy=2, log=emb.log)
             aux.kernel()
             se = aux.get_self_energy()
             gf = aux.get_greens_function()
             dm = gf.occupied().moment(0) * 2
             nelec = np.trace(dm)
-            emb.log.info("Fragment %s: Electron target %f %f with shift"%(f.id, f.nelectron, nelec))
+            emb.log.info("Fragment %s: Electron target %f %f with shift" % (f.id, f.nelectron, nelec))
 
-        mc = f.get_overlap('mo|cluster')
-        fc = f.get_overlap('frag|cluster')
+        mc = f.get_overlap("mo|cluster")
+        fc = f.get_overlap("frag|cluster")
         cfc = fc.T @ fc
 
         # Fock matrix in cluster basis
-        fock_cls = f.cluster.c_active.T  @ fock  @ f.cluster.c_active
+        fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
         e_cls = np.diag(fock_cls)
 
         # Static potential
-        v_cls = se.as_static_potential(e_cls, eta=eta) # Static potential (used to update MF for the self-consistnecy)
+        v_cls = se.as_static_potential(e_cls, eta=eta)  # Static potential (used to update MF for the self-consistnecy)
         v_frag = cfc @ v_cls
         v_frag = 0.5 * (v_frag + v_frag.T)
         static_potential += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
@@ -197,7 +211,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
 
         # Dynamic self-energy
         coup_l, coup_r = se._unpack_couplings()
-        sym_coup = 0.5*(einsum('pa,qa->apq', cfc @ coup_l , coup_r) + einsum('pa,qa->apq', coup_l , cfc @ coup_r))
+        sym_coup = 0.5 * (einsum("pa,qa->apq", cfc @ coup_l, coup_r) + einsum("pa,qa->apq", coup_l, cfc @ coup_r))
 
         if use_svd:
             couplings_l_frag, couplings_r_frag, energies_frag = [], [], []
@@ -206,8 +220,8 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
                 U, s, Vt = np.linalg.svd(m)
                 idx = np.abs(s) > se_eval_tol
                 assert idx.sum() <= 2
-                u = U[:,idx] @ np.diag(np.sqrt(s[idx]))
-                v = Vt.conj().T[:,idx] @ np.diag(np.sqrt(s[idx]))
+                u = U[:, idx] @ np.diag(np.sqrt(s[idx]))
+                v = Vt.conj().T[:, idx] @ np.diag(np.sqrt(s[idx]))
                 couplings_l_frag.append(u)
                 couplings_r_frag.append(v)
                 energies_frag += [se.energies[a] for e in range(idx.sum())]
@@ -223,7 +237,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
                 val, vec = np.linalg.eigh(m)
                 idx = np.abs(val) > se_eval_tol
                 assert idx.sum() <= 2
-                w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+                w = vec[:, idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
                 couplings_frag.append(w)
                 energies_frag += [se.energies[a] for e in range(idx.sum())]
 
@@ -235,7 +249,7 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
         if use_sym:
             for child in f.get_symmetry_children():
                 static_potential += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
-                mc_child = child.get_overlap('mo|cluster')
+                mc_child = child.get_overlap("mo|cluster")
                 static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
                 energies.append(energies_frag)
                 if use_svd:
@@ -251,7 +265,9 @@ def make_self_energy_1proj(emb, use_sym=True, use_svd=True, eta=1e-2, aux_shift_
         couplings = np.hstack(couplings)
     self_energy = Lehmann(energies, couplings)
 
-    self_energy = remove_se_degeneracy(emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+    self_energy = remove_se_degeneracy(
+        emb, self_energy, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal
+    )
 
     return self_energy, static_self_energy, static_potential
 
@@ -297,8 +313,8 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         solver.kernel()
         se = solver.get_self_energy()
 
-        mf = f.get_overlap('mo|frag')
-        fc = f.get_overlap('frag|cluster')
+        mf = f.get_overlap("mo|frag")
+        fc = f.get_overlap("frag|cluster")
 
         # Fock matrix in cluster basis
         fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
@@ -327,8 +343,8 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         if use_sym:
             for child in f.get_symmetry_children():
                 static_potential += child.c_frag @ v_frag @ child.c_frag.T
-                mf_child = child.get_overlap('mo|frag')
-                fc_child = child.get_overlap('frag|cluster')
+                mf_child = child.get_overlap("mo|frag")
+                fc_child = child.get_overlap("frag|cluster")
                 static_self_energy += mf_child @ static_se_frag @ mf_child.T
                 if type(se.couplings) is tuple:
                     couplings_l, couplings_r = se.couplings
@@ -347,39 +363,41 @@ def make_self_energy_2proj(emb, use_sym=True, eta=1e-2):
         couplings = np.hstack(couplings)
     energies = np.concatenate(energies)
     self_energy = Lehmann(energies, couplings)
-    #self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
+    # self_energy = remove_se_degeneracy(emb, self_energy)#, dtol=se_degen_tol, etol=se_eval_tol, drop_non_causal=drop_non_causal)
 
     return self_energy, static_self_energy, static_potential
 
+
 def remove_se_degeneracy(emb, se, dtol=1e-8, etol=1e-6, drop_non_causal=False):
 
-    emb.log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+    emb.log.debug("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e" % (dtol, etol))
     e = se.energies
     couplings_l, couplings_r = se._unpack_couplings()
-    e_new, slices = get_unique(e, atol=dtol)#
-    emb.log.debug("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+    e_new, slices = get_unique(e, atol=dtol)  #
+    emb.log.debug("Number of energies = %d,  unique = %d" % (len(e), len(e_new)))
     energies, couplings = [], []
     warn_non_causal = False
     for i, s in enumerate(slices):
-        mat = np.einsum('pa,qa->pq', couplings_l[:,s], couplings_r[:,s]).real
+        mat = np.einsum("pa,qa->pq", couplings_l[:, s], couplings_r[:, s]).real
         val, vec = np.linalg.eigh(mat)
-        if  drop_non_causal:
+        if drop_non_causal:
             idx = val > etol
         else:
             idx = np.abs(val) > etol
         if np.sum(val[idx] < -etol) > 0:
             warn_non_causal = True
-        w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+        w = vec[:, idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
         couplings.append(w)
         energies += [e_new[i] for _ in range(idx.sum())]
 
-        emb.log.debug("    | E = %e << %s"%(e_new[i],e[s]))
-        emb.log.debug("       evals: %s"%val)
-        emb.log.debug("       kept:  %s"%(val[idx]))
+        emb.log.debug("    | E = %e << %s" % (e_new[i], e[s]))
+        emb.log.debug("       evals: %s" % val)
+        emb.log.debug("       kept:  %s" % (val[idx]))
     if warn_non_causal:
         emb.log.warning("Non-causal poles found in self-energy")
     couplings = np.hstack(couplings).real
     return Lehmann(np.array(energies), np.array(couplings))
+
 
 def get_unique(array, atol=1e-15):
 
@@ -392,14 +410,14 @@ def get_unique(array, atol=1e-15):
     while i < len(array):
         j = 1
         idxs = [i]
-        while i+j < len(array):
-            if np.abs(array[i] - array[i+j]) < atol:
-                idxs.append(i+j)
+        while i + j < len(array):
+            if np.abs(array[i] - array[i + j]) < atol:
+                idxs.append(i + j)
                 j += 1
             else:
                 break
         i = i + j
-        slices.append(np.s_[idxs[0]:idxs[-1]+1])
+        slices.append(np.s_[idxs[0] : idxs[-1] + 1])
     new_array = np.array([array[s].mean() for s in slices])
     return new_array, slices
 
@@ -412,7 +430,7 @@ def fit_hermitian(se):
     ----------
     se : Lehmann
         Self-energy in Lehmann representation
-    
+
     Returns
     -------
     se : Lehmann
@@ -422,64 +440,66 @@ def fit_hermitian(se):
     energies = se.energies.copy()
     couplings_l, couplings_r = se._unpack_couplings()
     couplings_l, couplings_r = couplings_l.copy(), couplings_r.copy()
+
     def f(w):
-        denom = 1 / (1j*w - energies + 1j * eta)
-        return np.einsum('pa,qa,a->pq', couplings_l, couplings_r, denom)
+        denom = 1 / (1j * w - energies + 1j * eta)
+        return np.einsum("pa,qa,a->pq", couplings_l, couplings_r, denom)
 
     def obj(x):
         x = x.reshape(shape)
         V, e = x[:-1], x[-1]
-        def integrand(w):
-            denom = 1 / (1j*w - energies)
-            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, denom)
 
-            denom = 1 / (1j*w - e)
-            b = np.einsum('pa,qa,a->pq', V, V, denom)
+        def integrand(w):
+            denom = 1 / (1j * w - energies)
+            a = np.einsum("pa,qa,a->pq", couplings_l, couplings_r, denom)
+
+            denom = 1 / (1j * w - e)
+            b = np.einsum("pa,qa,a->pq", V, V, denom)
             c = (np.abs(a - b) ** 2).sum()
-            #print(c)
+            # print(c)
             return c
+
         lim = np.inf
         val, err = scipy.integrate.quad(integrand, -lim, lim)
-        print("obj: %s err: %s"%(val, err))
+        print("obj: %s err: %s" % (val, err))
         return val
 
     def grad(x):
         x = x.reshape(shape)
         V, e = x[:-1], x[-1]
-        def integrand_V(w):
-            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, 1 / (1j*w - energies))
-            b = np.einsum('pa,qa,a->pq', V, V, 1 / (1j*w - e))
-            d = b - a
-            omegaRe = e/(w**2 + e**2)
-            omegaIm = w/(w**2 + e**2)
 
-            ret  = np.einsum('rq,qb,b->rb', d.real, V, omegaRe)
-            ret += np.einsum('pr,pb,b->rb', d.real, V, omegaRe)
-            ret += np.einsum('rq,qb,b->rb', d.imag, V, omegaIm)
-            ret += np.einsum('pr,pb,b->rb', d.imag, V, omegaIm)
+        def integrand_V(w):
+            a = np.einsum("pa,qa,a->pq", couplings_l, couplings_r, 1 / (1j * w - energies))
+            b = np.einsum("pa,qa,a->pq", V, V, 1 / (1j * w - e))
+            d = b - a
+            omegaRe = e / (w**2 + e**2)
+            omegaIm = w / (w**2 + e**2)
+
+            ret = np.einsum("rq,qb,b->rb", d.real, V, omegaRe)
+            ret += np.einsum("pr,pb,b->rb", d.real, V, omegaRe)
+            ret += np.einsum("rq,qb,b->rb", d.imag, V, omegaIm)
+            ret += np.einsum("pr,pb,b->rb", d.imag, V, omegaIm)
             return -2 * ret
 
         def integrand_e(w):
-            a = np.einsum('pa,qa,a->pq', couplings_l, couplings_r, 1 / (1j*w - energies))
-            b = np.einsum('pa,qa,a->pq', V, V, 1 / (1j*w - e))
+            a = np.einsum("pa,qa,a->pq", couplings_l, couplings_r, 1 / (1j * w - energies))
+            b = np.einsum("pa,qa,a->pq", V, V, 1 / (1j * w - e))
             d = b - a
-            omegaRe = (e**2 - w**2)/(w**2 + e**2)**2
-            omegaIm = 2*e*w/(w**2 + e**2)**2
+            omegaRe = (e**2 - w**2) / (w**2 + e**2) ** 2
+            omegaIm = 2 * e * w / (w**2 + e**2) ** 2
 
-            #print(omegaIm)
+            # print(omegaIm)
 
-            ret = 2*np.einsum('pq,pb,qb,b->b', d.real, V, V, omegaRe)
-            ret += 2*np.einsum('pq,pb,qb,b->b', d.imag, V, V, omegaIm)
+            ret = 2 * np.einsum("pq,pb,qb,b->b", d.real, V, V, omegaRe)
+            ret += 2 * np.einsum("pq,pb,qb,b->b", d.imag, V, V, omegaIm)
             return ret
-
 
         integrand = lambda w: np.hstack([integrand_V(w).flatten(), integrand_e(w)])
         lim = np.inf
         jac, err_V = scipy.integrate.quad_vec(lambda x: integrand(x), -lim, lim)
-        print('grad norm: %s err: %s'%(np.linalg.norm(jac),err_V))
-        #print(grad)
+        print("grad norm: %s err: %s" % (np.linalg.norm(jac), err_V))
+        # print(grad)
         return jac
-
 
     x0 = np.vstack([couplings_l, energies])
     shape = x0.shape
@@ -487,18 +507,18 @@ def fit_hermitian(se):
 
     xgrad = grad(x0)
     print(shape)
-    print("obj(x0) = %s"%obj(x0))
-    print('grad(x0)')
+    print("obj(x0) = %s" % obj(x0))
+    print("grad(x0)")
     print(xgrad)
-    #x0 = np.random.randn(*x0.shape)  #* 1e-2
+    # x0 = np.random.randn(*x0.shape)  #* 1e-2
 
-    #x = xgrad.reshape(x0.shape)
+    # x = xgrad.reshape(x0.shape)
 
-    #return xgrad
+    # return xgrad
     print(shape)
-    res = scipy.optimize.minimize(obj, x0, jac=grad, method='BFGS')
-    #res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method='BFGS'))
-    print("Sucess %s, Integral = %s"%(res.success, res.x))
+    res = scipy.optimize.minimize(obj, x0, jac=grad, method="BFGS")
+    # res = scipy.optimize.basinhopping(obj, x0.flatten(), niter=10, minimizer_kwargs=dict(method='BFGS'))
+    print("Sucess %s, Integral = %s" % (res.success, res.x))
 
     x = res.x.reshape(shape)
     return Lehmann(x[-1], x[:-1])

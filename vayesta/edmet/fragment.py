@@ -146,7 +146,7 @@ class EDMETFragment(DMETFragment):
         """In space of cluster p-h excitations, generate the projector to the impurity portion of the occupied index."""
         if not ("o" in proj or "v" in proj):
             raise ValueError(
-                "Must project the occupied and/or virtual index to the fragment. Please specify at least " "one"
+                "Must project the occupied and/or virtual index to the fragment. Please specify at least one"
             )
 
         nex = self.ov_active_tot
@@ -563,16 +563,16 @@ class EDMETFragment(DMETFragment):
                 # ccouplings_bb -= einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob)  # N^3
 
                 ccouplings_aa -= np.tensordot(
-                    la_singl, np.tensordot(la_singl, r_bos_aoa, ([2], [2])), ([0, 2], [0, 3])  # njq,mpq->njmp
-                ).transpose(
-                    [2, 1, 0]
-                )  # nip,njmp->ijm->mji
+                    la_singl,
+                    np.tensordot(la_singl, r_bos_aoa, ([2], [2])),
+                    ([0, 2], [0, 3]),  # njq,mpq->njmp
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
 
                 ccouplings_bb -= np.tensordot(
-                    lb_singl, np.tensordot(lb_singl, r_bos_aob, ([2], [2])), ([0, 2], [0, 3])  # njq,mpq->njmp
-                ).transpose(
-                    [2, 1, 0]
-                )  # nip,njmp->ijm->mji
+                    lb_singl,
+                    np.tensordot(lb_singl, r_bos_aob, ([2], [2])),
+                    ([0, 2], [0, 3]),  # njq,mpq->njmp
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
 
                 # print("!!4!!",
                 #      abs(einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa) - np.tensordot(
@@ -617,7 +617,7 @@ class EDMETFragment(DMETFragment):
                     t_bos_exchange += timer() - t_bosex_start
         else:
             raise NotImplementedError(
-                "Explicit QBA Hamiltonian construction is currently only implemented for use with" "density fitting."
+                "Explicit QBA Hamiltonian construction is currently only implemented for use withdensity fitting."
             )
 
         couplings_aa = fcouplings_aa + ccouplings_aa

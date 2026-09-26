@@ -16,6 +16,7 @@ from vayesta.core.types.wf.project import (
     transform_uc2,
 )
 
+
 def RDM_WaveFunction(mo, dm1, dm2, **kwargs):
     if mo.nspin == 1:
         cls = RRDM_WaveFunction
@@ -23,13 +24,15 @@ def RDM_WaveFunction(mo, dm1, dm2, **kwargs):
         cls = URDM_WaveFunction
     return cls(mo, dm1, dm2, **kwargs)
 
+
 class RRDM_WaveFunction(wf_types.WaveFunction):
     """
     Spin-restricted dummy wavefunction type that stores the 1- and 2-RDMs.
-    Allows interoperability with user-defined callback solvers which only 
+    Allows interoperability with user-defined callback solvers which only
     return the 1- and 2-RDMs.
-    
+
     """
+
     def __init__(self, mo, dm1, dm2, projector=None):
         super().__init__(mo, projector=projector)
         self.dm1 = dm1
@@ -107,10 +110,11 @@ class RRDM_WaveFunction(wf_types.WaveFunction):
     def as_unrestricted(self):
         raise NotImplementedError()
 
+
 class URDM_WaveFunction(RRDM_WaveFunction):
     """
     Spin-unrestricted dummy wavefunction type that stores the 1- and 2-RDMs.
-    Allows interoperability with user-defined callback solvers which only 
+    Allows interoperability with user-defined callback solvers which only
     return the 1- and 2-RDMs.
     """
 
@@ -147,8 +151,7 @@ class URDM_WaveFunction(RRDM_WaveFunction):
             dm1[1][np.diag_indices(self.nocc[1])] -= 1
         if not ao_basis:
             return dm1
-        return (dot(self.mo.coeff[0], dm1[0], self.mo.coeff[0].T),
-                dot(self.mo.coeff[1], dm1[1], self.mo.coeff[1].T))
+        return (dot(self.mo.coeff[0], dm1[0], self.mo.coeff[0].T), dot(self.mo.coeff[1], dm1[1], self.mo.coeff[1].T))
 
     def make_rdm2(self, ao_basis=False, with_dm1=True, approx_cumulant=True):
         nocca, noccb = self.nocc
@@ -194,10 +197,11 @@ class URDM_WaveFunction(RRDM_WaveFunction):
                 raise ValueError
         if not ao_basis:
             return (dm2aa, dm2ab, dm2bb)
-        return (einsum("ijkl,ai,bj,ck,dl->abcd", dm2aa, *(4 * [self.mo.coeff[0]])),
-                einsum("ijkl,ai,bj,ck,dl->abcd", dm2ab, *(2 * [self.mo.coeff[0]] + 2 * [self.mo.coeff[1]])),
-                einsum("ijkl,ai,bj,ck,dl->abcd", dm2bb, *(4 * [self.mo.coeff[1]]))
-               )
+        return (
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2aa, *(4 * [self.mo.coeff[0]])),
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2ab, *(2 * [self.mo.coeff[0]] + 2 * [self.mo.coeff[1]])),
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2bb, *(4 * [self.mo.coeff[1]])),
+        )
 
     def make_rdm2_non_cumulant(self, ao_basis=False):
         dm1a, dm1b = self.dm1a.copy(), self.dm1b.copy()
@@ -206,10 +210,11 @@ class URDM_WaveFunction(RRDM_WaveFunction):
         dm2ab = einsum("ij,kl->ijkl", dm1a, dm1b)
         if not ao_basis:
             return (dm2aa, dm2ab, dm2bb)
-        return (einsum("ijkl,ai,bj,ck,dl->abcd", dm2aa, *(4 * [self.mo.coeff[0]])),
-                einsum("ijkl,ai,bj,ck,dl->abcd", dm2ab, *(2 * [self.mo.coeff[0]] + 2 * [self.mo.coeff[1]])),
-                einsum("ijkl,ai,bj,ck,dl->abcd", dm2bb, *(4 * [self.mo.coeff[1]]))
-               )
+        return (
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2aa, *(4 * [self.mo.coeff[0]])),
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2ab, *(2 * [self.mo.coeff[0]] + 2 * [self.mo.coeff[1]])),
+            einsum("ijkl,ai,bj,ck,dl->abcd", dm2bb, *(4 * [self.mo.coeff[1]])),
+        )
 
     def copy(self):
         dm1 = [spinalg.copy(d) for d in self.dm1]
@@ -244,5 +249,3 @@ class URDM_WaveFunction(RRDM_WaveFunction):
 
     # def restore(self):
     #     raise NotImplementedError()
-
-

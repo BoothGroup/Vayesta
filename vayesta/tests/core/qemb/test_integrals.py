@@ -24,7 +24,11 @@ class Integral_Test(TestCase):
     @classmethod
     @cache
     def get_embedding(cls):
-        if isinstance(cls.mf, pyscf.scf.uhf.UHF) or isinstance(cls.mf, pyscf.pbc.scf.uhf.UHF) or isinstance(cls.mf, pyscf.pbc.scf.kuhf.KUHF):
+        if (
+            isinstance(cls.mf, pyscf.scf.uhf.UHF)
+            or isinstance(cls.mf, pyscf.pbc.scf.uhf.UHF)
+            or isinstance(cls.mf, pyscf.pbc.scf.kuhf.KUHF)
+        ):
             emb = UEmbedding(cls.mf)
         else:
             emb = Embedding(cls.mf)

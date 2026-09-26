@@ -325,7 +325,7 @@ class EWF(Embedding):
         if functional == "dm":
             # Builds density matrices from projected amplitudes
             return self.get_dm_corr_energy(**kwargs)
-        if functional == 'dmet':
+        if functional == "dmet":
             # Uses projected density matrices (democratic partitioning)
             return self.get_dmet_energy(**kwargs) - self.e_mf
         raise ValueError("Unknown energy functional: '%s'" % functional)
@@ -349,7 +349,7 @@ class EWF(Embedding):
         return e_corr / self.ncells
 
     @mpi.with_allreduce()
-    def get_ccsd_t_corr_energy(self, project='w', **kwargs):
+    def get_ccsd_t_corr_energy(self, project="w", **kwargs):
         # TODO: Check MPI
         e_ccsd_t = 0
 

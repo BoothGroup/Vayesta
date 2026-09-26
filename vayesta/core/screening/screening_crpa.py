@@ -182,13 +182,13 @@ def get_crpa(orig_mf, f, log):
 
         rot_ova = einsum("Ij,Ab->IAjb", ro[0], rv[0])
         if rot_ova.size == 0:
-            rot_ova = np.empty((0, ro[0].shape[1]*rv[0].shape[1]))
+            rot_ova = np.empty((0, ro[0].shape[1] * rv[0].shape[1]))
         else:
             rot_ova = rot_ova.reshape((rot_ova.shape[0] * rot_ova.shape[1], -1))
 
         rot_ovb = einsum("Ij,Ab->IAjb", ro[1], rv[1])
         if rot_ovb.size == 0:
-            rot_ovb = np.empty((0, ro[1].shape[1]*rv[1].shape[1]))
+            rot_ovb = np.empty((0, ro[1].shape[1] * rv[1].shape[1]))
         else:
             rot_ovb = rot_ovb.reshape((rot_ovb.shape[0] * rot_ovb.shape[1], -1))
 

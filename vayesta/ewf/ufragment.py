@@ -58,8 +58,8 @@ class Fragment(RFragment, BaseFragment):
         nocc = gab.shape[0], gab.shape[2]
         nvir = gab.shape[1], gab.shape[3]
         self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
-        oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
-        va, vb = np.s_[:nvir[0]], np.s_[:nvir[1]]
+        oa, ob = np.s_[: nocc[0]], np.s_[: nocc[1]]
+        va, vb = np.s_[: nvir[0]], np.s_[: nvir[1]]
 
         if axis1 == "fragment":
             assert len(c2) == 4

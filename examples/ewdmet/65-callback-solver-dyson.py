@@ -24,10 +24,11 @@ def solver(mf):
 
     norb = mf.mo_coeff.shape[-1]
     nelec = mf.mol.nelec
-    civec= fci_1h.c_ci
+    civec = fci_1h.c_ci
     dm1, dm2 = pyscf.fci.direct_spin0.make_rdm12(civec, norb, nelec)
     results = dict(dm1=dm1, dm2=dm2, hole_moments=th, particle_moments=tp, converged=True)
     return results
+
 
 natom = 10
 mol = pyscf.gto.Mole()
@@ -48,21 +49,22 @@ nfrag = 1
 bath_opts = dict(bathtype="ewdmet", order=1, max_order=1)
 
 # Run vayesta with user defined solver
-emb = vayesta.ewf.EWF(mf, solver="CALLBACK",  energy_functional='dmet', bath_options=bath_opts, solver_options=dict(callback=solver))
+emb = vayesta.ewf.EWF(
+    mf, solver="CALLBACK", energy_functional="dmet", bath_options=bath_opts, solver_options=dict(callback=solver)
+)
 emb.qpewdmet_scmf(proj=2, maxiter=10)
 # Set up fragments
 with emb.iao_fragmentation() as f:
     if use_sym:
         # Add rotational symmetry
-        with f.rotational_symmetry(order=natom//nfrag, axis=[0, 0, 1]):
+        with f.rotational_symmetry(order=natom // nfrag, axis=[0, 0, 1]):
             f.add_atomic_fragment(range(nfrag))
     else:
         # Add all atoms as separate fragments
         f.add_all_atomic_fragments()
 emb.kernel()
 
-print("Hartree-Fock energy          : %s"%mf.e_tot)
-print("DMET energy                  : %s"%emb.get_dmet_energy(part_cumulant=False, approx_cumulant=False))
-print("DMET energy   (part-cumulant): %s"%emb.get_dmet_energy(part_cumulant=True, approx_cumulant=False))
-print("DMET energy (approx-cumulant): %s"%emb.get_dmet_energy(part_cumulant=True, approx_cumulant=True))
-
+print("Hartree-Fock energy          : %s" % mf.e_tot)
+print("DMET energy                  : %s" % emb.get_dmet_energy(part_cumulant=False, approx_cumulant=False))
+print("DMET energy   (part-cumulant): %s" % emb.get_dmet_energy(part_cumulant=True, approx_cumulant=False))
+print("DMET energy (approx-cumulant): %s" % emb.get_dmet_energy(part_cumulant=True, approx_cumulant=True))
