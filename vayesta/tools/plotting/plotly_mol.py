@@ -2,6 +2,7 @@ import numpy as np
 
 import plotly.graph_objects as go
 import pyscf.pbc
+import pyscf.pbc.tools
 
 from vayesta.tools.plotting.colors import get_atom_color
 

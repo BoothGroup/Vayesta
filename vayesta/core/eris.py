@@ -5,7 +5,10 @@ from vayesta.core.ao2mo import postscf_kao2gmo
 
 import numpy as np
 from vayesta.core.util import *
+import pyscf.cc
+import pyscf.ci
 import pyscf.lib
+import pyscf.mp
 
 
 def get_cderi(emb, mo_coeff, compact=False, blksize=None):

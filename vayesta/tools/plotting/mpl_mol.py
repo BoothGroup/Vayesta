@@ -5,6 +5,7 @@ import numbers
 import numpy as np
 from matplotlib import pyplot as plt
 import pyscf.pbc
+import pyscf.pbc.tools
 
 from vayesta.tools.plotting.colors import atom_colors
 

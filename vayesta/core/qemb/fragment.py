@@ -1122,13 +1122,11 @@ class Fragment:
             Mole or Cell object with periodic boundary conditions removed
             and with ghost atoms added depending on `rmax` and `nimages`.
         """
+        from vayesta.misc.counterpoise import make_cp_mol
+
         if len(self.atoms) != 1:
             raise NotImplementedError
-        import vayesta.misc
-
-        return vayesta.misc.counterpoise.make_mol(
-            self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs
-        )
+        return make_cp_mol(self.mol, self.atoms[0], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
 
     # --- Orbital plotting
     # --------------------

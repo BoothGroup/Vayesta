@@ -11,6 +11,7 @@ from vayesta.core import spinalg
 from vayesta.core.util import callif, replace_attr
 
 import ebcc
+import ebcc.util
 import numpy as np
 
 from copy import deepcopy
