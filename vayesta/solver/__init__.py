@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from logging import Logger
-from typing import Callable, Dict, Tuple, Type
+from typing import TYPE_CHECKING, Callable, Dict, Tuple, Type
 
 from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
