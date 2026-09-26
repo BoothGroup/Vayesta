@@ -10,7 +10,7 @@ Vayesta_ can be installed using pip_ or from source.
 Installing with pip
 ===================
 
-The simplest way to install Vayesta is to use the ``setup.py``:
+The simplest way to install Vayesta is to use ``pip`` (a C compiler, CMake, and a BLAS library are required):
 
 .. code-block:: console
 
@@ -22,6 +22,13 @@ All required python packages, such as NumPy_ and PySCF_ will be installed automa
 
 Optional dependencies are required to perform DMET calculations, to leverage MPI parallelism, or to use [``ebcc``](https://github.com/BoothGroup/ebcc) solvers.
 These can be specified by adding the modifiers ``[dmet]``, ``[mpi]``, and ``[ebcc]``, respectively.
+
+Additional CMake options, for example to select a specific BLAS library, can be passed via the ``CMAKE_ARGS``
+environment variable:
+
+.. code-block:: console
+
+   [~]$ CMAKE_ARGS="-DBLAS_LIBRARIES=/path/to/libblas.so" pip install .
 
 
 Installation from Source

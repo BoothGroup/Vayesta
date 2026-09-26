@@ -150,6 +150,7 @@ jobs:
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
+          export CMAKE_ARGS="$CMAKE_CONFIGURE_ARGS"
           python -m pip install .[dmet,ebcc] --user
           python -c 'import numpy as np; np.__config__.show()'
           python -c 'import scipy as sp; sp.show_config()'
