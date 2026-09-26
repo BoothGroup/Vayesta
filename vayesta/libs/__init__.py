@@ -1,3 +1,4 @@
+import importlib.metadata
 import importlib.resources
 import logging
 import os.path
@@ -10,8 +11,11 @@ log = logging.getLogger(__name__)
 def _get_library_dirs(libname):
     """Directories which may contain the compiled library `libname`.
 
-    For editable installs, the compiled libraries and the Python sources can reside in different directories.
-    `importlib.resources` is aware of both locations.
+    The compiled libraries and the imported Python sources can reside in different directories:
+    - For editable installs; `importlib.resources` is aware of both locations.
+    - When the sources are imported from a source checkout (e.g. when running the tests from the
+      repository root), but Vayesta was installed non-editable; the library is then taken from the
+      installed distribution.
     """
     dirs = [os.path.dirname(__file__)]
     try:
@@ -20,6 +24,13 @@ def _get_library_dirs(libname):
                 dirs.append(os.path.dirname(str(entry)))
     except (OSError, TypeError, ValueError) as e:
         log.debug("Could not search package resources for %s: %s", libname, e)
+    try:
+        dist = importlib.metadata.distribution("vayesta")
+        for file in dist.files or []:
+            if file.parent.as_posix() == "vayesta/libs" and file.name.startswith(libname + "."):
+                dirs.append(os.path.dirname(str(dist.locate_file(file))))
+    except importlib.metadata.PackageNotFoundError:
+        pass
     return list(dict.fromkeys(dirs))
 
 
