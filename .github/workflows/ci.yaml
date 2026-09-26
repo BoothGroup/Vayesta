@@ -41,32 +41,27 @@ jobs:
           - {python-version: "3.14", os: ubuntu-latest, documentation: False}
     env:
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
+      # The nightly run tests against the latest versions of all dependencies
+      UV_SYNC_ARGS: ${{ github.event_name == 'schedule' && '--upgrade' || '--locked' }} --extra dmet --extra ebcc --extra dyson
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
       - name: Install OpenBLAS
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenblas-dev cmake
-      - name: Upgrade pip
-        run: |
-          python -m pip install --upgrade pip 
           cmake --version
+      - name: Set up uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
       - name: Install Vayesta along with dependencies
         run: |
-          python -m pip install wheel --user
-          python -m pip install setuptools --upgrade --user
-          python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          python -m pip install .[dmet,ebcc] --user
-          python -c 'import numpy as np; np.__config__.show()'
+          uv sync $UV_SYNC_ARGS
+          uv run --no-sync python -c 'import numpy as np; np.__config__.show()'
       - name: Run unit tests
         run: |
-          python -m pip install pytest pytest-cov --user
-          python .github/workflows/run_tests.py
+          uv run --no-sync python .github/workflows/run_tests.py
       - name: Upload to codecov
         uses: codecov/codecov-action@v3
         with:
@@ -74,7 +69,8 @@ jobs:
           verbose: true
       - name: Build docs
         run: |
-          python -m pip install sphinx!=5.1.0 sphinx_rtd_theme
+          uv sync $UV_SYNC_ARGS --group docs
+          source .venv/bin/activate
           cd docs
           bash make_apidoc.sh
           make html
@@ -181,7 +177,7 @@ jobs:
 
 
   bare:
-    name: python 3.9 on ubuntu-latest with no optional dependencies
+    name: python 3.10 on ubuntu-latest with no optional dependencies
     runs-on: ubuntu-latest
 
     strategy:
@@ -190,26 +186,18 @@ jobs:
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-          cache: 'pip'
       - name: Install OpenBLAS
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenblas-dev
-      - name: Upgrade pip
-        run: |
-          python -m pip install --upgrade pip
+      - name: Set up uv and Python 3.10
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+          enable-cache: true
       - name: Install Vayesta
         run: |
-          python -m pip install wheel --user
-          python -m pip install setuptools --upgrade --user
-          python -m pip install . --user
+          uv sync --locked --no-default-groups --group test
       - name: Run unit tests
         run: |
-          python -m pip install pytest pytest-cov --user
-          python .github/workflows/run_tests.py
-
-
+          uv run --no-sync python .github/workflows/run_tests.py

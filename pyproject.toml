@@ -19,7 +19,7 @@ authors = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -28,6 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
     "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -41,7 +42,7 @@ dependencies = [
     "scipy>=1.10.0,",
     "h5py>=3.0.0",
     "cvxpy>=1.1",
-    "pyscf @ git+https://github.com/pyscf/pyscf@master",
+    "pyscf>=2.8",
 ]
 dynamic = ["version"]
 
@@ -64,22 +65,29 @@ mpi = [
 ]
 dyson = [
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
+    # Required by dyson, but not declared as a dependency there
+    "typing-extensions>=4.0",
 ]
 ebcc = [
-    "ebcc @ git+https://github.com/BoothGroup/ebcc@master",
+    "ebcc>=1.4.0",
 ]
 pygnme = [
-    "pygnme @ git+https://github.com/BoothGroup/pygnme@master" 
+    "pygnme @ git+https://github.com/BoothGroup/pygnme@master",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=7",
+    "pytest-cov",
 ]
 dev = [
-    "cvxpy>=1.1",
-    "mpi4py>=3.0.0",
-    "dyson @ git+https://github.com/BoothGroup/dyson@master",
-    "ebcc>=1.4.0",
-    "black>=22.6.0",
-    "pytest",
-    "pytest-cov",
+    {include-group = "test"},
     "pre-commit",
+    "ruff",
+]
+docs = [
+    "sphinx!=5.1.0",
+    "sphinx_rtd_theme",
 ]
 
 [tool.coverage.run]
