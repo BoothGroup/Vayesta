@@ -70,7 +70,7 @@ class CubeFile:
         self.filename = filename
         # Make user aware of different behavior of resolution, compared to pyscf.tools.cubegen
         if resolution is not None and resolution < 1:
-            log.warning(cell, "Warning: resolution is below 1/Bohr. Recommended values are 5/Bohr or higher.")
+            log.warning("Resolution is below 1/Bohr. Recommended values are 5/Bohr or higher.")
 
         self.a, self.origin = self.get_box_and_origin()
         if crop is not None:
