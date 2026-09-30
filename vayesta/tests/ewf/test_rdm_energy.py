@@ -33,13 +33,13 @@ class Test_RHF(TestCase):
 
     def test_h2_solid(self):
 
-        #RHF
+        # RHF
         mf = testsystems.h2_sto3g_k311.rhf()
 
-        #CCSD
+        # CCSD
         cc = testsystems.h2_sto3g_k311.rccsd()
 
-        #Full bath EWF
+        # Full bath EWF
         ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype="full"), solver_options=dict(solve_lambda=True))
         ewf.kernel()
 

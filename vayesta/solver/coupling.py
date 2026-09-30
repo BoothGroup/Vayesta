@@ -561,7 +561,9 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
         # We are externally correcting from multiple fragments, but not projecting them
         # into their fragment spaces. This means we are at risk of double-counting the external
         # corrections.
-        solver.log.warning("Multiple external correcting fragments, but not fragment-projecting the resulting correction!")
+        solver.log.warning(
+            "Multiple external correcting fragments, but not fragment-projecting the resulting correction!"
+        )
         solver.log.warning("This will likely lead to double-counting of external correction.")
         solver.log.warning("Are you sure you want to do this?!")
 

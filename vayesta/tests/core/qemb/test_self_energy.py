@@ -12,6 +12,7 @@ from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_ener
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
+
 @pytest.mark.skip(reason="Requires refactor of self-energy code")
 class Test_SelfEnergy(TestCase):
     @classmethod
@@ -28,7 +29,7 @@ class Test_SelfEnergy(TestCase):
         from dyson import MBLGF, Spectral
         from dyson.expressions import FCI
 
-        spectral_moment_order = (4,5)
+        spectral_moment_order = (4, 5)
 
         fci = FCI.hole.from_mf(mf)
         th = fci.build_gf_moments(spectral_moment_order[0])
@@ -44,7 +45,7 @@ class Test_SelfEnergy(TestCase):
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
-            mf, bath_options=dict(bathtype="full"), solver_options=dict( n_moments=spectral_moment_order), solver="FCI"
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=spectral_moment_order), solver="FCI"
         )
         with ewf.site_fragmentation() as f:
             f.add_atomic_fragment(list(range(10)))
@@ -60,7 +61,7 @@ class Test_SelfEnergy(TestCase):
         se_mom_ewf_2proj = [se2_ewf.moment(i) for i in range(se_mom_order)]
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
-        self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_2proj, atol=1e-5))  
+        self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_2proj, atol=1e-5))
 
     def test_fci_H6_full_bath(self):
         # RHF
@@ -71,7 +72,7 @@ class Test_SelfEnergy(TestCase):
         except ImportError:
             pytest.skip("Requires dyson")
 
-        spectral_moment_order = (4,5)
+        spectral_moment_order = (4, 5)
 
         fci = FCI.hole.from_mf(mf)
         th = fci.build_gf_moments(spectral_moment_order[0])
@@ -88,7 +89,7 @@ class Test_SelfEnergy(TestCase):
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
-            mf, bath_options=dict(bathtype="full"), solver_options=dict( n_moments=spectral_moment_order), solver="FCI"
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=spectral_moment_order), solver="FCI"
         )
         with ewf.site_fragmentation() as f:
             f.add_all_atomic_fragments()
@@ -105,8 +106,7 @@ class Test_SelfEnergy(TestCase):
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj_sym, atol=1e-5))
-        
-        
+
         self.assertTrue(np.allclose(se1_static_ewf, se_static_fci, atol=1e-6))
         self.assertTrue(np.allclose(se1_static_ewf_sym, se_static_fci, atol=1e-6))
 
@@ -119,7 +119,7 @@ class Test_SelfEnergy(TestCase):
         except ImportError:
             pytest.skip("Requires dyson")
 
-        spectral_moment_order = (4,5)
+        spectral_moment_order = (4, 5)
 
         fci = FCI.hole.from_mf(mf)
         th = fci.build_gf_moments(spectral_moment_order[0])
@@ -136,10 +136,10 @@ class Test_SelfEnergy(TestCase):
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
-            mf, bath_options=dict(bathtype="full"), solver_options=dict( n_moments=spectral_moment_order), solver="FCI"
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=spectral_moment_order), solver="FCI"
         )
         nfrag = 2
-        ewf.symmetry.set_translations([mf.mol.nsite//nfrag, 1, 1])
+        ewf.symmetry.set_translations([mf.mol.nsite // nfrag, 1, 1])
         with ewf.site_fragmentation() as f:
             f.add_atomic_fragment(list(range(nfrag)))
         ewf.kernel()
@@ -155,10 +155,10 @@ class Test_SelfEnergy(TestCase):
 
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj, atol=1e-5))
         self.assertTrue(np.allclose(se_mom_fci, se_mom_ewf_1proj_sym, atol=1e-5))
-        
-        
+
         self.assertTrue(np.allclose(se1_static_ewf, se_static_fci, atol=1e-6))
         self.assertTrue(np.allclose(se1_static_ewf_sym, se_static_fci, atol=1e-6))
+
 
 if __name__ == "__main__":
     print("Running %s" % __file__)
