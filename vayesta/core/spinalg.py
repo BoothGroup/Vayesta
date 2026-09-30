@@ -3,7 +3,8 @@ same functions"""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Tuple, Union
+from collections.abc import Callable
+from typing import Any, Literal, TypeAlias
 
 import numpy as np
 import scipy.linalg
@@ -13,7 +14,7 @@ from vayesta.core import util
 __all__ = ["add_numbers", "hstack_matrices"]
 
 #: A spin-restricted array, or a tuple of arrays for each spin channel
-SpinArray = Union[np.ndarray, Tuple["SpinArray", ...]]
+SpinArray: TypeAlias = np.ndarray | tuple["SpinArray", ...]
 
 
 def add_numbers(*args: float | tuple[float, float]) -> float | tuple[float, float]:
