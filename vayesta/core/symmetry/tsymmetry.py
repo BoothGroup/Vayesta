@@ -1,4 +1,5 @@
 """Translational symmetry module."""
+
 from vayesta.core import vlog
 import itertools
 

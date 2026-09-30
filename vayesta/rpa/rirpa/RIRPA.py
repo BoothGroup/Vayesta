@@ -356,7 +356,7 @@ class ssRIRRPA:
             roots = poly.roots()
         except np.linalg.LinAlgError:
             self.log.warning(
-                "Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, " "%e, %e.",
+                "Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, %e, %e.",
                 e_norm,
                 p_norm,
                 peta_norm,
