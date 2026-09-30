@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, Tuple, Type
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
@@ -37,7 +38,7 @@ def check_solver_config(solver, is_uhf, is_eb, log):
     _get_solver_class(solver, is_uhf, is_eb, log)
 
 
-def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type | Callable:
+def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> type | Callable:
     try:
         solver_cls = _get_solver_class_internal(solver, is_uhf, is_eb, log)
         return solver_cls
@@ -50,7 +51,7 @@ def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Ty
 
 
 # (solver_string, is_uhf, is_eb) -> SolverClass
-_solver_dict: Dict[Tuple[str, bool, bool], Type] = {
+_solver_dict: dict[tuple[str, bool, bool], type] = {
     ("MP2", False, False): RMP2_Solver,
     ("MP2", True, False): UMP2_Solver,
     ("CISD", False, False): RCISD_Solver,
@@ -75,7 +76,7 @@ _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
 
 
 # (is_uhf, is_eb) -> SolverClass
-_ebcc_solver_dict: Dict[Tuple[bool, bool], Type] = {
+_ebcc_solver_dict: dict[tuple[bool, bool], type] = {
     (False, False): REBCC_Solver,
     (True, False): UEBCC_Solver,
     (False, True): EB_REBCC_Solver,
@@ -83,7 +84,7 @@ _ebcc_solver_dict: Dict[Tuple[bool, bool], Type] = {
 }
 
 
-def _get_solver_class_internal(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type | Callable:
+def _get_solver_class_internal(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> type | Callable:
     solver_cls = _solver_dict.get((solver, is_uhf, is_eb), None)
     if solver_cls is NotImplemented:
         spinsym = "unrestricted" if is_uhf else "restricted"
@@ -96,7 +97,7 @@ def _get_solver_class_internal(solver: str, is_uhf: bool, is_eb: bool, log: Logg
     return _get_solver_class_ebcc(solver, is_uhf, is_eb, log)
 
 
-def _get_solver_class_ebcc(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type | Callable:
+def _get_solver_class_ebcc(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> type | Callable:
     if not _has_ebcc:
         raise ImportError(f"{solver} solver is only accessible via ebcc. Please install ebcc.")
     solver_cls = _ebcc_solver_dict[is_uhf, is_eb]
