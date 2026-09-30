@@ -63,7 +63,7 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         """In space of cluster p-h excitations, generate the projector to the ."""
         if not ("o" in proj or "v" in proj):
             raise ValueError(
-                "Must project the occupied and/or virtual index to the fragment. Please specify at least " "one"
+                "Must project the occupied and/or virtual index to the fragment. Please specify at least one"
             )
 
         nex = self.ov_active_tot

@@ -76,7 +76,6 @@ class Brueckner_RHF(SCMF):
 
 
 class Brueckner_UHF(Brueckner_RHF):
-
     def get_diis(self):
         """Two separate DIIS objects for alpha and beta orbitals."""
         return super().get_diis(), super().get_diis()

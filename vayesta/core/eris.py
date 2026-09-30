@@ -4,7 +4,7 @@ from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 
 import numpy as np
-from vayesta.core.util import *
+from vayesta.core.util import einsum, log_method
 import pyscf.lib
 
 
