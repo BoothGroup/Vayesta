@@ -338,7 +338,7 @@ class RClusterHamiltonian:
             allow_df
             and np.ndim(clusmf.mo_coeff[1]) == 1
             and self.opts.screening is None
-            and not (self._fragment.base.pbc_dimension in (1, 2))
+            and self._fragment.base.pbc_dimension not in (1, 2)
             and hasattr(self.orig_mf, "with_df")
             and self.orig_mf.with_df is not None
         )
@@ -365,12 +365,11 @@ class RClusterHamiltonian:
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: np.asarray(pad_to_match(
-                self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy
-                )
+            clusmf.get_fock = lambda *args, **kwargs: np.asarray(
+                pad_to_match(self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
             )
-            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
-                clusmf.get_hcore()
+            clusmf.get_veff = lambda *args, **kwargs: (
+                np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
             )
 
         return clusmf, orbs_to_freeze
@@ -876,7 +875,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             fock_shift = self.get_polaritonic_fock_shift(self.unshifted_couplings)
             if not np.allclose(fock_shift[0], fock_shift[1]):
                 self.log.critical(
-                    "Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
+                    "Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted "
                     "formalism or bosons without polaritonic shift."
                 )
             heff = heff + fock_shift[0]

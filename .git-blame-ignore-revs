@@ -4,3 +4,5 @@
 # Formatted entire existing codebase with black
 3f80f568262b20fb82fbaa3d780d8a0d5cfebc3f
 
+# Formatted entire codebase with ruff
+c993fc9ad42ac6dcdd54c07b0af28452866f7bab

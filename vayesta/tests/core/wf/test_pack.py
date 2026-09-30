@@ -130,9 +130,7 @@ class TestPack(TestCase):
         nvir = NORB - NOCCA
         t2 = rng.random((NOCCA, NOCCA, nvir, nvir))
         for projector in (None, rng.random((NOCCA, NOCCA))):
-            wf = RMP2_WaveFunction(
-                _random_spatial_orbitals(rng), t2, projector=projector
-            )
+            wf = RMP2_WaveFunction(_random_spatial_orbitals(rng), t2, projector=projector)
             wf2 = RMP2_WaveFunction.unpack(wf.pack())
             self.assert_orbitals_equal(wf.mo, wf2.mo)
             self.assertAllclose(wf2.t2, wf.t2)
