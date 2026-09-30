@@ -1,4 +1,4 @@
-"""Functionality to calculate zeroth moment via numerical integration """
+"""Functionality to calculate zeroth moment via numerical integration"""
 
 import numpy as np
 
@@ -61,7 +61,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
 
     def eval_diag_contrib(self, freq):
         Dval = diag_sqrt_contrib(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             Dval -= diag_sqrt_contrib(self.diagmat2, freq)
         F = self.get_F(freq)
         HOval = (freq**2) * (F**2)
@@ -70,7 +70,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
 
     def eval_diag_deriv_contrib(self, freq):
         Dval = diag_sqrt_grad(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             Dval -= diag_sqrt_grad(self.diagmat2, freq)
         F = self.get_F(freq)
         HOval = (2 * freq * (F**2)) - (4 * (freq**3) * (F**3))
@@ -79,7 +79,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
 
     def eval_diag_deriv2_contrib(self, freq):
         Dval = diag_sqrt_deriv2(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             Dval -= diag_sqrt_deriv2(self.diagmat2, freq)
         F = self.get_F(freq)
         HOval = 2 * F**2 - 20 * freq**2 * F**3 + 24 * freq**4 * F**4
@@ -88,7 +88,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
 
     def eval_diag_exact(self):
         Dval = self.diagmat1 ** (0.5)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             Dval -= self.diagmat2 ** (0.5)
         HOval = 0.5 * np.multiply(self.D ** (-1), self.diagRI)
         return np.array([sum(Dval - HOval)])
