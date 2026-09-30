@@ -133,10 +133,10 @@ select = [
     "W",   # pycodestyle warnings: whitespace, invalid escape sequences
 ]
 ignore = [
-    "E731",  # lambda-assignment: `f = lambda x: ...` instead of `def f(x): ...`
     # TODO: fix the existing violations and remove these:
     "E402",  # module-import-not-at-top-of-file
     "E721",  # type-comparison: `type(x) == T` instead of `isinstance(x, T)`
+    "E731",  # lambda-assignment: `f = lambda x: ...` instead of `def f(x): ...`
     "E741",  # ambiguous-variable-name: variables named `l`, `I` or `O`
     "F401",  # unused-import
     "F811",  # redefined-while-unused
