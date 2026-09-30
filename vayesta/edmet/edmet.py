@@ -369,7 +369,7 @@ class EDMET(RDMET):
             if xc_kernel.lower() == "drpa":
                 xc = None
             else:
-                raise ValueError("Unknown xc kernel %s provided".format(xc_kernel))
+                raise ValueError("Unknown xc kernel {} provided".format(xc_kernel))
         elif xc_kernel is None:
             xc = self.xc_kernel
         elif isinstance(xc_kernel, tuple) or isinstance(xc_kernel, np.ndarray):

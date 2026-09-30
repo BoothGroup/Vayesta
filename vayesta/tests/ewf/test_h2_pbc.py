@@ -207,6 +207,7 @@ class Test_CCSD(Test_MP2):
         emb_ccsd_t = emb.get_ccsd_t_corr_energy(global_t1=True)
         self.assertAllclose(emb_ccsd_t, exact_ccsd_t)
 
+
 # --- Unrestricted
 
 
@@ -312,7 +313,8 @@ class Test_UCCSD(Test_CCSD):
 
     def test_dm2_demo(self):
         pass
-    
+
+
 # --- 2D
 
 

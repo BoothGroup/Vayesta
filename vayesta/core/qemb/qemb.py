@@ -159,10 +159,9 @@ class Options(OptionsBase):
         # Dump
         dumpfile="clusters.h5",
         # Callback
-        callback = None,
+        callback=None,
         # MP2
         compress_cderi=False,
-
     )
     # --- Other
     symmetry_tol: float = 1e-6  # Tolerance (in Bohr) for atomic positions
@@ -1279,7 +1278,7 @@ class Embedding:
         mpi_target: int or None, optional
             If set to an integer, the result will only be available at the specified MPI rank.
             If set to None, an MPI allreduce will be performed and the result will be available
-            at all MPI ranks. Default: None. 
+            at all MPI ranks. Default: None.
 
         Returns
         -------
@@ -1741,6 +1740,7 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
+
     def qpewdmet_scmf(self, *args, **kwargs):
         """Decorator for QP-EWDMET."""
         try:
@@ -1750,6 +1750,7 @@ class Embedding:
             return
         self.with_scmf = QPEWDMET(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
+
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         if self.opts.screening:

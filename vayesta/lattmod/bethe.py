@@ -78,12 +78,12 @@ def hubbard1d_bethe_gap(t, u, interval=(1, 100), **kwargs):
 
     from DOI: 10.1103/PhysRevB.106.045123"""
 
-    #kwargs['limit'] = kwargs.get('limit', 100)
+    # kwargs['limit'] = kwargs.get('limit', 100)
 
     def func(x):
-        return np.sqrt(x**2 - 1) / np.sinh(2*np.pi*t*x/u)
+        return np.sqrt(x**2 - 1) / np.sinh(2 * np.pi * t * x / u)
 
     eg, *res = scipy.integrate.quad(func, *interval, **kwargs)
-    eg = 16*t**2/u * eg
+    eg = 16 * t**2 / u * eg
 
     return eg

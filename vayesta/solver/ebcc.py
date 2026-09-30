@@ -45,10 +45,7 @@ class RERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseRHamiltonian):
 
         if self.array is None:
             if key not in self._members.keys():
-                coeffs = [
-                    self.mo_coeff[i][:, self.space[i].slice(k)].astype(np.float64)
-                    for i, k in enumerate(key)
-                ]
+                coeffs = [self.mo_coeff[i][:, self.space[i].slice(k)].astype(np.float64) for i, k in enumerate(key)]
                 if getattr(self.mf, "_eri", None) is not None:
                     block = pyscf.ao2mo.incore.general(self.mf._eri, coeffs, compact=False)
                 else:
@@ -108,10 +105,7 @@ class UERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseUHamiltonian):
                     array = np.transpose(array, (2, 3, 0, 1))
             elif isinstance(self.mf._eri, tuple):
                 # Support spin-dependent integrals in the mean-field
-                coeffs = [
-                    self.mo_coeff[y][x].astype(np.float64)
-                    for y, x in enumerate(sorted((i, i, j, j)))
-                ]
+                coeffs = [self.mo_coeff[y][x].astype(np.float64) for y, x in enumerate(sorted((i, i, j, j)))]
                 array = pyscf.ao2mo.incore.general(self.mf._eri[ij], coeffs, compact=False)
                 if key == "bbaa":
                     array = np.transpose(array, (2, 3, 0, 1))
@@ -131,7 +125,7 @@ class UERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseUHamiltonian):
                 array=array,
             )
         return self._members[key]
-        
+
 
 class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
@@ -357,14 +351,14 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
 
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
-        #return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
+        # return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
         # EBCC now wants an array, with spin as the first index
-        assert(np.allclose(self.hamil.couplings[0].shape, self.hamil.couplings[1].shape))
+        assert np.allclose(self.hamil.couplings[0].shape, self.hamil.couplings[1].shape)
         sh = self.hamil.couplings[0].shape
         g = np.zeros((2, sh[0], sh[2], sh[1]), dtype=self.hamil.couplings[0].dtype)
-        g[0,:,:,:] = self.hamil.couplings[0].transpose(0,2,1)
-        g[1,:,:,:] = self.hamil.couplings[1].transpose(0,2,1)
-        return g 
+        g[0, :, :, :] = self.hamil.couplings[0].transpose(0, 2, 1)
+        g[1, :, :, :] = self.hamil.couplings[1].transpose(0, 2, 1)
+        return g
 
     def construct_wavefunction(self, mycc, mo, mbos=None):
         self.wf = EBCC_WaveFunction(

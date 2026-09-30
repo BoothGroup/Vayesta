@@ -32,7 +32,7 @@ class Test_Spectral_Moments(TestCase):
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
-            mf, bath_options=dict(bathtype="full"), solver_options=dict( n_moments=(4, 4)), solver="FCI"
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=(4, 4)), solver="FCI"
         )
         ewf.kernel()
 
@@ -42,37 +42,40 @@ class Test_Spectral_Moments(TestCase):
             cx = f.get_overlap("mo|cluster")
             ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
             ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
-            
+
             self.assertTrue(np.allclose(ip, fci_ip))
             self.assertTrue(np.allclose(ea, fci_ea))
 
     def test_ccsd(self):
 
-        #RHF
+        # RHF
         mf = testsystems.water_sto3g.rhf()
 
         from dyson.expressions import CCSD
 
         cc = CCSD.hole.from_mf(mf)
         cc_ip = cc.build_gf_moments(4)
-          
+
         cc = CCSD.particle.from_mf(mf)
         cc_ea = cc.build_gf_moments(4)
 
-        #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(n_moments=(4,4)), solver='CCSD')
+        # Full bath EWF
+        ewf = vayesta.ewf.EWF(
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=(4, 4)), solver="CCSD"
+        )
         ewf.kernel()
 
         for f in ewf.fragments:
             ip, ea = f.results.moms
 
-            cx = f.get_overlap('mo|cluster')
-            ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
-            ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
+            cx = f.get_overlap("mo|cluster")
+            ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
+            ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
 
             # High tolerence for github CI
             self.assertTrue(np.allclose(ip, cc_ip, atol=1e-3))
             self.assertTrue(np.allclose(ea, cc_ea, atol=1e-6))
+
 
 if __name__ == "__main__":
     print("Running %s" % __file__)

@@ -4,6 +4,7 @@ import numpy as np
 from vayesta.core.util import dot, einsum, with_doc
 from vayesta.mpi import mpi
 
+
 def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_target=None):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
@@ -22,7 +23,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
     mpi_target: int or None, optional
         If set to an integer, the result will only be available at the specified MPI rank.
         If set to None, an MPI allreduce will be performed and the result will be available
-        at all MPI ranks. Default: None.    
+        at all MPI ranks. Default: None.
 
     Returns
     -------
@@ -102,8 +103,15 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True, mpi_t
 
 
 def make_rdm2_demo_rhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
-    ):
+    emb,
+    ao_basis=False,
+    with_mf=True,
+    with_dm1=True,
+    part_cumulant=True,
+    approx_cumulant=True,
+    symmetrize=True,
+    mpi_target=None,
+):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -168,7 +176,7 @@ def make_rdm2_demo_rhf(
     mpi_target: int or None, optional
         If set to an integer, the result will only be available at the specified MPI rank.
         If set to None, an MPI allreduce will be performed and the result will be available
-        at all MPI ranks. Default: None. 
+        at all MPI ranks. Default: None.
 
     Returns
     -------
@@ -254,7 +262,14 @@ def make_rdm2_demo_rhf(
 
 @with_doc(make_rdm2_demo_rhf)
 def make_rdm2_demo_uhf(
-    emb, ao_basis=False, with_mf=True, with_dm1=True, part_cumulant=True, approx_cumulant=True, symmetrize=True, mpi_target=None
+    emb,
+    ao_basis=False,
+    with_mf=True,
+    with_dm1=True,
+    part_cumulant=True,
+    approx_cumulant=True,
+    symmetrize=True,
+    mpi_target=None,
 ):
     na, nb = emb.nmo
     dm2aa = np.zeros((na, na, na, na))

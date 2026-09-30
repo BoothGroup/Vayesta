@@ -16,7 +16,14 @@ import vayesta
 from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_recursive, hstack, log_method, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction, RDM_WaveFunction, RRDM_WaveFunction, URDM_WaveFunction
+from vayesta.core.types import (
+    RFCI_WaveFunction,
+    RCCSDTQ_WaveFunction,
+    UCCSDTQ_WaveFunction,
+    RDM_WaveFunction,
+    RRDM_WaveFunction,
+    URDM_WaveFunction,
+)
 from vayesta.core.bath import DMET_Bath
 from vayesta.mpi import mpi
 
@@ -77,7 +84,7 @@ class Fragment(BaseFragment):
         ea_energy: np.ndarray = None
         moms: tuple = None
         callback_results: dict = None
-        
+
         @property
         def dm1(self):
             """Cluster 1DM"""
@@ -87,7 +94,6 @@ class Fragment(BaseFragment):
         def dm2(self):
             """Cluster 2DM"""
             return self.wf.make_rdm2()
-
 
     def __init__(self, *args, **kwargs):
         """
@@ -342,7 +348,7 @@ class Fragment(BaseFragment):
                 solver_opts["tcc_fci_opts"] = self.opts.tcc_fci_opts
         elif solver.upper() == "DUMP":
             solver_opts["filename"] = self.opts.solver_options["dumpfile"]
-        if solver.upper() == 'CALLBACK':
+        if solver.upper() == "CALLBACK":
             solver_opts["callback"] = self.opts.solver_options["callback"]
         solver_opts["external_corrections"] = self.flags.external_corrections
         solver_opts["test_extcorr"] = self.flags.test_extcorr

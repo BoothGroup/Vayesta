@@ -97,7 +97,7 @@ def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     This requires the CI coefficients and the basis set in which they are defined.
     These will be taken from their respective fragment attributes, unless optionally passed in.
 
-    If `inc_mf` is True, then another wave function is added to the list of cluster wave functions, 
+    If `inc_mf` is True, then another wave function is added to the list of cluster wave functions,
     which just consists of the mean-field reference.
     """
 
