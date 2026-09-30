@@ -113,7 +113,7 @@ class BosonicHamiltonianProjector:
         return freqs, c
 
     def project_couplings(self, exchange=True):
-        """Generate effective bosonic couplings. The two-body component of these is proportional to
+        r"""Generate effective bosonic couplings. The two-body component of these is proportional to
             V_npq \propto C_npq <pk||qc>, where C is the bosonic coefficient in the global particle-hole excitation
         basis.
         """

@@ -33,7 +33,7 @@ class TestWaterRHF(TestCase):
         return emb
 
     def test_ccsd_rpa_1(self):
-        eta = 10 ** -(1.5)
+        eta = 10**-(1.5)
         emb = self.emb(eta, "CCSD")
         emb.kernel()
         self.assertAllclose(emb.e_tot, -76.10582744548097)

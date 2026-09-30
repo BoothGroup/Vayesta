@@ -19,7 +19,7 @@ authors = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -28,6 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
     "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -76,7 +77,7 @@ dev = [
     "mpi4py>=3.0.0",
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
     "ebcc>=1.4.0",
-    "black>=22.6.0",
+    "ruff>=0.9",
     "pytest",
     "pytest-cov",
     "pre-commit",
@@ -118,18 +119,33 @@ markers = [
     "veryslow",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = [
-    "py39",
-    "py310",
-    "py311",
-    "py312",
-    "py313",
+target-version = "py310"
+
+[tool.ruff.lint]
+# Rule codes: https://docs.astral.sh/ruff/rules/
+select = [
+    "E4",  # pycodestyle: import errors
+    "E7",  # pycodestyle: statement errors
+    "E9",  # pycodestyle: runtime (syntax/IO) errors
+    "F",   # Pyflakes: undefined names, unused imports/variables, ...
+    "W",   # pycodestyle warnings: whitespace, invalid escape sequences
 ]
-include="\\.py"
-extend-exclude = """
-/(
-    __pycache__*
-/)
-"""
+ignore = [
+    # TODO: fix the existing violations and remove these:
+    "E402",  # module-import-not-at-top-of-file
+    "E721",  # type-comparison: `type(x) == T` instead of `isinstance(x, T)`
+    "E731",  # lambda-assignment: `f = lambda x: ...` instead of `def f(x): ...`
+    "E741",  # ambiguous-variable-name: variables named `l`, `I` or `O`
+    "F401",  # unused-import
+    "F811",  # redefined-while-unused
+    "F821",  # undefined-name
+    "F841",  # unused-variable
+]
+
+[tool.ruff.lint.per-file-ignores]
+# F401: unused-import (re-exports), F403: `from module import *`,
+# F405: name may be undefined or come from a star import
+"__init__.py" = ["F401", "F403", "F405"]
+"examples/**" = ["F403", "F405"]
