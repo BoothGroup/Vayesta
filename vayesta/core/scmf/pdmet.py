@@ -54,7 +54,6 @@ class PDMET_RHF(SCMF):
 
 
 class PDMET_UHF(PDMET_RHF):
-
     def get_diis(self):
         """Two separate DIIS objects for alpha and beta orbitals."""
         return super().get_diis(), super().get_diis()

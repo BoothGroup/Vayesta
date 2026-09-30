@@ -16,6 +16,7 @@ from vayesta.solver.tccsd import TRCCSD_Solver
 
 try:
     from vayesta.solver.ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
+
     _has_ebcc = True
 except ImportError:
     REBCC_Solver = UEBCC_Solver = EB_REBCC_Solver = EB_UEBCC_Solver = None
@@ -50,26 +51,26 @@ def _get_solver_class(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Ty
 
 # (solver_string, is_uhf, is_eb) -> SolverClass
 _solver_dict: Dict[Tuple[str, bool, bool], Type] = {
-    ('MP2', False, False): RMP2_Solver,
-    ('MP2', True, False): UMP2_Solver,
-    ('CISD', False, False): RCISD_Solver,
-    ('CISD', True, False): UCISD_Solver,
-    ('CCSD', False, False): RCCSD_Solver,
-    ('CCSD', True, False): UCCSD_Solver,
-    ('TCCSD', False, False): TRCCSD_Solver,
-    ('TCCSD', True, False): NotImplemented,
-    ('extCCSD', False, False): extRCCSD_Solver,
-    ('extCCSD', True, False): extUCCSD_Solver,
-    ('coupledCCSD', False, False): coupledRCCSD_Solver,
-    ('coupledCCSD', True, False): NotImplemented,
-    ('FCI', False, False): FCI_Solver,
-    ('FCI', True, False): UFCI_Solver,
-    ('FCI', False, True): EB_EBFCI_Solver,
-    ('FCI', True, True): EB_UEBFCI_Solver,
-    ('DUMP', False, False): DumpSolver,
-    ('DUMP', True, False): DumpSolver,
-    ('CALLBACK', False, False): CallbackSolver,
-    ('CALLBACK', True, False): CallbackSolver,
+    ("MP2", False, False): RMP2_Solver,
+    ("MP2", True, False): UMP2_Solver,
+    ("CISD", False, False): RCISD_Solver,
+    ("CISD", True, False): UCISD_Solver,
+    ("CCSD", False, False): RCCSD_Solver,
+    ("CCSD", True, False): UCCSD_Solver,
+    ("TCCSD", False, False): TRCCSD_Solver,
+    ("TCCSD", True, False): NotImplemented,
+    ("extCCSD", False, False): extRCCSD_Solver,
+    ("extCCSD", True, False): extUCCSD_Solver,
+    ("coupledCCSD", False, False): coupledRCCSD_Solver,
+    ("coupledCCSD", True, False): NotImplemented,
+    ("FCI", False, False): FCI_Solver,
+    ("FCI", True, False): UFCI_Solver,
+    ("FCI", False, True): EB_EBFCI_Solver,
+    ("FCI", True, True): EB_UEBFCI_Solver,
+    ("DUMP", False, False): DumpSolver,
+    ("DUMP", True, False): DumpSolver,
+    ("CALLBACK", False, False): CallbackSolver,
+    ("CALLBACK", True, False): CallbackSolver,
 }
 
 
@@ -85,11 +86,11 @@ _ebcc_solver_dict: Dict[Tuple[bool, bool], Type] = {
 def _get_solver_class_internal(solver: str, is_uhf: bool, is_eb: bool, log: Logger) -> Type | Callable:
     solver_cls = _solver_dict.get((solver, is_uhf, is_eb), None)
     if solver_cls is NotImplemented:
-        spinsym = 'unrestricted' if is_uhf else 'restricted'
+        spinsym = "unrestricted" if is_uhf else "restricted"
         raise NotImplementedError(f"solver '{solver}' for {spinsym} spin-symmetry is not implemented")
     if solver_cls is not None:
         return solver_cls
-    if 'CC' not in solver:
+    if "CC" not in solver:
         raise ValueError(f"unknown solver '{solver}'")
     # Try EBCC next
     return _get_solver_class_ebcc(solver, is_uhf, is_eb, log)

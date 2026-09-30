@@ -78,7 +78,7 @@ class SCMF:
         return False, de, ddm
 
     def kernel(self, *args, **kwargs):
-        
+
         if self.diis:
             diis = self.get_diis()
             if type(diis) is tuple:

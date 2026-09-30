@@ -47,7 +47,7 @@ def uao2mo(self, mo_coeff=None):
             raise RuntimeError("Dense Cluster ERIs predicted to exceed available memory.")
     else:
         raise NotImplementedError(
-            "Current modifications to only support spin-dependent eris in UCCSD without " "density fitting."
+            "Current modifications to only support spin-dependent eris in UCCSD without density fitting."
         )
 
 
