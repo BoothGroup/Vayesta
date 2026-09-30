@@ -186,12 +186,12 @@ class RMA_Dict:
 
     def keys(self):
         if not self.readable:
-            raise RuntimeError("Cannot access keys inside of with-statement." "")
+            raise RuntimeError("Cannot access keys inside of with-statement.")
         return self._elements.keys()
 
     def values(self):
         if not self.readable:
-            raise RuntimeError("Cannot access values inside of with-statement." "")
+            raise RuntimeError("Cannot access values inside of with-statement.")
         return self._elements.values()
 
     def get_location(self, key):

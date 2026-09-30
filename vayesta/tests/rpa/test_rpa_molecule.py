@@ -41,7 +41,6 @@ class MoleculeRPATest(TestCase):
 
         self._test_energy(emb, known_values)
 
-
     def test_water_cation_ssurpa_spin_dependent_eris(self):
         """Tests ssURPA with spin-dependent ERIs, given as a tuple (aa, ab, bb)."""
 

@@ -11,11 +11,7 @@ def _fci_rdms(mf):
     """Spin-resolved FCI 1- and 2-RDMs in the MO basis."""
     fci = pyscf.fci.FCI(mf)
     fci.kernel()
-    norb = (
-        mf.mo_coeff[0].shape[-1]
-        if np.ndim(mf.mo_coeff[0]) == 2
-        else mf.mo_coeff.shape[-1]
-    )
+    norb = mf.mo_coeff[0].shape[-1] if np.ndim(mf.mo_coeff[0]) == 2 else mf.mo_coeff.shape[-1]
     nelec = mf.mol.nelec
     return fci.make_rdm12s(fci.ci, norb, nelec)
 

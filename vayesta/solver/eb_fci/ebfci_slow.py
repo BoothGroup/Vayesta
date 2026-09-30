@@ -47,7 +47,7 @@ def make_shape(norbs, nelec, nbosons, max_occ):
 # Contract 1-electron integrals with fcivec.
 def contract_1e(h1e, fcivec, norb, nelec, nbosons, max_occ):
     raise NotImplementedError(
-        "1 electron contraction is currently"
+        "1 electron contraction is currently "
         "bugged for coupled electron-boson systems."
         "This should instead be folded into a two-body operator."
     )
@@ -613,7 +613,7 @@ def calc_dd_resp_mom(
     t1a = t1a.reshape((norb, norb, -1))
     t1b = t1b.reshape((norb, norb, -1))
     na = nb = norb
-    if not (coeffs is None):
+    if coeffs is not None:
         if type(coeffs) == tuple:
             coeffsa, coeffsb = coeffs
         else:
@@ -679,7 +679,7 @@ def calc_dd_resp_mom(
         rdma, rdmb = rdm1
     else:
         rdma = rdmb = rdm1 / 2
-    if not (coeffs is None):
+    if coeffs is not None:
         rdma = coeffsa.T.dot(rdma).dot(coeffsa)
         rdmb = coeffsb.T.dot(rdmb).dot(coeffsb)
 
