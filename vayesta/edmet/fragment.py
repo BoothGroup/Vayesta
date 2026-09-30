@@ -617,7 +617,7 @@ class EDMETFragment(DMETFragment):
                     t_bos_exchange += timer() - t_bosex_start
         else:
             raise NotImplementedError(
-                "Explicit QBA Hamiltonian construction is currently only implemented for use withdensity fitting."
+                "Explicit QBA Hamiltonian construction is currently only implemented for use with density-fitting."
             )
 
         couplings_aa = fcouplings_aa + ccouplings_aa

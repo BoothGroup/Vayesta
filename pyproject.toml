@@ -124,13 +124,20 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "W"]
+# Rule codes: https://docs.astral.sh/ruff/rules/
+select = [
+    "E4",  # pycodestyle: import errors
+    "E7",  # pycodestyle: statement errors
+    "E9",  # pycodestyle: runtime (syntax/IO) errors
+    "F",   # Pyflakes: undefined names, unused imports/variables, ...
+    "W",   # pycodestyle warnings: whitespace, invalid escape sequences
+]
 ignore = [
-    "E731",  # lambda-assignment
-    "E741",  # ambiguous-variable-name (l, I, O are common in physics notation)
+    "E731",  # lambda-assignment: `f = lambda x: ...` instead of `def f(x): ...`
     # TODO: fix the existing violations and remove these:
     "E402",  # module-import-not-at-top-of-file
-    "E721",  # type-comparison
+    "E721",  # type-comparison: `type(x) == T` instead of `isinstance(x, T)`
+    "E741",  # ambiguous-variable-name: variables named `l`, `I` or `O`
     "F401",  # unused-import
     "F811",  # redefined-while-unused
     "F821",  # undefined-name
@@ -138,5 +145,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# F401: unused-import (re-exports), F403: `from module import *`,
+# F405: name may be undefined or come from a star import
 "__init__.py" = ["F401", "F403", "F405"]
 "examples/**" = ["F403", "F405"]

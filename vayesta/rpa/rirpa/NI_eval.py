@@ -224,7 +224,7 @@ class NumericalIntegratorBase:
         else:
             if a is None:
                 raise ValueError(
-                    "A value for the quadrature scaling parameter a must be provided if optimisation is notpermitted."
+                    "A value for the quadrature scaling parameter a must be provided if optimisation is not permitted."
                 )
         integral, errors = self.eval_NI_approx(a)
         return integral + self.get_offset(), errors

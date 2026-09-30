@@ -875,7 +875,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             fock_shift = self.get_polaritonic_fock_shift(self.unshifted_couplings)
             if not np.allclose(fock_shift[0], fock_shift[1]):
                 self.log.critical(
-                    "Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
+                    "Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted "
                     "formalism or bosons without polaritonic shift."
                 )
             heff = heff + fock_shift[0]

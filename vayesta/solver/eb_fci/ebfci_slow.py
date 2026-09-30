@@ -47,7 +47,7 @@ def make_shape(norbs, nelec, nbosons, max_occ):
 # Contract 1-electron integrals with fcivec.
 def contract_1e(h1e, fcivec, norb, nelec, nbosons, max_occ):
     raise NotImplementedError(
-        "1 electron contraction is currently"
+        "1 electron contraction is currently "
         "bugged for coupled electron-boson systems."
         "This should instead be folded into a two-body operator."
     )
