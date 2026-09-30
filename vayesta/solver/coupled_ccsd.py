@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Optional, List
 
 from vayesta.solver.coupling import couple_ccsd_iterations
 from vayesta.solver.ccsd import RCCSD_Solver
@@ -9,7 +8,7 @@ class coupledRCCSD_Solver(RCCSD_Solver):
     @dataclasses.dataclass
     class Options(RCCSD_Solver.Options):
         # Couple CCSD in other fragments
-        fragments: Optional[List] = None
+        fragments: list | None = None
 
     def set_coupled_fragments(self, fragments):
         self.opts.fragments = fragments
