@@ -80,9 +80,9 @@ def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True, value_at=None
             ax.plot(grid, y, label="Fit")
             ax.plot(volumes, energies, label="Data points", marker=".", ls="", markersize=10, markeredgecolor="black")
             ax.plot([v0], [e0], label="Minimum", marker="p", color="C1", markersize=12, markeredgecolor="black", ls="")
-            ax.set_xlabel("Unit cell volume ($\mathrm{\AA}^3$)")
-            ax.set_ylabel("Unit cell energy ($E_\mathrm{H}$)")
-            text = """
+            ax.set_xlabel(r"Unit cell volume ($\mathrm{\AA}^3$)")
+            ax.set_ylabel(r"Unit cell energy ($E_\mathrm{H}$)")
+            text = r"""
             $E_0 = % .6f\,\mathrm{Ha}$
             $V_0 = % .6f\,\mathrm{\AA}^3$
             $B_0 = % .6f\,\mathrm{GPa}$
@@ -97,11 +97,11 @@ def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True, value_at=None
             if value_at is not None:
                 xv = value_at
                 yv = fitfunc(xv, *popt)
-                text += "$E(%g\,\mathrm{\AA}^3)= %.6f\,\mathrm{Ha}$" % (xv, yv)
+                text += r"$E(%g\,\mathrm{\AA}^3)= %.6f\,\mathrm{Ha}$" % (xv, yv)
                 ax.plot(
                     [xv],
                     [yv],
-                    label="Value at $V= %g\,\mathrm{\AA}^3$" % xv,
+                    label=r"Value at $V= %g\,\mathrm{\AA}^3$" % xv,
                     marker="d",
                     color="C3",
                     markersize=12,

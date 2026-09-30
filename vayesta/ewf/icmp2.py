@@ -61,7 +61,7 @@ def get_intercluster_mp2_energy_rhf(
     vers=1,
     diagonal=True,
 ):
-    """Get long-range, inter-cluster energy contribution on the MP2 level.
+    r"""Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
 
@@ -270,7 +270,7 @@ def get_intercluster_mp2_energy_rhf(
 
 
 def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchange=True, project_dc="vir"):
-    """Get long-range, inter-cluster energy contribution on the MP2 level.
+    r"""Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
 

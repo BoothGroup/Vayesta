@@ -1,4 +1,5 @@
 """Translational symmetry module."""
+
 import logging
 import itertools
 

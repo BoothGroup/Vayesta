@@ -286,8 +286,8 @@ def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
     def resolve(subs, *ops):
         # print('resolve called with %s and %d operands' % (subs, len(ops)))
 
-        idx_right = re.sub("[\]}]", ")", subs).find(")")
-        idx_left = re.sub("[\[{]", "(", subs[:idx_right]).rfind("(")
+        idx_right = re.sub(r"[\]}]", ")", subs).find(")")
+        idx_left = re.sub(r"[\[{]", "(", subs[:idx_right]).rfind("(")
 
         if idx_left == idx_right == -1:
             return einsumfunc(subs, *ops, **kwargs)

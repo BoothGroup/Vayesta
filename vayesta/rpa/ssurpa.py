@@ -72,7 +72,7 @@ class ssURPA(ssRPA):
                     raise e
             else:
                 epsa = np.empty((0))
-                ca = np.empty((0,0))
+                ca = np.empty((0, 0))
             if self.ov_rot[1].size > 0:
                 epsb = einsum("pn,n,qn->pq", self.ov_rot[1], epsb, self.ov_rot[1])
                 try:
@@ -82,7 +82,7 @@ class ssURPA(ssRPA):
                     raise e
             else:
                 epsb = np.empty((0))
-                cb = np.empty((0,0))
+                cb = np.empty((0, 0))
             self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
 
         AmB = np.concatenate([epsa, epsb])
@@ -90,9 +90,9 @@ class ssURPA(ssRPA):
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
             fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
-            #print("Alpha rot: ", self.ov_rot[0].shape)
-            #print("Beta rot: ", self.ov_rot[1].shape)
-            #print("Size of full rot: ",fullrot.shape)
+            # print("Alpha rot: ", self.ov_rot[0].shape)
+            # print("Beta rot: ", self.ov_rot[1].shape)
+            # print("Size of full rot: ",fullrot.shape)
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.

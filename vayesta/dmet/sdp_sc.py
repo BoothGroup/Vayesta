@@ -70,7 +70,7 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     solval = prob.solve(solver=cp.SCS, eps=1e-8)
     msg = "SDP fitting completed. Status= %s" % prob.status
-    if not prob.status in [cp.OPTIMAL]:  # , cp.OPTIMAL_INACCURATE]:
+    if prob.status not in [cp.OPTIMAL]:  # , cp.OPTIMAL_INACCURATE]:
         log.warning(msg)
     else:
         log.info(msg)

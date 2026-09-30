@@ -1,4 +1,4 @@
-"""Functionality to calculate zeroth moment via numerical integration """
+"""Functionality to calculate zeroth moment via numerical integration"""
 
 import numpy as np
 
@@ -66,30 +66,30 @@ class MomzeroDeductNone(NIMomZero):
 
     def eval_diag_contrib(self, freq):
         val = diag_sqrt_contrib(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             val -= diag_sqrt_contrib(self.diagmat2, freq)
         return val
 
     def eval_diag_deriv_contrib(self, freq):
         val = diag_sqrt_grad(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             val -= diag_sqrt_grad(self.diagmat2, freq)
         return val
 
     def eval_diag_deriv2_contrib(self, freq):
         val = diag_sqrt_deriv2(self.diagmat1, freq)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             val -= diag_sqrt_deriv2(self.diagmat2, freq)
         return val
 
     def eval_diag_exact(self):
         val = self.diagmat1 ** (0.5)
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             val -= self.diagmat2 ** (0.5)
         return val
 
     def eval_contrib(self, freq):
-        if not (self.diagmat2 is None):
+        if self.diagmat2 is not None:
             raise ValueError(
                 "Diagonal deducted quantity specified without being included in full contribution "
                 "evaluation; please update overwrite .eval_contrib() for subclass."
