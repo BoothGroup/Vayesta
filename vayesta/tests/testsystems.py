@@ -200,42 +200,55 @@ class TestSolid:
         self.df = df
         self.auxbasis = auxbasis
         self.exxdiv = exxdiv
+        self._with_df = None
+        self._hcore = None
 
     # --- Mean-field
 
+    def _make_mf(self, mf_cls, kmf_cls):
+        mf = mf_cls(self.mol) if self.kpts is None else kmf_cls(self.mol, self.kpts)
+        # The DF integrals and the core Hamiltonian do not depend on spin and are shared between RHF and UHF
+        if self.df == "gdf":
+            mf = mf.density_fit(auxbasis=self.auxbasis, with_df=self._with_df)
+        elif self.df == "rsgdf":
+            mf = mf.rs_density_fit(auxbasis=self.auxbasis, with_df=self._with_df)
+        self._with_df = getattr(mf, "with_df", None)
+        self._cache_hcore(mf)
+        mf.conv_tol = 1e-10
+        mf.conv_tol_grad = 1e-8
+        mf.exxdiv = self.exxdiv
+        mf.kernel()
+        assert mf.converged
+        return mf
+
+    def _cache_hcore(self, mf):
+        """Cache the core Hamiltonian, which PySCF recomputes for every Fock matrix.
+
+        This is expensive for low-dimensional systems, where the nuclear attraction is evaluated in reciprocal space.
+        """
+        get_hcore = mf.get_hcore
+        mf_kpts = mf.kpt if self.kpts is None else mf.kpts
+
+        def get_hcore_cached(cell=None, kpts=None, **kwargs):
+            if (
+                kwargs
+                or (cell is not None and cell is not mf.cell)
+                or (kpts is not None and not np.array_equal(kpts, mf_kpts))
+            ):
+                return get_hcore(cell, kpts, **kwargs)
+            if self._hcore is None:
+                self._hcore = get_hcore()
+            return self._hcore.copy()
+
+        mf.get_hcore = get_hcore_cached
+
     @cache
     def rhf(self):
-        if self.kpts is None:
-            rhf = pyscf.pbc.scf.RHF(self.mol)
-        else:
-            rhf = pyscf.pbc.scf.KRHF(self.mol, self.kpts)
-        if self.df == "gdf":
-            rhf = rhf.density_fit(auxbasis=self.auxbasis)
-        elif self.df == "rsgdf":
-            rhf = rhf.rs_density_fit(auxbasis=self.auxbasis)
-        rhf.conv_tol = 1e-10
-        rhf.conv_tol_grad = 1e-8
-        rhf.exxdiv = self.exxdiv
-        rhf.kernel()
-        assert rhf.converged
-        return rhf
+        return self._make_mf(pyscf.pbc.scf.RHF, pyscf.pbc.scf.KRHF)
 
     @cache
     def uhf(self):
-        if self.kpts is None:
-            uhf = pyscf.pbc.scf.UHF(self.mol)
-        else:
-            uhf = pyscf.pbc.scf.KUHF(self.mol, self.kpts)
-        if self.df == "gdf":
-            uhf = uhf.density_fit(auxbasis=self.auxbasis)
-        elif self.df == "rsgdf":
-            uhf = uhf.rs_density_fit(auxbasis=self.auxbasis)
-        uhf.conv_tol = 1e-10
-        uhf.conv_tol_grad = 1e-8
-        uhf.exxdiv = self.exxdiv
-        uhf.kernel()
-        assert uhf.converged
-        return uhf
+        return self._make_mf(pyscf.pbc.scf.UHF, pyscf.pbc.scf.KUHF)
 
     # --- MP2
 

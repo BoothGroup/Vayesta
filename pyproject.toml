@@ -79,6 +79,7 @@ pygnme = [
 test = [
     "pytest>=7",
     "pytest-cov",
+    "pytest-xdist",
 ]
 dev = [
     {include-group = "test"},
