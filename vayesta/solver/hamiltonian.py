@@ -1,6 +1,5 @@
 import os
 import dataclasses
-from typing import Optional
 
 import numpy as np
 import pyscf.lib
@@ -10,7 +9,6 @@ from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_ti
 from vayesta.core.screening import screening_moment, screening_crpa
 from vayesta.core.bosonic_bath import BosonicHamiltonianProjector
 from vayesta.core.types import Orbitals
-from typing import Optional
 
 
 def is_ham(ham):
@@ -59,7 +57,7 @@ class DummyERIs:
 class RClusterHamiltonian:
     @dataclasses.dataclass
     class Options(OptionsBase):
-        screening: Optional[str] = None
+        screening: str | None = None
         cache_eris: bool = True
         match_fock: bool = True
 

@@ -79,6 +79,7 @@ pygnme = [
 test = [
     "pytest>=7",
     "pytest-cov",
+    "pytest-xdist",
 ]
 dev = [
     {include-group = "test"},
@@ -139,6 +140,11 @@ select = [
     "E9",  # pycodestyle: runtime (syntax/IO) errors
     "F",   # Pyflakes: undefined names, unused imports/variables, ...
     "W",   # pycodestyle warnings: whitespace, invalid escape sequences
+    # pyupgrade: modern type hint syntax
+    "UP006",  # `list[int]` instead of `typing.List[int]`
+    "UP007",  # `X | Y` instead of `typing.Union[X, Y]`
+    "UP035",  # import from `collections.abc` etc. instead of deprecated `typing` aliases
+    "UP045",  # `X | None` instead of `typing.Optional[X]`
 ]
 ignore = [
     # TODO: fix the existing violations and remove these:
