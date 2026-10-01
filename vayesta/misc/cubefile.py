@@ -1,6 +1,6 @@
 """Modified from PySCF - at the moment only for PBC systems"""
 
-import logging
+from vayesta.core import vlog
 import os
 import os.path
 
@@ -14,7 +14,7 @@ from pyscf.dft import numint
 
 import vayesta
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 class CubeFile:

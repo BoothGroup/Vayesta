@@ -5,13 +5,13 @@ email:  max.nusspickel@gmail.com
 
 import pyscf
 import pyscf.scf
-import logging
+from vayesta.core import vlog
 
 # from .ewf import EWF as REWF
 from vayesta.ewf.ewf import REWF
 from vayesta.ewf.uewf import UEWF
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def EWF(mf, *args, **kwargs):

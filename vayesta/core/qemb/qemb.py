@@ -1,4 +1,5 @@
 import logging
+from vayesta.core import vlog
 from datetime import datetime
 import dataclasses
 import copy
@@ -264,7 +265,7 @@ class Embedding:
     def __init__(self, mf, solver="CCSD", log=None, overwrite=None, **kwargs):
         # 1) Logging
         # ----------
-        self.log = log or logging.getLogger(__name__)
+        self.log = log or vlog.getLogger(__name__)
         self.log.info("")
         self.log.info("INITIALIZING %s" % self.__class__.__name__.upper())
         self.log.info("=============%s" % (len(str(self.__class__.__name__)) * "="))

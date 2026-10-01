@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from pyscf.lib.parameters import BOHR
 
 from vayesta.core.util import einsum
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 class LatticeMole(pyscf.pbc.gto.Cell):

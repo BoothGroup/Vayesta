@@ -1,4 +1,5 @@
 import logging
+from vayesta.core import vlog
 import numpy as np
 import scipy
 import scipy.linalg
@@ -37,7 +38,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
         cluster correlation energies; currently only functional in CAS fragmentations.
     """
     if log is None:
-        log = log or emb.log or logging.getLogger(__name__)
+        log = log or emb.log or vlog.getLogger(__name__)
     log.info("Calculating screened Coulomb interactions")
     log.info("-----------------------------------------")
 

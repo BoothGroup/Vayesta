@@ -5,12 +5,12 @@ email:  cjcargillscott@gmail.com
 
 import pyscf
 import pyscf.scf
-import logging
+from vayesta.core import vlog
 
 from vayesta.edmet.edmet import REDMET
 from vayesta.edmet.uedmet import UEDMET
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def EDMET(mf, *args, **kwargs):

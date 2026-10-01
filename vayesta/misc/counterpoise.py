@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 
@@ -7,7 +7,7 @@ import pyscf
 # import pyscf.scf
 import pyscf.lib
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 # TODO

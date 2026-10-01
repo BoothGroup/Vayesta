@@ -1,10 +1,10 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 from vayesta.core.symmetry import tsymmetry
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def unit_vector(vector):

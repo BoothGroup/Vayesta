@@ -1,7 +1,7 @@
 """Straightforward N^6 implementation for dRPA in a basis set, based upon the standard Hermitian reformulation
 used in TDHF approaches."""
 
-import logging
+from vayesta.core import vlog
 from timeit import default_timer as timer
 
 import numpy as np
@@ -20,7 +20,7 @@ class ssRPA:
 
     def __init__(self, mf, log=None, ov_rot=None):
         self.mf = mf
-        self.log = log or logging.getLogger(__name__)
+        self.log = log or vlog.getLogger(__name__)
         self.ov_rot = ov_rot
 
     @property

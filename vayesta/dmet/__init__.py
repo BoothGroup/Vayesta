@@ -5,7 +5,7 @@ email:  cjcargillscott@gmail.com
 
 import pyscf
 import pyscf.scf
-import logging
+from vayesta.core import vlog
 
 try:
     import cvxpy
@@ -16,7 +16,7 @@ except ModuleNotFoundError as e:
 from vayesta.dmet.dmet import RDMET
 from vayesta.dmet.udmet import UDMET
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def DMET(mf, *args, **kwargs):
