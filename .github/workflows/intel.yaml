@@ -45,6 +45,8 @@ jobs:
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
       PKG_CONFIG_PATH: /opt/intel/oneapi/mkl/latest/lib/pkgconfig
+      # Used by the CMake builds of PySCF and Vayesta
+      CMAKE_CONFIGURE_ARGS: -DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -62,7 +64,7 @@ jobs:
           ifx -v
       - name: Restore MKL builds of NumPy, SciPy and PySCF
         id: wheels
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: wheelhouse
           key: mkl-wheels-py${{ matrix.python-version }}-${{ hashFiles('.github/workflows/install_intel.sh') }}-${{ env.LINUX_HPCKIT_URL }}-numpy${{ env.NUMPY_VERSION }}-scipy${{ env.SCIPY_VERSION }}-pyscf${{ env.PYSCF_VERSION }}
@@ -76,8 +78,14 @@ jobs:
             --config-settings=setup-args="-Dblas=mkl-dynamic-lp64-seq" --config-settings=setup-args="-Dlapack=mkl-dynamic-lp64-seq"
           # PySCF is built without build isolation against the MKL NumPy and SciPy
           pip install wheelhouse/numpy-*.whl wheelhouse/scipy-*.whl h5py
-          CMAKE_CONFIGURE_ARGS="-DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so" \
-            pip wheel --no-deps --no-build-isolation -w wheelhouse "pyscf==$PYSCF_VERSION" --no-binary pyscf
+          pip wheel --no-deps --no-build-isolation -w wheelhouse "pyscf==$PYSCF_VERSION" --no-binary pyscf
+      # Saved right after the build, such that it is cached even if the tests fail
+      - name: Cache MKL builds of NumPy, SciPy and PySCF
+        if: steps.wheels.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: wheelhouse
+          key: ${{ steps.wheels.outputs.cache-primary-key }}
       - name: Install Vayesta along with dependencies
         run: |
           pip install wheelhouse/*.whl
