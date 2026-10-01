@@ -26,6 +26,14 @@ python -m pip install . --user
 
 To perform DMET calculations, leverage MPI parallelism, and to use [`ebcc`](https://github.com/BoothGroup/ebcc) solvers, optional dependencies must be installed. See the documentation for details.
 
+For development, [uv](https://docs.astral.sh/uv/) can be used to create an environment from the lock file,
+including the development tools and optional dependencies, and to run the tests:
+
+```
+uv sync --extra dmet --extra ebcc --extra dyson
+uv run pytest
+```
+
 
 Quickstart
 ----------

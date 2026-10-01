@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Callable
 import numpy as np
 
 from vayesta.core.types import CISD_WaveFunction, CCSD_WaveFunction, FCI_WaveFunction, RDM_WaveFunction

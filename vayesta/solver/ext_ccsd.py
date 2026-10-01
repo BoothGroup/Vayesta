@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Optional, List, Any
+from typing import Any
 
 import numpy as np
 
@@ -11,7 +11,7 @@ class extRCCSD_Solver(RCCSD_Solver):
     @dataclasses.dataclass
     class Options(RCCSD_Solver.Options):
         # Tailor/externally correct CCSD with other fragments
-        external_corrections: Optional[List[Any]] = dataclasses.field(default_factory=list)
+        external_corrections: list[Any] | None = dataclasses.field(default_factory=list)
 
     def get_callback(self):
         # Tailoring of T1 and T2
