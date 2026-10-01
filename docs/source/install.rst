@@ -67,3 +67,11 @@ After installation it is a good idea to run the test suite with ``pytest`` using
 .. code-block:: console
 
    [~]$ pytest vayesta/tests
+
+For development, uv_ can be used to create an environment with all development dependencies from the lock file
+``uv.lock`` and to run the tests:
+
+.. code-block:: console
+
+   [~]$ uv sync --extra dmet --extra ebcc --extra dyson
+   [~]$ uv run pytest

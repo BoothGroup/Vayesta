@@ -1,0 +1,103 @@
+name: Intel oneAPI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'
+
+# Cancel superseded runs on the same pull request
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  LINUX_HPCKIT_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/b7f71cf2-8157-4393-abae-8cea815509f7/intel-oneapi-hpc-toolkit-2025.0.1.47_offline.sh
+  LINUX_COMPONENTS: intel.oneapi.lin.dpcpp-cpp-compiler:intel.oneapi.lin.ifort-compiler:intel.oneapi.lin.mkl.devel
+  # Built from source against MKL. The builds are cached, so changing these versions (or the oneAPI version above)
+  # triggers a rebuild.
+  NUMPY_VERSION: "2.4.6"
+  SCIPY_VERSION: "1.17.1"
+  PYSCF_VERSION: "2.14.0"
+
+jobs:
+  intel:
+    name: python ${{ matrix.python-version }} on ubuntu-latest with Intel oneAPI
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13", "3.14"]
+    env:
+      # Manually set CPATH because MKL cmake support is broken
+      CPATH: /opt/intel/oneapi/mkl/latest/include
+      CC: icx
+      CXX: icpx
+      FC: ifx
+      MKL_ROOT: /opt/intel/oneapi/mkl/latest
+      BLAS: mkl
+      LAPACK: mkl
+      CFLAGS: -I/opt/intel/oneapi/mkl/latest/include -O3 -Wno-error -fveclib=none
+      CXXFLAGS: -O3 -Wno-error
+      LDFLAGS: -L/opt/intel/oneapi/mkl/latest/lib/intel64 -L/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64 -lmkl_rt -limf -lsvml -lirc -lirc_s
+      # fortran needs this because libimf does not have RPATH to find libintlc.so
+      LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
+      CMAKE_POLICY_VERSION_MINIMUM: 3.5
+      PKG_CONFIG_PATH: /opt/intel/oneapi/mkl/latest/lib/pkgconfig
+      # Used by the CMake builds of PySCF and (as CMAKE_ARGS) Vayesta
+      CMAKE_CONFIGURE_ARGS: -DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Intel oneAPI
+        run: |
+          bash .github/workflows/install_intel.sh $LINUX_HPCKIT_URL $LINUX_COMPONENTS
+          sudo apt-get update
+          sudo apt-get install -y pkg-config cmake
+          source /opt/intel/oneapi/setvars.sh
+          printenv >> $GITHUB_ENV
+          icx -v
+          ifx -v
+      - name: Restore MKL builds of NumPy, SciPy and PySCF
+        id: wheels
+        uses: actions/cache/restore@v4
+        with:
+          path: wheelhouse
+          key: mkl-wheels-py${{ matrix.python-version }}-${{ hashFiles('.github/workflows/install_intel.sh') }}-${{ env.LINUX_HPCKIT_URL }}-numpy${{ env.NUMPY_VERSION }}-scipy${{ env.SCIPY_VERSION }}-pyscf${{ env.PYSCF_VERSION }}
+      - name: Build NumPy, SciPy and PySCF with MKL
+        if: steps.wheels.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip wheel --no-deps -w wheelhouse "numpy==$NUMPY_VERSION" --no-binary numpy \
+            --config-settings=setup-args="-Dblas=mkl" --config-settings=setup-args="-Dlapack=mkl"
+          pip wheel --no-deps -w wheelhouse "scipy==$SCIPY_VERSION" --no-binary scipy \
+            --config-settings=setup-args="-Dblas=mkl-dynamic-lp64-seq" --config-settings=setup-args="-Dlapack=mkl-dynamic-lp64-seq"
+          # PySCF is built without build isolation against the MKL NumPy and SciPy
+          pip install wheelhouse/numpy-*.whl wheelhouse/scipy-*.whl h5py
+          pip wheel --no-deps --no-build-isolation -w wheelhouse "pyscf==$PYSCF_VERSION" --no-binary pyscf
+      # Saved right after the build, such that it is cached even if the tests fail
+      - name: Cache MKL builds of NumPy, SciPy and PySCF
+        if: steps.wheels.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: wheelhouse
+          key: ${{ steps.wheels.outputs.cache-primary-key }}
+      - name: Install Vayesta along with dependencies
+        run: |
+          pip install wheelhouse/*.whl
+          pip install https://github.com/BoothGroup/dyson/archive/master.zip
+          CMAKE_ARGS="$CMAKE_CONFIGURE_ARGS" pip install .[dmet,ebcc] pytest pytest-cov pytest-xdist
+          python -c 'import numpy as np; np.__config__.show()'
+          python -c 'import scipy as sp; sp.show_config()'
+      - name: Run unit tests
+        run: |
+          python .github/workflows/run_tests.py
+      - name: Upload to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
