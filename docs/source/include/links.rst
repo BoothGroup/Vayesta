@@ -5,6 +5,7 @@
 .. _GitHub: https://github.com/
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 .. _pip: https://pypi.org/project/pip/
+.. _uv: https://docs.astral.sh/uv/
 .. _NumPy: https://numpy.org
 .. _SciPy: https://scipy.org
 .. _HDF5: https://www.hdfgroup.org/solutions/hdf5/
