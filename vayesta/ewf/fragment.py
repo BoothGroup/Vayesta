@@ -1,7 +1,6 @@
 # Standard libaries
 import dataclasses
 import typing
-from typing import Optional, List
 
 # External libaries
 import numpy as np
@@ -53,7 +52,7 @@ class Options(BaseFragment.Options):
     store_wf_type: str = None  # If set, fragment WFs will be converted to the respective type, before storing them
     # Fragment specific
     # -----------------
-    wf_factor: Optional[int] = None
+    wf_factor: int | None = None
     # TODO: move these:
     # CAS methods
     c_cas_occ: np.ndarray = None
@@ -71,7 +70,7 @@ class Fragment(BaseFragment):
     @dataclasses.dataclass
     class Flags(BaseFragment.Flags):
         # Tailoring and external correction of CCSD
-        external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
+        external_corrections: list[typing.Any] | None = dataclasses.field(default_factory=list)
         # Whether to perform additional checks on external corrections
         test_extcorr: bool = False
 

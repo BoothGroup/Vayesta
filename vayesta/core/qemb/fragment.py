@@ -2,7 +2,6 @@
 import dataclasses
 import itertools
 import os.path
-import typing
 
 # --- External
 import numpy as np
@@ -67,7 +66,7 @@ class Options(OptionsBase):
     # --- Other
     store_eris: bool = None  # If True, ERIs will be cached in Fragment.hamil
     dm_with_frozen: bool = None  # TODO: is still used?
-    screening: typing.Optional[str] = None
+    screening: str | None = None
     match_cluster_fock: bool = None
     # Fragment specific
     # -----------------
@@ -88,7 +87,7 @@ class Fragment:
         is_envelop: bool = True
         is_secfrag: bool = False
         # Secondary fragment parameter
-        bath_parent_fragment_id: typing.Optional[int] = None
+        bath_parent_fragment_id: int | None = None
 
     @dataclasses.dataclass
     class Results:
