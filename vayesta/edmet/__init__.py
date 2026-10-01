@@ -5,6 +5,7 @@ email:  cjcargillscott@gmail.com
 
 import pyscf
 import pyscf.scf
+import pyscf.pbc.scf
 import logging
 
 from vayesta.edmet.edmet import REDMET

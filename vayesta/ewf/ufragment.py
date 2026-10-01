@@ -2,8 +2,10 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+import pyscf.cc.uccsd_rdm
 
 import vayesta.core.ao2mo
+import vayesta.core.ao2mo.helper
 from vayesta.core.util import dot, einsum, log_method, with_doc
 from vayesta.core.qemb import UFragment as BaseFragment
 from vayesta.ewf.fragment import Fragment as RFragment

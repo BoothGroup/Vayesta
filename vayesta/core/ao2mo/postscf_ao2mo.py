@@ -6,6 +6,7 @@ import pyscf
 import pyscf.mp
 import pyscf.ci
 import pyscf.cc
+import pyscf.cc.dfccsd
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 from pyscf.mp.mp2 import _ChemistsERIs as MP2_ChemistsERIs

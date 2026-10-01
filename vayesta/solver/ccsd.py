@@ -2,6 +2,7 @@ import dataclasses
 
 import numpy as np
 import pyscf.cc
+import pyscf.cc.dfccsd
 
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.util import dot, log_method, log_time, einsum
