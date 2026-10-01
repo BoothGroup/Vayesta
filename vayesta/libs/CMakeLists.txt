@@ -1,5 +1,5 @@
-cmake_minimum_required (VERSION 3.5)
-project ("Vayesta")
+cmake_minimum_required (VERSION 3.15)
+project ("Vayesta" LANGUAGES C)
 
 # OpenMP
 set(OPENMP_C_PROPERTIES "")
