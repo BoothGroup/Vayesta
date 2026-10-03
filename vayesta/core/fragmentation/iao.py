@@ -28,7 +28,7 @@ def get_default_minao(basis):
     bas = basis.replace("-", "").lower()
     minao = default_minao.get(bas, "minao")
     if minao is None:
-        raise ValueError("Could not chose minimal basis for basis %s automatically!", basis)
+        raise ValueError(f"Could not choose minimal basis for basis {basis} automatically!")
     return minao
 
 

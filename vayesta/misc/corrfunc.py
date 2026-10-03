@@ -76,7 +76,7 @@ def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
         proj2 = proj1
     if proj1 is None:
         ssz = einsum("iijj->", dm2aa) / 4 + einsum("iijj->", dm2bb) / 4 - einsum("iijj->", dm2ab) / 2
-        ssz += (np.trace(dma) + np.trace(dmb)) / 4
+        ssz += (np.trace(dm1a) + np.trace(dm1b)) / 4
         return ssz
     p1a, p1b = _get_proj_per_spin(proj1)
     p2a, p2b = _get_proj_per_spin(proj2)
@@ -161,58 +161,3 @@ def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     ) / 4
     ssz += (einsum("ij,ik,jk->", dma, p1a, p2a) + einsum("ij,ik,jk->", dmb, p1b, p2b)) / 4
     return ssz
-
-
-if __name__ == "__main__":
-    import pyscf
-    import pyscf.gto
-    import pyscf.scf
-
-    mol = pyscf.gto.Mole()
-    mol.atom = """
-    O  0.0000   0.0000   0.1173
-    H  0.0000   0.7572  -0.4692
-    H  0.0000  -0.7572  -0.4692
-    """
-    mol.basis = "cc-pVDZ"
-    mol.build()
-    nmo = mol.nao
-    nocc = mol.nelectron // 2
-
-    # RHF
-    rhf = pyscf.scf.RHF(mol)
-    rhf.kernel()
-    dm1 = np.zeros((nmo, nmo))
-    dm1[np.diag_indices(nocc)] = 2
-    sz = spin_z(dm1)
-    print(sz)
-
-    ssz = spinspin_z_rhf(dm1)
-    print(ssz)
-    1 / 0
-    # print('RHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
-
-    # UHF
-    mol.charge = mol.spin = 1
-    mol.build()
-    nmo = mol.nao
-    nocca, noccb = mol.nelec
-    print(mol.nelec)
-
-    uhf = pyscf.scf.UHF(mol)
-    uhf.kernel()
-
-    dm1a = np.zeros((nmo, nmo))
-    dm1b = np.zeros((nmo, nmo))
-    dm1a[np.diag_indices(nocca)] = 1
-    dm1b[np.diag_indices(noccb)] = 1
-    dm1 = (dm1a, dm1b)
-
-    sz = spin_z_uhf(dm1)
-    print(sz)
-    sz = spin_z_unrestricted(dm1)
-    print(sz)
-    # ssz = spinspin_z_uhf(uhf)
-    # print('UHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
-    # ssz = spinspin_z_unrestricted(uhf)
-    # print('UHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))

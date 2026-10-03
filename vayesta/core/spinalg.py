@@ -2,6 +2,8 @@
 same functions"""
 
 import numpy as np
+import scipy.linalg
+
 from vayesta.core import util
 
 __all__ = ["add_numbers", "hstack_matrices"]

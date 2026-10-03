@@ -1,6 +1,8 @@
 """Routines to reconstruct the full system self-energy from cluster spectral moments"""
 
 import numpy as np
+import scipy.integrate
+import scipy.optimize
 
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 
@@ -440,10 +442,6 @@ def fit_hermitian(se):
     energies = se.energies.copy()
     couplings_l, couplings_r = se._unpack_couplings()
     couplings_l, couplings_r = couplings_l.copy(), couplings_r.copy()
-
-    def f(w):
-        denom = 1 / (1j * w - energies + 1j * eta)
-        return np.einsum("pa,qa,a->pq", couplings_l, couplings_r, denom)
 
     def obj(x):
         x = x.reshape(shape)

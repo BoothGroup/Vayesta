@@ -237,22 +237,3 @@ print("E1 = %f" % e1_pc)
 print("E2_0 = %f" % e20_pc)
 print("E2_1 = %f" % e21_pc)
 print("E2_2 = %f" % e22_pc)
-
-exit()
-print("Full system mean-field energy               = %f" % mf.e_tot)
-print("Full system CCSD correlation energy         = %f" % cc.e_tot)
-print("Full system FCI correlation energy          = %f" % (ci.e_tot))
-print("Vayesta correlation energy                  = %f" % emb.e_corr)
-print("Vayesta partitioned cumulant energy         = %f" % emb.get_dmet_energy(part_cumulant=True))
-# print("Vayesta partitioned cumulant energy         = %f" % get_vayesta_dmet_energy(emb, part_cumulant=True, approx_cumulant=False))
-# print("Vayesta partitioned approx cumulant energy  = %f" % emb.get_dmet_energy(part_cumulant=False))
-# print("Vayesta partitioned approx cumulant energy  = %f" % get_vayesta_dmet_energy(emb, part_cumulant=True, approx_cumulant=True))
-print("Correlation energy from external FCI solver = %f" % e_corr)
-
-
-def get_energy(dm1, dm2, h1e, h2e):
-
-    e1 = np.einsum("pq,pq->", h1e, dm1)
-    e2 = np.einsum("pqrs,pqrs->", h2e, dm2) / 2
-
-    return e1 + e2
