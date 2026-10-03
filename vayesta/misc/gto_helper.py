@@ -75,7 +75,7 @@ def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragme
     def make_frag_mol(frag):
         f_mask = np.isin(atom_symbols, frag)
         if sum(f_mask) == 0:
-            raise ValueError("No atoms found for fragment: %r" % frag)
+            raise ValueError(f"No atoms found for fragment: {frag!r}")
         fmol = mol.copy()
         fatom = []
         for atm_id, atm in enumerate(atom):

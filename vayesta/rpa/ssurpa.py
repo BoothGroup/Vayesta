@@ -136,11 +136,11 @@ class ssURPA(ssRPA):
         # Just in case have spin dependent integrals...
         if isinstance(self.mf._eri, tuple):
             na, nb = mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]
-            eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False).reshape(4 * [na])
-            eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False).reshape(4 * [nb])
+            eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False).reshape((na, na, na, na))
+            eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False).reshape((nb, nb, nb, nb))
             eris_ab = pyscf.ao2mo.kernel(
                 self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=False
-            ).reshape(2 * [na] + 2 * [nb])
+            ).reshape((na, na, nb, nb))
         else:
             # Call three-times to spin-restricted embedding
             self.log.debugv("Making (aa|aa) ERIs...")

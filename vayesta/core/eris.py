@@ -181,7 +181,7 @@ def get_eris_object(emb, postscf, fock=None):
         elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
             fock = emb.get_fock(with_exxdiv=False)
         else:
-            raise ValueError("Unknown post-SCF method: %r", type(postscf))
+            raise ValueError(f"Unknown post-SCF method: {type(postscf)!r}")
     # For MO energies, always use get_fock():
     mo_act = _mo_without_core(postscf, postscf.mo_coeff)
     mo_energy = einsum("ai,ab,bi->i", mo_act, emb.get_fock(), mo_act)
