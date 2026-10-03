@@ -153,7 +153,7 @@ class QPEWDMET_RHF(SCMF):
                 self.emb, use_sym=self.use_sym, eta=self.eta
             )
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"proj={self.proj} is not implemented; use proj=1 or proj=2")
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0

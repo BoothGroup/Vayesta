@@ -150,7 +150,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         Useful for communication via MPI."""
         mo = self.mo.pack(dtype=dtype)
         t2 = (self.t2aa, self.t2ab, self.t2ba, self.t2bb)
-        projector = self.projector if self.projector is not None else 2 * [None]
+        projector = self.projector if self.projector is not None else (None, None)
         data = (mo, *t2, *projector)
         pack = pack_arrays(*data, dtype=dtype)
         return pack

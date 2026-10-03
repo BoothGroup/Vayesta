@@ -403,9 +403,9 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         Useful for communication via MPI."""
         mo = self.mo.pack(dtype=dtype)
         t2 = (self.t2aa, self.t2ab, self.t2ba, self.t2bb)
-        l1 = self.l1 if self.l1 is not None else 2 * [None]
-        l2 = (self.l2aa, self.l2ab, self.l2ba, self.l2bb) if self.l2 is not None else 4 * [None]
-        projector = self.projector if self.projector is not None else 2 * [None]
+        l1 = self.l1 if self.l1 is not None else (None, None)
+        l2 = (self.l2aa, self.l2ab, self.l2ba, self.l2bb) if self.l2 is not None else (None, None, None, None)
+        projector = self.projector if self.projector is not None else (None, None)
         data = (mo, *self.t1, *t2, *l1, *l2, *projector)
         pack = pack_arrays(*data, dtype=dtype)
         return pack
