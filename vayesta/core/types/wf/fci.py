@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 import pyscf
+import pyscf.cc
+import pyscf.ci
 import pyscf.fci
 from vayesta.core.util import decompress_axes, dot, einsum, tril_indices_ndim, callif, replace_attr
 from vayesta.core.types import wf as wf_types

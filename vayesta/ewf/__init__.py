@@ -5,6 +5,7 @@ email:  max.nusspickel@gmail.com
 
 import pyscf
 import pyscf.scf
+import pyscf.pbc.scf
 import logging
 
 # from .ewf import EWF as REWF
