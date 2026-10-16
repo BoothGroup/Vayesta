@@ -280,6 +280,16 @@ def _einsum_replace_decorated_subscripts(subscripts):
     return "".join(subscripts_out)
 
 
+def _einsum_implicit_output(subscripts):
+    """Output subscripts of einsum in implicit mode (without '->').
+
+    As in NumPy, these are the subscripts which appear exactly once, in alphabetical order."""
+    subscripts = subscripts.replace(" ", "")
+    ellipsis = "..." if "..." in subscripts else ""
+    subscripts = subscripts.replace("...", "").replace(",", "")
+    return ellipsis + "".join(sorted(s for s in set(subscripts) if subscripts.count(s) == 1))
+
+
 def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
     """Support for parenthesis in einsum subscripts: '(ab,bc),cd->ad'."""
 
@@ -317,7 +327,7 @@ def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
             # possible = subs_int_in.replace(',', '').replace(' ', '')
             # subs_int_out = ''.join([x for x in possible if x in (subs_left + subs_right)])
             # subs_int = '->'.join([subs_int_in, subs_int_out])
-            subs_int_out = np.core.einsumfunc._parse_einsum_input((subs_int_in, *ops_int))[1]
+            subs_int_out = _einsum_implicit_output(subs_int_in)
 
         # Perform intern einsum
         res_int = einsumfunc(subs_int, *ops_int, **kwargs)

@@ -141,9 +141,9 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             c1 *= c0 / self.c0
             c2 *= c0 / self.c0
         if abs(c0) < 0.1:
-            log.warn("Converting FCI wave function to CISD, but weight of reference state %f8" % self.c0)
-            log.warn("Beware that spin state of mean-field and FCI solver might be different, or")
-            log.warn("significant numerical errors may result from the single-reference description.")
+            log.warning("Converting FCI wave function to CISD, but weight of reference state %f8" % self.c0)
+            log.warning("Beware that spin state of mean-field and FCI solver might be different, or")
+            log.warning("significant numerical errors may result from the single-reference description.")
         return wf_types.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_cisdtq(self, c0=None):
@@ -216,9 +216,9 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             c4_abaa *= c0 / self.c0
 
         if abs(c0) < 0.1:
-            log.warn("Converting FCI wave function to CISDTQ, but weight of reference state %f8" % self.c0)
-            log.warn("Beware that spin state of mean-field and FCI solver might be different, or")
-            log.warn("significant numerical errors may result from the single-reference description.")
+            log.warning("Converting FCI wave function to CISDTQ, but weight of reference state %f8" % self.c0)
+            log.warning("Beware that spin state of mean-field and FCI solver might be different, or")
+            log.warning("significant numerical errors may result from the single-reference description.")
 
         return wf_types.RCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, (c4_abaa, c4_abab))
 
