@@ -73,9 +73,9 @@ def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragme
     atom_symbols = [mol.atom_symbol(atm_id) for atm_id in range(mol.natm)]
 
     def make_frag_mol(frag):
-        f_mask = numpy.isin(atom_symbols, frag)
+        f_mask = np.isin(atom_symbols, frag)
         if sum(f_mask) == 0:
-            raise ValueError("No atoms found for fragment: %r", frag)
+            raise ValueError(f"No atoms found for fragment: {frag!r}")
         fmol = mol.copy()
         fatom = []
         for atm_id, atm in enumerate(atom):
@@ -108,12 +108,12 @@ def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragme
 
     # Add fragment containing all atoms not part of any specified fragments
     if add_rest_fragment:
-        rest_mask = numpy.full((mol.natm,), True)
+        rest_mask = np.full((mol.natm,), True)
         # Set all atoms to False that are part of a fragment
         for frag in fragments:
-            rest_mask = numpy.logical_and(numpy.isin(atom_symbols, frag, invert=True), rest_mask)
-        if numpy.any(rest_mask):
-            rest_frag = numpy.asarray(atom_symbols)[rest_mask]
+            rest_mask = np.logical_and(np.isin(atom_symbols, frag, invert=True), rest_mask)
+        if np.any(rest_mask):
+            rest_frag = np.asarray(atom_symbols)[rest_mask]
             fmol = make_frag_mol(rest_frag)
             fmols.append(fmol)
 

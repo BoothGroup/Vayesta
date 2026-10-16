@@ -177,7 +177,7 @@ class UEmbedding(Embedding):
             elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
                 fock = self.get_fock(with_exxdiv=False)
             else:
-                raise ValueError("Unknown post-HF method: %r", type(postscf))
+                raise ValueError(f"Unknown post-HF method: {type(postscf)!r}")
         # For MO energies, always use get_fock():
         act = postscf.get_frozen_mask()
         mo_act = (postscf.mo_coeff[0][:, act[0]], postscf.mo_coeff[1][:, act[1]])

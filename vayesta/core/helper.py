@@ -19,14 +19,14 @@ def orbital_sign_convention(mo_coeff, inplace=True):
 def get_dtype_int(obj):
     if obj is None:
         return 0
-    dtint = np.asarray(obj.dtype.char, dtype="a8").view(int)[()]
+    dtint = np.asarray(obj.dtype.char, dtype="S8").view(int)[()]
     return dtint
 
 
 def get_dtype(dtint):
     if dtint == 0:
         return None
-    val = np.asarray(dtint).view("a8")[()]
+    val = np.asarray(dtint).view("S8")[()]
     dtype = np.dtype(val)
     return dtype
 

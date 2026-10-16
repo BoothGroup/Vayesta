@@ -563,7 +563,7 @@ def getattr_recursive(obj, attr, *args):
 
 def setattr_recursive(obj, attr, val):
     pre, _, post = attr.rpartition(".")
-    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+    return setattr(getattr_recursive(obj, pre) if pre else obj, post, val)
 
 
 @contextmanager
