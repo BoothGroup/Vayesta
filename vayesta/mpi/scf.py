@@ -1,5 +1,5 @@
 import functools
-import logging
+from vayesta.core import vlog
 import pyscf
 import pyscf.df
 import pyscf.pbc
@@ -14,7 +14,7 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
         return mf
 
     kernel_orig = mf.kernel
-    log = log or mpi.log or logging.getLogger(__name__)
+    log = log or mpi.log or vlog.getLogger(__name__)
 
     def mpi_kernel(self, *args, **kwargs):
         df = getattr(self, "with_df", None)
@@ -56,7 +56,7 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
 
 
 def gdf_with_mpi(mpi, df, mpi_rank=0, log=None):
-    log = log or mpi.log or logging.getLogger(__name__)
+    log = log or mpi.log or vlog.getLogger(__name__)
 
     if not isinstance(df._cderi_to_save, str):
         raise NotImplementedError

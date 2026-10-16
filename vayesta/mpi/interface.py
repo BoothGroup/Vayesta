@@ -1,5 +1,5 @@
 from collections import namedtuple
-import logging
+from vayesta.core import vlog
 import functools
 from timeit import default_timer
 import numpy as np
@@ -15,7 +15,7 @@ NdArrayMetadata = namedtuple("NdArrayMetadata", ["shape", "dtype"])
 
 class MPI_Interface:
     def __init__(self, mpi, required=False, log=None):
-        self.log = log or logging.getLogger(__name__)
+        self.log = log or vlog.getLogger(__name__)
         if mpi == "mpi4py":
             mpi = self._import_mpi4py(required=required)
         if mpi:
@@ -47,22 +47,22 @@ class MPI_Interface:
             self.log.debug("mpi4py not found.")
             return None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.size
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.enabled
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self.size > 1
 
     @property
-    def disabled(self):
+    def disabled(self) -> bool:
         return not self.enabled
 
     @property
-    def is_master(self):
+    def is_master(self) -> bool:
         return self.rank == 0
 
     def get_new_tag(self):

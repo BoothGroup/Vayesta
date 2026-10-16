@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 import itertools
 import numpy as np
 import scipy
@@ -8,7 +8,7 @@ import pyscf.symm
 from vayesta.core.util import AbstractMethodError, einsum
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 BOHR = 0.529177210903
 

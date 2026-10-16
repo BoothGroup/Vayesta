@@ -1,11 +1,13 @@
-import logging
+from vayesta.core import vlog
 import numpy as np
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
-def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
+def recursive_block_svd(
+    a: np.ndarray, n: int, tol: float = 1e-10, maxblock: int = 100
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Perform SVD of rectangular, offdiagonal blocks of a matrix recursively.
 
     Parameters

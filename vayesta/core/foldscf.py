@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 import copy
 import tempfile
 
@@ -14,7 +14,7 @@ import pyscf.pbc.tools
 
 from vayesta.core.util import ImaginaryPartError, OrthonormalityError, dot, einsum
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def fold_scf(kmf, *args, **kwargs):

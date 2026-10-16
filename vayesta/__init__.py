@@ -25,7 +25,7 @@ from vayesta.mpi import mpi
 from vayesta.core import vlog
 
 vlog.init_logging()
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 # Avoids Python's last-resort handler printing to stderr if logging is not set up
 log.addHandler(logging.NullHandler())
 
