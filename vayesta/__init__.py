@@ -24,40 +24,89 @@ from vayesta.mpi import mpi
 # Logging
 from vayesta.core import vlog
 
-
-if args.output_dir:
-    os.makedirs(args.output_dir, exist_ok=True)
-
 vlog.init_logging()
 log = logging.getLogger(__name__)
-log.setLevel(args.log_level)
+# Avoids Python's last-resort handler printing to stderr if logging is not set up
+log.addHandler(logging.NullHandler())
 
-fmt = vlog.VFormatter(indent=True)
-# Log to stream
-if not args.quiet and mpi.is_master:
-    # Everything except logging.OUTPUT goes to stderr:
-    errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
-    errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
-    log.addHandler(errh)
-    # Log level logging.OUTPUT to stdout
-    outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
-    outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
-    log.addHandler(outh)
-# Log to file
-if args.log or not mpi.is_master:
-    logname = args.log or "output"
-    if args.output_dir:
-        logname = os.path.join(args.output_dir, logname)
-    log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
-# Error handler
-errlog = args.errlog
-if errlog:
-    errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
-    if args.output_dir:
-        errlog = os.path.join(args.output_dir, errlog)
-    errhandler = vlog.VFileHandler(errlog, formatter=errfmt, add_mpi_rank=False)
-    errhandler.setLevel(args.errlog_level)
-    log.addHandler(errhandler)
+# Handlers added by setup_logging
+_handlers = []
+errhandler = None
+
+
+def setup_logging(log_level=None, logfile=None, errfile=None, errfile_level=None, quiet=None, output_dir=None) -> None:
+    """Set up the handlers of the Vayesta logger.
+
+    This is called on import of Vayesta, using the command line arguments, unless the environment variable
+    `VAYESTA_SETUP_LOGGING` is set to 0. It can be called again to reconfigure logging, in which case the handlers
+    added by the previous call are removed.
+
+    Parameters
+    ----------
+    log_level : int, optional
+        Log level of the Vayesta logger. Default: command line argument `--log-level` (or `-v`, `-vv`, `-vvv`).
+    logfile : str or False, optional
+        Name of the log file, or False for no log file. On MPI ranks other than the master rank, a log file is always
+        written. Default: command line argument `--log`.
+    errfile : str or False, optional
+        Name of the error log file, or False for no error log file. Default: command line argument `--errlog`.
+    errfile_level : int, optional
+        Log level of the error log file. Default: command line argument `--errlog-level`.
+    quiet : bool, optional
+        If True, do not log to stdout and stderr. Default: command line argument `-q`.
+    output_dir : str, optional
+        Directory of the log files. Default: command line argument `-o`.
+    """
+    global errhandler
+    log_level = args.log_level if log_level is None else log_level
+    logfile = args.log if logfile is None else logfile
+    errfile = args.errlog if errfile is None else errfile
+    errfile_level = args.errlog_level if errfile_level is None else errfile_level
+    quiet = args.quiet if quiet is None else quiet
+    output_dir = args.output_dir if output_dir is None else output_dir
+
+    for hdl in _handlers:
+        log.removeHandler(hdl)
+        hdl.close()
+    _handlers.clear()
+    errhandler = None
+
+    def add_handler(hdl):
+        log.addHandler(hdl)
+        _handlers.append(hdl)
+
+    log.setLevel(log_level)
+    fmt = vlog.VFormatter(indent=True)
+    # Log to stream
+    if not quiet and mpi.is_master:
+        # Everything except logging.OUTPUT goes to stderr:
+        errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
+        errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
+        add_handler(errh)
+        # Log level logging.OUTPUT to stdout
+        outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
+        outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
+        add_handler(outh)
+    if (logfile or errfile or not mpi.is_master) and output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    # Log to file
+    if logfile or not mpi.is_master:
+        logname = logfile or "output"
+        if output_dir:
+            logname = os.path.join(output_dir, logname)
+        add_handler(vlog.VFileHandler(logname, formatter=fmt))
+    # Error handler
+    if errfile:
+        errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
+        if output_dir:
+            errfile = os.path.join(output_dir, errfile)
+        errhandler = vlog.VFileHandler(errfile, formatter=errfmt, add_mpi_rank=False)
+        errhandler.setLevel(errfile_level)
+        add_handler(errhandler)
+
+
+if os.getenv("VAYESTA_SETUP_LOGGING", "1") != "0":
+    setup_logging()
 
 # Print Logo, unless interactive Python interpreter
 is_interactive = hasattr(sys, "ps1")
@@ -153,11 +202,15 @@ def new_log(logname, fmt=None, remove_existing=True):
         fmt = vlog.VFormatter(indent=True)
     if remove_existing:
         for hdl in log.handlers[:]:
-            # Do not remove error handler
-            if hdl is errhandler:
+            # Do not remove error handler and NullHandler
+            if hdl is errhandler or isinstance(hdl, logging.NullHandler):
                 continue
             log.removeHandler(hdl)
-    log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
+            if hdl in _handlers:
+                _handlers.remove(hdl)
+    hdl = vlog.VFileHandler(logname, formatter=fmt)
+    log.addHandler(hdl)
+    _handlers.append(hdl)
 
 
 # --- NumPy
