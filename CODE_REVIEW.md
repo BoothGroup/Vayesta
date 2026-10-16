@@ -12,7 +12,7 @@ The physics code is largely sound; the problems are structural. Four themes acco
 3. **Control flow by monkey-patching.** `optimize_chempot`, `pdmet_scmf`, `brueckner_scmf`, `qpewdmet_scmf`, `ClusterSolver.optimize_cpt` and `Embedding(overwrite=...)` all replace `self.kernel` on the instance; DMET/EDMET instead re-implement the whole kernel loop. Three self-consistency mechanisms coexist and are not composable.
 4. **Shared mutable state in the helpers.** Option-dict defaults are shared between all instances, method caches are class-level, `log_method` freezes the first caller's logger, and `import vayesta` rewrites `sys.argv`, mutates the stdlib `logging` module and writes log files into the working directory.
 
-About 60 concrete bugs were confirmed; the most consequential are the ones that silently change numbers (§3.1) rather than the ones that crash.
+About 70 concrete bugs were confirmed; the most consequential are the ones that silently change numbers (§3.1) rather than the ones that crash.
 
 ## 2. Design and dependency problems
 
@@ -62,6 +62,7 @@ The real inputs of a bath are `S`, `F`, `dm1`, `c_frag`, `c_env`, an integral ge
 
 | Where | Problem |
 |---|---|
+| `core/types/wf/cisd.py:66-76` | Projected CISD → CCSD conversion is mathematically wrong (details in §3.3): with `solver="CISD"`/`"FCI"` the projected amplitudes and the global-wavefunction 1-RDM are off at the 1e-2 level (run). |
 | `solver/hamiltonian.py:737` | UHF CD-ERI compression: `(compress_cderi(cderi[0]), compress_cderi(cderi[0]))` replaces the beta block with alpha. Trigger: `UMP2` with `compress_cderi=True`. |
 | `rpa/rirpa/__init__.py:28` + `edmet/edmet.py:232,389` | The factory returns the dRPA-only class unless `rixc` is a *keyword*; EDMET passes the xc kernel positionally, so DF-EDMET self-consistency runs plain dRPA every iteration. |
 | `rpa/rirpa/RIRPA.py:208`, `RIdRRPA.py:26,104` | `kernel_moms` ignores `alpha`; adiabatic-connection integration is evaluated at α=1 at every point. |
@@ -117,7 +118,23 @@ The real inputs of a bath are `S`, `F`, `dm1`, `c_frag`, `c_env`, an integral ge
 
 ### 3.3 Wavefunction / RDM layer
 
-_(pending: findings from the review of `core/types`, `core/qemb/rdm.py`, `ewf/rdm.py`, `ewf/urdm.py`, `ewf/amplitudes.py`, `ewf/icmp2.py`, `ewf/ccsd_t.py`, `core/vpyscf` will be added here)_
+The amplitude algebra itself checks out: `t_to_c.py`, all `make_rdm1/2` conventions, CISD↔CCSD round trips and every RHF/UHF `ewf/rdm.py`/`urdm.py` routine reproduce PySCF (U)CCSD densities to ≤2e-13 with a full bath. The bugs are in conversions and plumbing around them.
+
+| Where | Problem |
+|---|---|
+| `core/types/wf/cisd.py:66-76,151-166` | `as_ccsd()` of a *projected* CISD wavefunction restores (`PᵀP` + symmetrisation), converts, then re-projects; the result is not `P·(c2/c0 − t1t1)`. Run (H₂O/6-31G, full bath): `pwf.as_ccsd().t2` vs `wf.as_ccsd().project(P).t2` differs by 1.2e-2 for `solver="CISD"` (0 for CCSD), and `make_rdm1_ccsd_global_wf` is 1.7e-2 from the exact CISD 1-RDM vs 1.1e-3 for the `slow=True` route. Affects `solver="CISD"` and `"FCI"` (FCI is converted to CISD *before* projection at `ewf/fragment.py:266-281`). Fix: convert first, project last, as is done for CCSDTQ. |
+| `core/types/wf/ccsd.py:162-165` | `as_unrestricted`: `t1, t2 = self.t1.copy, self.t2.copy()` (method not called, arguments ignored); returns a bound method as `t1`. |
+| `core/types/wf/ccsd.py:101-107`, `cisd.py:72,166`, `mp2.py` | `multiply` scales `t` and `l` in place, but CISD/MP2 `as_ccsd` set `l1, l2 = t1, t2` (same objects): `wf_factor=2` scales by 4. `RMP2.multiply` mutates the caller's array; the U variants allocate. |
+| `ewf/fragment.py:314` + `ewf/ccsd_t.py:5,37` | `calc_e_ccsd_t_corr=True` calls `calc_fragment_ccsd_t_energy(self, t1, t2)` but the function takes `(fragment, **kwargs)` → `TypeError`; with kwargs it hits an undefined `t2T`. The (T) routine itself matches PySCF to 1e-9. |
+| `core/types/wf/cisd.py:164` | `UCISD.as_ccsd` 4-tuple branch uses `c2ab` for `t2ba`; broadcast error when n_α ≠ n_β, silently wrong otherwise. |
+| `core/types/wf/ccsd.py:335` | `UCCSD.as_cisd` 4-tuple branch multiplies the `t1t1` term by `c0²`. |
+| `core/types/wf/rdm.py:140-143` | `URDM_WaveFunction.dm2ba` returns the ββ block for a 3-tuple. |
+| `ewf/urdm.py:63-79` | `make_rdm1_ccsd(ba_order="ab")` transposes `t2xba` but the einsums assume the old layout → `ValueError`. |
+| `core/qemb/rdm.py:43-46` (and `:86-98,240-259,331-357`) | After `mpi.nreduce(..., target=...)` non-target ranks hold `None` and then index it; `ewf/rdm.py:95` guards this, `qemb/rdm.py` does not. |
+| `core/types/bosonic_orbitals.py:54` | `self.forbitals = self.forbitals` → `AttributeError` for spin-orbital input. |
+| `core/types/wf/rdm.py:84,227` | `RDM_WaveFunction.project(projector, inplace)` has no default unlike every other class; `RFCI.project` applies a one-body operator (different semantics) and never records the projector. |
+| `core/types/wf/mp2.py:119-124`, `ccsdtq.py:288` | `RMP2.as_unrestricted` drops the projector and aliases `t2aa is t2bb`; `RCCSDTQ.as_cisd(c0)` ignores `c0`; `project.symmetrize_c2(inplace=True)` never works in place. |
+| `core/vpyscf/*` | Verbatim copies of PySCF 2.14 `ccsd_rdm.py`/`uccsd_rdm.py` with one drift (`_rdm2_mo2ao` conjugation order, wrong for complex orbitals). PySCF now has the `with_mf` keyword the copy was made for, and `ewf/fragment.py:430` already calls PySCF directly. |
 
 ## 4. Algorithmic and performance issues
 
@@ -128,7 +145,8 @@ _(pending: findings from the review of `core/types`, `core/qemb/rdm.py`, `ewf/rd
 5. **Chemical-potential loops**: `optimize_cpt` re-solves cold at every `brentq` step (10-30× solver cost); DMET's `DMETFragment.kernel` rebuilds the cluster per evaluation and calls the uncached `self.mf.get_fock()` (a full J/K build) per fragment per evaluation (`dmet/fragment.py:159`); one extra full solver pass after convergence (`dmet.py:189`).
 6. **EDMET non-DF** `get_eri_couplings` does a full-system `N⁵` transform per fragment per call at three call sites per iteration, keeping only `(ov|ov)`; the xc kernel is three dense `nao⁴` arrays with no size guard.
 7. **Repeated solves**: `delta-tailor` re-solves fragment *y*'s CCSD inside every consumer *x* (`coupling.py:506`).
-8. Smaller: `Fragmentation.__exit__` runs each `O(N³)` completeness check twice (`fragmentation.py:88-96`); `e_mf` recomputes `mf.energy_tot` on every access and `e_tot` re-evaluates it; `Fragment.nelectron` rebuilds `mf.make_rdm1()` per call inside loops; `ssrpa.py:238` forms full `nao⁴` MO ERIs to slice `(ov|ov)`; `projected_interactions.py:169` builds an `nao²·ncl²` intermediate; finite-bath correction re-transforms integrals that could be rotated.
+8. **Global density matrices**: `make_rdm1_ccsd_global_wf` re-does `pwf.as_ccsd()` (+`restore()`) for every (x, y) pair, i.e. `N_frag²` conversions each allocating `N_cl⁴` (`ewf/rdm.py:264-273`, `urdm.py:278-288`); `make_rdm2_ccsd_global_wf` only has the `slow` path (global `N⁴` T2/L2, then PySCF's full 2-RDM); `make_rdm2_ccsd_proj_lambda` and `make_rdm2_demo_*` accumulate a dense `N⁴` global 2-RDM with `N_frag × N⁵` einsums although the cumulant is only ever contracted with ERIs or projectors (`corrfunc.py:146-166` already does this fragment-locally); `make_fragment_dm2cumulant` reruns PySCF's `_gamma2_intermediates` (HDF5 temp files) on every call.
+9. Smaller: `Fragmentation.__exit__` runs each `O(N³)` completeness check twice (`fragmentation.py:88-96`); `e_mf` recomputes `mf.energy_tot` on every access and `e_tot` re-evaluates it; `Fragment.nelectron` rebuilds `mf.make_rdm1()` per call inside loops; `ssrpa.py:238` forms full `nao⁴` MO ERIs to slice `(ov|ov)`; `projected_interactions.py:169` builds an `nao²·ncl²` intermediate; finite-bath correction re-transforms integrals that could be rotated.
 
 ## 5. Tests, CI and packaging
 
@@ -141,12 +159,12 @@ _(pending: findings from the review of `core/types`, `core/qemb/rdm.py`, `ewf/rd
 
 ## 6. Recommendations (in order of leverage)
 
-1. **Fix the silent-number bugs in §3.1 first** and add a regression test for each (UMP2 `compress_cderi`, DF-EDMET with xc kernel, `get_fragments` filters, `electron-percent`, rectangular Hubbard2D, UHF EBCC rotation, `dm-t2only`).
+1. **Fix the silent-number bugs in §3.1 first** and add a regression test for each (projected CISD/FCI conversion, UMP2 `compress_cderi`, DF-EDMET with xc kernel, `get_fragments` filters, `electron-percent`, rectangular Hubbard2D, UHF EBCC rotation, `dm-t2only`). For the wavefunction layer the rule should be: convert to the CCSD-type container first, project last, and make `project`/`restore` pure functions that never alias or scale caller arrays.
 2. **Make `OptionsBase` safe**: `default_factory=lambda: dict(kwargs)`, copying `asdict`, and `update` that raises (or validates once) on unknown keys. This alone exposes the dead options.
 3. **Replace `util.cache`/`log_method`** with per-instance caches (`cached_property` or an explicit dict with invalidation) and a per-call logger lookup.
 4. **Move import-time behaviour into an explicit `vayesta.configure(...)`**: no argv parsing, no file handlers, no stdlib `logging` mutation (use `setLoggerClass`, keep level 30 as WARNING), no `git` subprocess at import.
 5. **Decouple the lower layers**: give `Bath`, `ClusterHamiltonian` and `ClusterSolver` explicit inputs and typed results (`SolverResult(wf, converged, moments, extras)`), and make the Fragment the only adapter. Unify `get_bath` signatures behind one `Truncation` object so `make_cluster` stops branching on `bathtype`.
 6. **One self-consistency mechanism**: a hook-based `Embedding.kernel`, a single `ChempotOptimizer` shared by `optimize_chempot`, DMET and EDMET, and SCMF as an outer loop that does not rebind methods.
 7. **Collapse R/U pairs** onto spin-generic code using `spinalg`, starting with `rdm.py`/`urdm.py`, `ssrpa`/`ssurpa`, `RIRPA`/`RIURPA` and the EB-FCI kernels; replace the 26 `np.ndim(...)` spin checks with `spinsym`.
-8. **Delete dead code**: counterpoise/BSSE, `coupledCCSD`, `direct_AC_integration` and the unused `calc_energy_correction` versions, `make_dmet_bath_fast`/`c_ref`/`nbath` bath paths, `tsymmetry.py` and the `Symmetry` class, `core/helper.py`, the unbuilt `libs/df`, `libs/ewf` sources, `DMETResults`/`EDMETResults`, and the commented-out blocks.
+8. **Delete dead code**: counterpoise/BSSE, `coupledCCSD`, `direct_AC_integration` and the unused `calc_energy_correction` versions, `make_dmet_bath_fast`/`c_ref`/`nbath` bath paths, `tsymmetry.py` and the `Symmetry` class, `core/helper.py`, `core/vpyscf` (PySCF copies), the unbuilt `libs/df`, `libs/ewf` sources, `DMETResults`/`EDMETResults`, and the commented-out blocks.
 9. **Tighten the gates**: enable `F821`/`F841` in ruff, promote the pyright rules to errors module by module, fix `assertAllclose`, run `veryslow` nightly, add an MPI job and a macOS job, and make the `dmet` extra either real or removed.
