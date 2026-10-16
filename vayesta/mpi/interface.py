@@ -47,22 +47,22 @@ class MPI_Interface:
             self.log.debug("mpi4py not found.")
             return None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.size
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.enabled
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self.size > 1
 
     @property
-    def disabled(self):
+    def disabled(self) -> bool:
         return not self.enabled
 
     @property
-    def is_master(self):
+    def is_master(self) -> bool:
         return self.rank == 0
 
     def get_new_tag(self):
