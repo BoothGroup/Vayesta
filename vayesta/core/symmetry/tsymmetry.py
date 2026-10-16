@@ -1,12 +1,12 @@
 """Translational symmetry module."""
 
-import logging
+from vayesta.core import vlog
 import itertools
 
 import numpy as np
 from pyscf.lib.parameters import BOHR
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def to_bohr(a, unit):

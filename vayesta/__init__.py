@@ -29,7 +29,7 @@ if args.output_dir:
     os.makedirs(args.output_dir, exist_ok=True)
 
 vlog.init_logging()
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 log.setLevel(args.log_level)
 
 fmt = vlog.VFormatter(indent=True)

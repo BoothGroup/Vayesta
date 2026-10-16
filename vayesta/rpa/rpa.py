@@ -4,7 +4,7 @@ Note that we only use the spin-block formulation of all matrices, rather than fu
 final diagonalisation is 2^3=8 times more expensive than hypothetically possible. However, this code is only for
 comparison."""
 
-import logging
+from vayesta.core import vlog
 from timeit import default_timer as timer
 
 import numpy as np
@@ -22,7 +22,7 @@ class RPA:
 
     def __init__(self, mf, log=None):
         self.mf = mf
-        self.log = log or logging.getLogger(__name__)
+        self.log = log or vlog.getLogger(__name__)
 
     @property
     def nocc(self):

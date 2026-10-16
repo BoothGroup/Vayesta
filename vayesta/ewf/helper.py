@@ -1,10 +1,10 @@
-import logging
+from vayesta.core import vlog
 
 import numpy as np
 
 from vayesta.core.util import einsum
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def orthogonalize_mo(c, s, tol=1e-6):

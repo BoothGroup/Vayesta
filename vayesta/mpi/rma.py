@@ -1,9 +1,9 @@
-import logging
+from vayesta.core import vlog
 from contextlib import contextmanager
 
 import numpy as np
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 class RMA_Dict:

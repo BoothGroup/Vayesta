@@ -1,4 +1,4 @@
-import logging
+from vayesta.core import vlog
 import numpy as np
 import pyscf
 import pyscf.cc
@@ -9,7 +9,7 @@ from vayesta.core.types import wf as wf_types
 import scipy.sparse.linalg
 from vayesta.core import spinalg
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def FCI_WaveFunction(mo, ci, **kwargs):

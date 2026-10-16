@@ -1,11 +1,12 @@
 import copy
 import logging
+from vayesta.core import vlog
 
 import numpy as np
 import scipy
 import scipy.linalg
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def update_mf(mf, dm1, canonicalize=True, inplace=False, damping=0.0, diis=None):

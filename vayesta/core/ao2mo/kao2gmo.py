@@ -6,7 +6,7 @@ Email:  max.nusspickel@gmail.com
 
 # Standard
 import ctypes
-import logging
+from vayesta.core import vlog
 
 # External
 import numpy as np
@@ -19,7 +19,7 @@ from vayesta.libs import libcore
 from vayesta.core.ao2mo import helper
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver=None):

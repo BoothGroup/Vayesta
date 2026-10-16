@@ -1,8 +1,8 @@
-import logging
+from vayesta.core import vlog
 import numpy as np
 
 
-log = logging.getLogger(__name__)
+log = vlog.getLogger(__name__)
 
 
 class SymmetryGroup:
