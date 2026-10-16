@@ -565,7 +565,7 @@ class Fragment:
         dm = dot(sc.T, dm1, sc)
         e, r = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e - norm)), 0, atol=2 * tol, rtol=0):
-            self.log.warn("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
+            self.log.warning("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
         e, r = e[::-1], r[:, ::-1]
         c_cluster = np.dot(c_cluster, r)
         c_cluster = fix_orbital_sign(c_cluster)[0]
@@ -1121,13 +1121,11 @@ class Fragment:
             Mole or Cell object with periodic boundary conditions removed
             and with ghost atoms added depending on `rmax` and `nimages`.
         """
+        from vayesta.misc.counterpoise import make_cp_mol
+
         if len(self.atoms) != 1:
             raise NotImplementedError
-        import vayesta.misc
-
-        return vayesta.misc.counterpoise.make_mol(
-            self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs
-        )
+        return make_cp_mol(self.mol, self.atoms[0], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
 
     # --- Orbital plotting
     # --------------------

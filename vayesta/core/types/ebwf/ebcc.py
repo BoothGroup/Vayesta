@@ -11,6 +11,7 @@ from vayesta.core import spinalg
 from vayesta.core.util import callif, replace_attr
 
 import ebcc
+import ebcc.util
 import numpy as np
 
 from copy import deepcopy
@@ -223,14 +224,9 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
 
     @property
     def t2ba(self):
-        return self.amplitudes.t2.abab.transpose(1, 0, 3, 2)
-
-    @property
-    def l2ba(self):
         if "baba" in self.amplitudes.t2:
             return self.amplitudes.t2.baba
-        else:
-            return self.t2ab.transpose(1, 0, 3, 2)
+        return self.t2ab.transpose(1, 0, 3, 2)
 
     @property
     def t2bb(self):

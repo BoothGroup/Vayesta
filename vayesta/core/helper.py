@@ -22,14 +22,14 @@ def orbital_sign_convention(mo_coeff: np.ndarray, inplace: bool = True) -> tuple
 def get_dtype_int(obj: np.ndarray | None) -> int:
     if obj is None:
         return 0
-    dtint = np.asarray(obj.dtype.char, dtype="a8").view(int)[()]
+    dtint = np.asarray(obj.dtype.char, dtype="S8").view(int)[()]
     return int(dtint)
 
 
 def get_dtype(dtint: int) -> np.dtype | None:
     if dtint == 0:
         return None
-    val = np.asarray(dtint).view("a8")[()]
+    val = np.asarray(dtint).view("S8")[()]
     dtype = np.dtype(val)
     return dtype
 
@@ -88,7 +88,8 @@ def unpack_arrays(packed: np.ndarray, dtype: DTypeLike = float, maxdim: int = 8)
             unpacked.append(None)
             continue
         shape = shape[:ndim]
-        size = np.prod(shape)
+        # Number of elements in units of the packed data type
+        size = np.prod(shape) * dtype.itemsize // packed.dtype.itemsize
         array, packed = np.hsplit(packed, [size])
         unpacked.append(array.view(dtype).reshape(shape))
     return unpacked

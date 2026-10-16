@@ -2,6 +2,8 @@ import sys
 import pytest
 import unittest
 
+import pyscf.scf
+
 import vayesta
 from vayesta import edmet
 from vayesta.tests.common import TestCase
@@ -160,6 +162,15 @@ class MolecularEDMETTest(TestCase):
         uemb.kernel()
 
         self._test_energy(uemb, known_values)
+
+
+@pytest.mark.fast
+class EDMETTypeTest(TestCase):
+    def test_rohf_converted_to_uedmet(self):
+        rohf = pyscf.scf.ROHF(testsystems.water_cation_sto3g.mol)
+        rohf.kernel()
+        emb = edmet.EDMET(rohf, solver="FCI")
+        self.assertIsInstance(emb, edmet.UEDMET)
 
 
 if __name__ == "__main__":

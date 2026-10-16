@@ -15,6 +15,7 @@ import pyscf.ci
 import pyscf.cc
 import pyscf.pbc
 import pyscf.pbc.tools
+import pyscf.pbc.tools.k2gamma
 import pyscf.lib
 
 from pyscf.mp.mp2 import _mo_without_core

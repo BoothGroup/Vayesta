@@ -561,9 +561,11 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
         # We are externally correcting from multiple fragments, but not projecting them
         # into their fragment spaces. This means we are at risk of double-counting the external
         # corrections.
-        solver.log.warn("Multiple external correcting fragments, but not fragment-projecting the resulting correction!")
-        solver.log.warn("This will likely lead to double-counting of external correction.")
-        solver.log.warn("Are you sure you want to do this?!")
+        solver.log.warning(
+            "Multiple external correcting fragments, but not fragment-projecting the resulting correction!"
+        )
+        solver.log.warning("This will likely lead to double-counting of external correction.")
+        solver.log.warning("Are you sure you want to do this?!")
 
     # CCSD uses exxdiv-uncorrected Fock matrix for residuals
     fock = emb.get_fock(with_exxdiv=False)

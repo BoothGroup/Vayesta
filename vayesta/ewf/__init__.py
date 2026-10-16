@@ -5,6 +5,7 @@ email:  max.nusspickel@gmail.com
 
 import pyscf
 import pyscf.scf
+import pyscf.pbc.scf
 from vayesta.core import vlog
 
 # from .ewf import EWF as REWF

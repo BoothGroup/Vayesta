@@ -10,6 +10,7 @@ import pyscf
 from pyscf import lib
 from pyscf.pbc import tools
 import pyscf.pbc.df
+import pyscf.pbc.tools
 
 from vayesta.core.util import ImaginaryPartError, OrthonormalityError, dot, einsum
 

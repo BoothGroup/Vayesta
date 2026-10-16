@@ -5,6 +5,7 @@ import pyscf.scf
 
 import vayesta
 from vayesta.core.scmf.scmf import SCMF
+from vayesta.core.util import SymmetryError
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 from vayesta.core.qemb.self_energy import make_self_energy_1proj, make_self_energy_2proj
@@ -153,7 +154,7 @@ class QPEWDMET_RHF(SCMF):
                 self.emb, use_sym=self.use_sym, eta=self.eta
             )
         else:
-            return NotImplementedError()
+            raise NotImplementedError(f"proj={self.proj} is not implemented; use proj=1 or proj=2")
         phys = self.emb.mo_coeff.T @ self.fock @ self.emb.mo_coeff + self.static_self_energy
         gf = Lehmann(*self.self_energy.diagonalise_matrix_with_projection(phys), chempot=self.self_energy.chempot)
         dm = gf.occupied().moment(0) * 2.0

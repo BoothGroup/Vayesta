@@ -12,7 +12,8 @@ from vayesta.tests import testsystems
 
 class EwDMET_Bath_Test(TestCase):
     def test_ewdmet_bath(self):
-        return True
+        """The EwDMET bath of order k reproduces the fragment moments of the Fock matrix
+        (projected into the occupied or virtual environment) up to order 2k+1."""
         mf = testsystems.ethanol_ccpvdz.rhf()
 
         emb = Embedding(mf)
@@ -21,33 +22,28 @@ class EwDMET_Bath_Test(TestCase):
         dmet_bath = DMET_Bath(frag, dmet_threshold=1e-8)
         dmet_bath.kernel()
 
-        # Exact moments
-        ovlp = mf.get_ovlp()
-        moments = np.arange(12)
+        fock = mf.get_fock()
         c_frag = frag.c_frag
-        csc = np.linalg.multi_dot((c_frag.T, ovlp, mf.mo_coeff))
-        mom_full = np.einsum("xi,ik,yi->kxy", csc, np.power.outer(mf.mo_energy, moments), csc)
+        nfrag = c_frag.shape[-1]
 
-        # Test bath orbitals up to kmax = 4
-        for kmax in range(0, 4):
-            ewdmet_bath = EwDMET_Bath(frag, dmet_bath, max_order=kmax)
-            ewdmet_bath.kernel()
+        def get_moments(c, nmom):
+            f = np.linalg.multi_dot((c.T, fock, c))
+            moms = [np.eye(f.shape[0])]
+            for n in range(1, nmom):
+                moms.append(np.dot(moms[-1], f))
+            return np.asarray([m[:nfrag, :nfrag] for m in moms])
 
-            c_cluster = np.hstack((ewdmet_bath.c_cluster_occ, ewdmet_bath.c_cluster_vir))
-            n_cluster = c_cluster.shape[-1]
-            assert np.allclose(np.linalg.multi_dot((c_cluster.T, ovlp, c_cluster)) - np.eye(n_cluster), 0)
-
-            f_cluster = np.linalg.multi_dot((c_cluster.T, mf.get_fock(), c_cluster))
-            e, r = np.linalg.eigh(f_cluster)
-            c_cluster_mo = np.dot(c_cluster, r)
-
-            csc = np.linalg.multi_dot((c_frag.T, ovlp, c_cluster_mo))
-            mom_cluster = np.einsum("xi,ik,yi->kxy", csc, np.power.outer(e, moments), csc)
-
-            # Check "2n + 1"
-            for order in range(2 * kmax + 2):
-                print("Testing EwDMET bath: kmax= %d moment= %d" % (kmax, order))
-                self.assertIsNone(np.testing.assert_allclose(mom_cluster[order], mom_full[order], atol=1e-7, rtol=1e-7))
+        for occtype in ("occupied", "virtual"):
+            c_env = dmet_bath.c_env_occ if occtype == "occupied" else dmet_bath.c_env_vir
+            mom_full = get_moments(np.hstack((c_frag, c_env)), 10)
+            ewdmet_bath = EwDMET_Bath(frag, dmet_bath, occtype, max_order=4)
+            for kmax in range(0, 4):
+                c_bath = ewdmet_bath.get_bath(kmax)[0]
+                c_cluster = np.hstack((c_frag, c_bath))
+                n_cluster = c_cluster.shape[-1]
+                self.assertAllclose(np.linalg.multi_dot((c_cluster.T, mf.get_ovlp(), c_cluster)), np.eye(n_cluster))
+                mom_cluster = get_moments(c_cluster, 2 * kmax + 2)
+                self.assertAllclose(mom_cluster, mom_full[: 2 * kmax + 2], atol=1e-7, rtol=1e-7)
 
 
 class MP2_BNO_Test(TestCase):

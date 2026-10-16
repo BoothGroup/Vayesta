@@ -8,6 +8,7 @@ import numpy as np
 # Internal libaries
 import pyscf
 import pyscf.cc
+import vayesta.core.ao2mo.helper
 
 # Local modules
 import vayesta

@@ -5,6 +5,7 @@ email:  cjcargillscott@gmail.com
 
 import pyscf
 import pyscf.scf
+import pyscf.pbc.scf
 from vayesta.core import vlog
 
 from vayesta.edmet.edmet import REDMET
@@ -19,5 +20,5 @@ def EDMET(mf, *args, **kwargs):
         return UEDMET(mf, *args, **kwargs)
     elif isinstance(mf, (pyscf.scf.rohf.ROHF, pyscf.pbc.scf.rohf.ROHF, pyscf.pbc.scf.krohf.KROHF)):
         log.warning("Converting ROHF reference to UHF")
-        return UEMET(mf.to_uhf(), *args, **kwargs)
+        return UEDMET(mf.to_uhf(), *args, **kwargs)
     return REDMET(mf, *args, **kwargs)

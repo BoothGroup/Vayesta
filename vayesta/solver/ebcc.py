@@ -7,6 +7,8 @@ from vayesta.core.types import WaveFunction, CCSD_WaveFunction, EBCC_WaveFunctio
 from vayesta.core.util import dot, einsum
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
 import ebcc
+import ebcc.ham.base
+import ebcc.util
 
 
 class RERIs(ebcc.ham.base.BaseERIs, ebcc.ham.base.BaseRHamiltonian):
