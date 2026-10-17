@@ -13,11 +13,9 @@ Log levels (* are custom levels):
 
 Name            Level           Usage
 ----            -----           -----
-FATAL   (*)     100             For errors which will raise a non-recoverable Exception
-CRITICAL        50              For errors which will are non-recoverable
+CRITICAL        50              For errors which will are non-recoverable (`fatal` is an alias)
 ERROR           40              For errors which are likely non-recoverable
-WARNING         30              For possible errors and important information
-DEPRECATED      30              For deprecated code
+WARNING         30              For possible errors and important information (`deprecated` is logged once)
 OUTPUT  (*)     25              Main result level - the only level which by default gets streamed to stdout
 INFO            20              Information, readable to users
 INFOV   (*)     15  (-v)        Verbose information, readable to users
@@ -29,11 +27,9 @@ TRACE   (*)      1  (-vvv)      To trace function flow
 """
 
 LVL_PREFIX = {
-    "FATAL": "FATAL",
     "CRITICAL": "CRITICAL",
     "ERROR": "ERROR",
     "WARNING": "WARNING",
-    "DEPRECATED": "WARNING",
     "OUT": "OUTPUT",
     "DEBUG": "DEBUG",
     "DEBUGV": "DEBUG",
@@ -206,17 +202,19 @@ def init_logging():
     """Call this to initialize and configure logging, when importing Vayesta.
 
     This will:
-    1) Add four new logging levels:
-        `output`, `infov`, `timing`, `debugv`, and `timingv`.
+    1) Add new logging levels and Logger methods:
+        `output`, `infov`, `timing`, `debugv`, `timingv`, and `trace`.
+       The standard levels are not changed. The method `deprecated` logs a message once, with level WARNING.
     2) Adds the attribute `indentLevel` to the root logger and two new Logger methods:
         `setIndentLevel`, `changeIndentLevel`.
     """
 
     # Add new log levels
     # ------------------
-    def add_log_level(level, name, log_once=False):
-        logging.addLevelName(level, name.upper())
-        setattr(logging, name.upper(), level)
+    def add_log_level(level, name, log_once=False, new_level=True):
+        if new_level:
+            logging.addLevelName(level, name.upper())
+            setattr(logging, name.upper(), level)
 
         def logForLevel(self, message, *args, **kwargs):
             if self.isEnabledFor(level):
@@ -231,8 +229,7 @@ def init_logging():
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
 
-    add_log_level(100, "fatal")
-    add_log_level(30, "deprecated", log_once=True)
+    add_log_level(logging.WARNING, "deprecated", log_once=True, new_level=False)
     add_log_level(25, "output")
     add_log_level(15, "infov")
     add_log_level(12, "timing")
