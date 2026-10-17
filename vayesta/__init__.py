@@ -26,7 +26,7 @@ from vayesta.core import vlog
 
 vlog.init_logging()
 log = vlog.getLogger(__name__)
-# Avoids Python's last-resort handler printing to stderr if logging is not set up
+# Avoids Python's last-resort handler printing to stderr if setup_logging adds no handlers
 log.addHandler(logging.NullHandler())
 
 # Handlers added by setup_logging
@@ -37,9 +37,8 @@ errhandler = None
 def setup_logging(log_level=None, logfile=None, errfile=None, errfile_level=None, quiet=None, output_dir=None) -> None:
     """Set up the handlers of the Vayesta logger.
 
-    This is called on import of Vayesta, using the command line arguments, unless the environment variable
-    `VAYESTA_SETUP_LOGGING` is set to 0. It can be called again to reconfigure logging, in which case the handlers
-    added by the previous call are removed.
+    This is called on import of Vayesta, using the command line arguments. It can be called again to reconfigure
+    logging, in which case the handlers added by the previous call are removed.
 
     Parameters
     ----------
@@ -105,8 +104,7 @@ def setup_logging(log_level=None, logfile=None, errfile=None, errfile_level=None
         add_handler(errhandler)
 
 
-if os.getenv("VAYESTA_SETUP_LOGGING", "1") != "0":
-    setup_logging()
+setup_logging()
 
 # Print Logo, unless interactive Python interpreter
 is_interactive = hasattr(sys, "ps1")

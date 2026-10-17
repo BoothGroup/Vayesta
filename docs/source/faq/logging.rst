@@ -23,7 +23,10 @@ from the command line:
 
    vayesta.setup_logging(log_level=logging.DEBUG, logfile="job.log", errfile=False)
 
-When Vayesta is used as part of another program, the automatic setup can be switched off by setting the
-environment variable ``VAYESTA_SETUP_LOGGING=0`` before importing Vayesta.
-Vayesta then only adds a ``logging.NullHandler`` to its logger ``"vayesta"``, and its messages are handled
-by the logging configuration of the program.
+When Vayesta is used as part of another program, its terminal output and log files can be switched off with
+
+.. code-block:: python
+
+   vayesta.setup_logging(quiet=True, logfile=False, errfile=False)
+
+Its messages are then only handled by the logging configuration of the program, via the logger ``"vayesta"``.

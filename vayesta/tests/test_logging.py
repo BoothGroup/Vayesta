@@ -1,8 +1,4 @@
 import logging
-import os
-import subprocess
-import sys
-
 import pytest
 
 import vayesta
@@ -62,10 +58,12 @@ def test_setup_logging_level(restore_logging):
     assert vayesta.log.level == logging.DEBUG
 
 
-def test_no_setup_logging_on_import():
-    env = dict(os.environ, VAYESTA_SETUP_LOGGING="0")
-    code = "import vayesta; print(len(vayesta._handlers), [type(h).__name__ for h in vayesta.log.handlers])"
-    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True)
-    assert out.stdout.split() == ["0", "['NullHandler']"]
-    # Nothing is logged to the terminal
-    assert out.stderr == ""
+def test_setup_logging_disabled(capsys, caplog, restore_logging):
+    vayesta.setup_logging(logfile=False, errfile=False, quiet=True)
+    assert vayesta._handlers == []
+    with caplog.at_level(logging.WARNING):
+        vayesta.log.warning("a warning")
+    # Nothing is logged to the terminal, but the message reaches the handlers of the program
+    captured = capsys.readouterr()
+    assert captured.out == captured.err == ""
+    assert [r.getMessage() for r in caplog.records] == ["a warning"]
