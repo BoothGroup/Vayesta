@@ -16,4 +16,5 @@ Here, we cover a few selected additional questions on the setup and workings.
    :maxdepth: 1
 
    blas
+   logging
    mpi4py
