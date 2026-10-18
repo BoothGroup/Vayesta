@@ -1,9 +1,12 @@
 import sys
-import os.path
+import os
 import logging
 import subprocess
 import platform
 import importlib
+from pathlib import Path
+from types import ModuleType
+from typing import Literal
 
 from vayesta.core import cmdargs
 from vayesta.mpi import init_mpi
@@ -31,51 +34,87 @@ log.addHandler(logging.NullHandler())
 
 # --- Required and optional packages
 
-
 import numpy
 import scipy
 import h5py
 import pyscf
 
 
-def import_package(name, required=True):
+def import_optional(name: str) -> ModuleType | None:
+    """Import an optional package, or return None if it is not installed."""
     try:
-        return importlib.import_module(name.lower())
+        return importlib.import_module(name)
     except ImportError:
-        if required:
-            raise
         return None
 
 
-# Name -> module, or None if an optional package is not installed. Logged by setup
-_packages = {"NumPy": numpy, "SciPy": scipy, "h5py": h5py, "PySCF": pyscf}
-_packages.update({name: import_package(name, False) for name in ("mpi4py", "cvxpy", "dyson", "ebcc", "pygnme")})
-dyson = _packages["dyson"]
-ebcc = _packages["ebcc"]
+_required_packages: dict[str, ModuleType] = {"NumPy": numpy, "SciPy": scipy, "h5py": h5py, "PySCF": pyscf}
+_optional_packages: dict[str, ModuleType | None] = {
+    name: import_optional(name.lower()) for name in ("mpi4py", "cvxpy", "dyson", "ebcc", "pygnme")
+}
+dyson = _optional_packages["dyson"]
+ebcc = _optional_packages["ebcc"]
 
 
-def get_git_hash(dir):
-    git_dir = os.path.join(dir, ".git")
-    cmd = ["git", "--git-dir=%s" % git_dir, "rev-parse", "--short", "HEAD"]
+def get_git_hash(path: str | os.PathLike[str]) -> str:
+    """Short git hash of the repository at `path`, or "<Not Found>"."""
+    cmd = ["git", f"--git-dir={Path(path) / '.git'}", "rev-parse", "--short", "HEAD"]
     try:
-        githash = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT).rstrip()
+        return subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT).rstrip()
     except (subprocess.CalledProcessError, OSError):
         # OSError: git is not installed
-        githash = "<Not Found>"
-    return githash
+        return "<Not Found>"
+
+
+def _system_info() -> str:
+    def package_line(name: str, package: ModuleType | None) -> str:
+        if package is None:
+            return f"  * {name:<10}  not found"
+        return f"  * {name:<10}  v{package.__version__:<8}  location: {Path(package.__file__ or '').parent}"
+
+    lines = ["Required packages:"]
+    lines += [package_line(name, package) for name, package in _required_packages.items()]
+    lines += ["Optional packages:"]
+    lines += [package_line(name, package) for name, package in _optional_packages.items()]
+    lines += ["Git hashes:"]
+    repos = {"Vayesta": Path(__file__).parent.parent}
+    for name, package in (("PySCF", pyscf), ("Dyson", dyson), ("EBCC", ebcc)):
+        repos[name] = Path(package.__file__ or "").parent.parent if package is not None else None
+    for name, repo in repos.items():
+        lines.append(f"  * {name + ':':<9} {get_git_hash(repo) if repo is not None else '<Not Found>'}")
+    lines.append(f"System:  node= {platform.node()}  processor= {platform.processor()}")
+    if mpi:
+        lines.append(f"MPI:  rank= {mpi.rank}  size= {mpi.size}  node= {platform.node()}")
+    lines.append("Environment variables:")
+    lines.append(f"  OMP_NUM_THREADS= {os.getenv('OMP_NUM_THREADS')}")
+    return "\n".join(lines)
+
+
+def info() -> str:
+    """Return the versions of Vayesta and its dependencies, and information about the system.
+
+    Useful for bug reports: `print(vayesta.info())`.
+    """
+    return f"Vayesta version {__version__}\n{_system_info()}"
 
 
 # --- Setup
 
 # Handlers added by setup and new_log
-_handlers = []
-errhandler = None
+_handlers: list[logging.Handler] = []
+errhandler: logging.Handler | None = None
 
 
 def setup(
-    log_level=None, logfile=None, errfile=None, errfile_level=None, quiet=None, output_dir=None, banner=True
+    log_level: int | None = None,
+    logfile: str | Literal[False] | None = None,
+    errfile: str | Literal[False] | None = None,
+    errfile_level: int | None = None,
+    quiet: bool | None = None,
+    output_dir: str | os.PathLike[str] | None = None,
+    log_info: bool = True,
 ) -> None:
-    """Set up the output of Vayesta: the handlers of the Vayesta logger, and NumPy's print options.
+    """Set up the output of Vayesta, i.e. the handlers of the Vayesta logger.
 
     This is called on import of Vayesta, using the command line arguments. It can be called again to reconfigure
     the output, in which case the handlers added by the previous call are removed.
@@ -93,26 +132,33 @@ def setup(
         Log level of the error log file. Default: command line argument `--errlog-level`.
     quiet : bool, optional
         If True, do not log to stdout and stderr. Default: command line argument `-q`.
-    output_dir : str, optional
+    output_dir : str or os.PathLike, optional
         Directory of the log files. Default: command line argument `-o`.
-    banner : bool, optional
-        If True, log the Vayesta logo (unless in an interactive interpreter) and, at debug level, the versions of the
-        dependencies and system information. Default: True.
+    log_info : bool, optional
+        If True, log the Vayesta version and, at debug level, the information returned by :func:`info`.
+        Default: True.
     """
-    log_level = args.log_level if log_level is None else log_level
-    logfile = args.log if logfile is None else logfile
-    errfile = args.errlog if errfile is None else errfile
-    errfile_level = args.errlog_level if errfile_level is None else errfile_level
-    quiet = args.quiet if quiet is None else quiet
-    output_dir = args.output_dir if output_dir is None else output_dir
+    _setup_handlers(
+        log_level=args.log_level if log_level is None else log_level,
+        logfile=args.log if logfile is None else logfile,
+        errfile=args.errlog if errfile is None else errfile,
+        errfile_level=args.errlog_level if errfile_level is None else errfile_level,
+        quiet=args.quiet if quiet is None else quiet,
+        output_dir=args.output_dir if output_dir is None else output_dir,
+    )
+    if log_info:
+        log.info("Vayesta version %s", __version__)
+        log.debug(_system_info())
 
-    _setup_handlers(log_level, logfile, errfile, errfile_level, quiet, output_dir)
-    if banner:
-        _log_banner()
-    numpy.set_printoptions(linewidth=120)
 
-
-def _setup_handlers(log_level, logfile, errfile, errfile_level, quiet, output_dir):
+def _setup_handlers(
+    log_level: int,
+    logfile: str | Literal[False],
+    errfile: str | Literal[False],
+    errfile_level: int,
+    quiet: bool,
+    output_dir: str | os.PathLike[str],
+) -> None:
     global errhandler
     for hdl in _handlers:
         log.removeHandler(hdl)
@@ -120,7 +166,7 @@ def _setup_handlers(log_level, logfile, errfile, errfile_level, quiet, output_di
     _handlers.clear()
     errhandler = None
 
-    def add_handler(hdl):
+    def add_handler(hdl: logging.Handler) -> None:
         log.addHandler(hdl)
         _handlers.append(hdl)
 
@@ -136,64 +182,24 @@ def _setup_handlers(log_level, logfile, errfile, errfile_level, quiet, output_di
         outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
         outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
         add_handler(outh)
-    if (logfile or errfile or not mpi.is_master) and output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+    outdir = Path(output_dir) if output_dir else Path()
+    if logfile or errfile or not mpi.is_master:
+        outdir.mkdir(parents=True, exist_ok=True)
     # Log to file
     if logfile or not mpi.is_master:
-        logname = logfile or "output"
-        if output_dir:
-            logname = os.path.join(output_dir, logname)
-        add_handler(vlog.VFileHandler(logname, formatter=fmt))
+        add_handler(vlog.VFileHandler(str(outdir / (logfile or "output")), formatter=fmt))
     # Error handler
     if errfile:
         errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
-        if output_dir:
-            errfile = os.path.join(output_dir, errfile)
-        errhandler = vlog.VFileHandler(errfile, formatter=errfmt, add_mpi_rank=False)
+        errhandler = vlog.VFileHandler(str(outdir / errfile), formatter=errfmt, add_mpi_rank=False)
         errhandler.setLevel(errfile_level)
         add_handler(errhandler)
 
 
-def _log_banner():
-    # Logo, unless interactive Python interpreter
-    if not hasattr(sys, "ps1"):
-        logofile = os.path.abspath(os.path.join(os.path.dirname(__file__), "logo.txt"))
-        try:
-            with open(logofile, "r") as f:
-                logo = f.read()
-            logo = logo.rstrip() + " "
-        except FileNotFoundError:
-            log.error("%s not found.", logofile)
-            logo = ""
-        log.info(logo + "\n", "version " + __version__)
-
-    fmt = "  * %-10s  v%-8s  location: %s"
-    log.debug("Required packages:")
-    for name, package in _packages.items():
-        if package is None:
-            log.debug("%s not found.", name)
-        else:
-            log.debug(fmt, name, package.__version__, os.path.dirname(package.__file__))
-
-    log.debug("Git hashes:")
-    log.debug("  * Vayesta:  %s", get_git_hash(os.path.dirname(os.path.dirname(__file__))))
-    log.debug("  * PySCF:    %s", get_git_hash(os.path.dirname(os.path.dirname(pyscf.__file__))))
-    if dyson is not None:
-        log.debug("  * Dyson:    %s", get_git_hash(os.path.dirname(os.path.dirname(dyson.__file__))))
-    if ebcc is not None:
-        log.debug("  * EBCC:     %s", get_git_hash(os.path.dirname(os.path.dirname(ebcc.__file__))))
-
-    log.debug("System:  node= %s  processor= %s" % (platform.node(), platform.processor()))
-    if mpi:
-        log.debug("MPI:  rank= %d  size= %d  node= %s", mpi.rank, mpi.size, platform.node())
-    log.debug("Environment variables:")
-    omp_num_threads = os.getenv("OMP_NUM_THREADS")
-    if omp_num_threads is not None:
-        omp_num_threads = int(omp_num_threads)
-    log.debug("  OMP_NUM_THREADS= %s", omp_num_threads)
-
-
-def new_log(logname, fmt=None, remove_existing=True):
+def new_log(
+    logname: str | os.PathLike[str], fmt: logging.Formatter | None = None, remove_existing: bool = True
+) -> None:
+    """Log to a new file `logname`, by default replacing all handlers except the error log file."""
     if fmt is None:
         fmt = vlog.VFormatter(indent=True)
     if remove_existing:
@@ -204,7 +210,7 @@ def new_log(logname, fmt=None, remove_existing=True):
             log.removeHandler(hdl)
             if hdl in _handlers:
                 _handlers.remove(hdl)
-    hdl = vlog.VFileHandler(logname, formatter=fmt)
+    hdl = vlog.VFileHandler(str(logname), formatter=fmt)
     log.addHandler(hdl)
     _handlers.append(hdl)
 

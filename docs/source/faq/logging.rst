@@ -27,7 +27,9 @@ Vayesta's terminal output and log files can be switched off with
 
 .. code-block:: python
 
-   vayesta.setup(quiet=True, logfile=False, errfile=False, banner=False)
+   vayesta.setup(quiet=True, logfile=False, errfile=False, log_info=False)
 
 Its messages are then only handled by the logging configuration of the program, via the logger ``"vayesta"``.
 Note that this only applies after the call: ``import vayesta`` currently still sets up the default output first.
+
+To print the versions of Vayesta and its dependencies, e.g. for a bug report, use ``print(vayesta.info())``.
