@@ -1,3 +1,4 @@
+import io
 import logging
 
 import pytest
@@ -116,3 +117,46 @@ def test_new_log_without_errfile(tmp_path, restore_logging):
     # setup replaces the handler added by new_log
     vayesta.setup(logfile=False, errfile=False, quiet=True, log_info=False)
     assert vayesta._handlers == []
+
+
+def test_system_info_with_percent(monkeypatch, tmp_path, capsys, restore_logging):
+    monkeypatch.setenv("OMP_NUM_THREADS", "50%")
+    vayesta.setup(log_level=logging.DEBUG, logfile="log.txt", errfile=False, quiet=True, output_dir=str(tmp_path))
+    for hdl in vayesta._handlers:
+        hdl.flush()
+    assert "OMP_NUM_THREADS= 50%" in (tmp_path / "log.txt").read_text()
+    assert "Logging error" not in capsys.readouterr().err
+
+
+def test_system_info_not_collected_below_debug(monkeypatch, restore_logging):
+    def fail():
+        raise AssertionError("_system_info should not be called")
+
+    monkeypatch.setattr(vayesta, "_system_info", fail)
+    vayesta.setup(log_level=logging.INFO, logfile=False, errfile=False, quiet=True)
+
+
+def test_new_log_keeps_other_handlers(tmp_path, restore_logging):
+    vayesta.setup(logfile="old.txt", errfile=False, quiet=True, output_dir=str(tmp_path), log_info=False)
+    (old,) = vayesta._handlers
+    other = logging.StreamHandler(io.StringIO())
+    vayesta.log.addHandler(other)
+    # Open the old log file
+    vayesta.log.warning("before new_log")
+    assert old.stream is not None
+    vayesta.new_log(str(tmp_path / "new.txt"))
+    assert other in vayesta.log.handlers
+    assert old not in vayesta.log.handlers
+    # The replaced file handler is closed
+    assert old.stream is None
+
+
+def test_setup_failure_keeps_configuration(tmp_path, restore_logging):
+    vayesta.setup(logfile="log.txt", errfile=False, quiet=True, output_dir=str(tmp_path), log_info=False)
+    handlers = vayesta._handlers[:]
+    blocker = tmp_path / "file"
+    blocker.write_text("not a directory")
+    with pytest.raises(OSError):
+        vayesta.setup(logfile="log.txt", errfile=False, quiet=True, output_dir=str(blocker / "sub"), log_info=False)
+    assert vayesta._handlers == handlers
+    assert all(hdl in vayesta.log.handlers for hdl in handlers)

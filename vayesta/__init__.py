@@ -148,7 +148,9 @@ def setup(
     )
     if log_info:
         log.info("Vayesta version %s", __version__)
-        log.debug(_system_info())
+        # Only collect the system information (which runs git) if it is logged
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("%s", _system_info())
 
 
 def _setup_handlers(
@@ -160,17 +162,10 @@ def _setup_handlers(
     output_dir: str | os.PathLike[str],
 ) -> None:
     global errhandler
-    for hdl in _handlers:
-        log.removeHandler(hdl)
-        hdl.close()
-    _handlers.clear()
-    errhandler = None
-
-    def add_handler(hdl: logging.Handler) -> None:
-        log.addHandler(hdl)
-        _handlers.append(hdl)
-
-    log.setLevel(log_level)
+    # Create the new handlers first, such that the previous configuration stays in place if this fails
+    handlers: list[logging.Handler] = []
+    new_errhandler = None
+    add_handler = handlers.append
     fmt = vlog.VFormatter(indent=True)
     # Log to stream
     if not quiet and mpi.is_master:
@@ -191,25 +186,38 @@ def _setup_handlers(
     # Error handler
     if errfile:
         errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
-        errhandler = vlog.VFileHandler(str(outdir / errfile), formatter=errfmt, add_mpi_rank=False)
-        errhandler.setLevel(errfile_level)
-        add_handler(errhandler)
+        new_errhandler = vlog.VFileHandler(str(outdir / errfile), formatter=errfmt, add_mpi_rank=False)
+        new_errhandler.setLevel(errfile_level)
+        add_handler(new_errhandler)
+
+    # Replace the handlers of the previous configuration
+    for hdl in _handlers:
+        log.removeHandler(hdl)
+        hdl.close()
+    _handlers[:] = handlers
+    for hdl in handlers:
+        log.addHandler(hdl)
+    errhandler = new_errhandler
+    log.setLevel(log_level)
 
 
 def new_log(
     logname: str | os.PathLike[str], fmt: logging.Formatter | None = None, remove_existing: bool = True
 ) -> None:
-    """Log to a new file `logname`, by default replacing all handlers except the error log file."""
+    """Log to a new file `logname`.
+
+    By default, this replaces the handlers added by Vayesta, except the error log file. Handlers added by other code
+    are kept.
+    """
     if fmt is None:
         fmt = vlog.VFormatter(indent=True)
     if remove_existing:
-        for hdl in log.handlers[:]:
-            # Do not remove error handler and NullHandler
-            if hdl is errhandler or isinstance(hdl, logging.NullHandler):
+        for hdl in _handlers[:]:
+            if hdl is errhandler:
                 continue
             log.removeHandler(hdl)
-            if hdl in _handlers:
-                _handlers.remove(hdl)
+            hdl.close()
+            _handlers.remove(hdl)
     hdl = vlog.VFileHandler(str(logname), formatter=fmt)
     log.addHandler(hdl)
     _handlers.append(hdl)
