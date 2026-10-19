@@ -732,7 +732,10 @@ class UClusterHamiltonian(RClusterHamiltonian):
             # CDERIs over the auxiliary index.
             def compress_cderi(cd_a, cd_b):
                 naux = cd_a.shape[0]
-                assert cd_b.shape[0] == naux
+                if cd_b.shape[0] != naux:
+                    raise ValueError(
+                        "Alpha and beta CDERIs have different auxiliary dimensions: %d != %d" % (naux, cd_b.shape[0])
+                    )
                 size_a = cd_a[0].size
                 cd = np.hstack((cd_a.reshape(naux, size_a), cd_b.reshape(naux, -1)))
                 u, s, v = np.linalg.svd(cd, full_matrices=False)
@@ -742,8 +745,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 return cd[:, :size_a].reshape(-1, *cd_a.shape[1:]), cd[:, size_a:].reshape(-1, *cd_b.shape[1:])
 
             cderi = compress_cderi(*cderi)
-            if cderi_neg[0] is not None or cderi_neg[1] is not None:
-                assert cderi_neg[0] is not None and cderi_neg[1] is not None
+            if (cderi_neg[0] is None) != (cderi_neg[1] is None):
+                raise ValueError("Negative CDERI contribution is present in only one spin channel.")
+            if cderi_neg[0] is not None:
                 cderi_neg = compress_cderi(*cderi_neg)
 
         return cderi, cderi_neg
