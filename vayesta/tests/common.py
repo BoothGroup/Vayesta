@@ -18,7 +18,12 @@ class TestCase(unittest.TestCase):
     allclose_atol = 1e-8
     allclose_rtol = 1e-7
 
-    def assertAllclose(self, actual, desired, rtol=allclose_atol, atol=allclose_rtol, **kwargs):
+    def assertAllclose(self, actual, desired, rtol=None, atol=None, **kwargs):
+        # Resolve the defaults at call time, such that subclasses can override the class attributes:
+        if rtol is None:
+            rtol = self.allclose_rtol
+        if atol is None:
+            atol = self.allclose_atol
         # Compare multiple pairs of arrays:
         if isinstance(actual, (tuple, list)):
             for i in range(len(actual)):

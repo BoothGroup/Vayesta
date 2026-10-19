@@ -146,6 +146,9 @@ class Test_DM_UHF(Test_DM):
 class Test_DM_FCI(Test_DM):
     solver = "FCI"
     solver_opts = dict(conv_tol=1e-14)
+    # The reference FCI (see testsystems) is converged to 1e-12 in the energy only, which limits the agreement of the
+    # density matrices to ~1e-8
+    allclose_atol = 1e-7
 
     @classmethod
     def setUpClass(cls):
