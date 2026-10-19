@@ -727,18 +727,24 @@ class UClusterHamiltonian(RClusterHamiltonian):
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
             # provided the following approach has a lower scaling than this.
-            def compress_cderi(cd):
-                naux, n1, n2 = cd.shape
-                u, s, v = np.linalg.svd(cd.reshape(naux, n1 * n2), full_matrices=False)
+            # The two spin channels have to be compressed together, such that they share the same compressed
+            # auxiliary basis: the opposite-spin integrals (ia|JB) = sum_L (L|ia)(L|JB) contract the alpha and beta
+            # CDERIs over the auxiliary index.
+            def compress_cderi(cd_a, cd_b):
+                naux = cd_a.shape[0]
+                assert cd_b.shape[0] == naux
+                size_a = cd_a[0].size
+                cd = np.hstack((cd_a.reshape(naux, size_a), cd_b.reshape(naux, -1)))
+                u, s, v = np.linalg.svd(cd, full_matrices=False)
                 want = s > svd_threshold
                 self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
-                return einsum("n,nq->nq", s[want], v[want]).reshape(-1, n1, n2)
+                cd = einsum("n,nq->nq", s[want], v[want])
+                return cd[:, :size_a].reshape(-1, *cd_a.shape[1:]), cd[:, size_a:].reshape(-1, *cd_b.shape[1:])
 
-            cderi = (compress_cderi(cderi[0]), compress_cderi(cderi[0]))
-            if cderi_neg[0] is not None:
-                cderi_neg = (compress_cderi(cderi_neg[0]), cderi_neg[1])
-            if cderi_neg[1] is not None:
-                cderi_neg = (cderi_neg[0], compress_cderi(cderi_neg[1]))
+            cderi = compress_cderi(*cderi)
+            if cderi_neg[0] is not None or cderi_neg[1] is not None:
+                assert cderi_neg[0] is not None and cderi_neg[1] is not None
+                cderi_neg = compress_cderi(*cderi_neg)
 
         return cderi, cderi_neg
 
