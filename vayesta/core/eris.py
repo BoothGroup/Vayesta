@@ -20,6 +20,60 @@ def get_cderi(emb, mo_coeff, compact=False, blksize=None):
         return get_cderi_df(emb.mf, mo_coeff, compact=compact, blksize=blksize)
 
 
+def get_naux(df):
+    """Number of auxiliary functions of a density-fitting object."""
+    try:
+        return df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
+    except AttributeError:
+        return df.get_naoaux()
+
+
+def loop_cderi_ao(mf, blksize=None):
+    """Loop over blocks of the density-fitted three-center integrals (L|ab) in the AO basis.
+
+    Parameters
+    ----------
+    mf : pyscf.scf.SCF
+        Mean-field object with density fitting.
+    blksize : int, optional
+        Number of auxiliary functions per block. Default: blocks of 1 GB.
+
+    Yields
+    ------
+    blk : slice or None
+        Slice of the auxiliary index of the block. None for the negative-definite part of the Coulomb kernel, which
+        only exists for low-dimensional periodic systems and is yielded last.
+    lab : (nblk, nao, nao) array
+        Block of three-center integrals.
+    """
+    nao = mf.mol.nao
+    df = mf.with_df
+    if blksize is None:
+        blksize = max(int(1e9 / (nao * nao * 8)), 1)
+    # PBC:
+    if hasattr(df, "sr_loop"):
+        blk0 = 0
+        has_neg = False
+        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
+            assert np.allclose(labi, 0)
+            assert not has_neg  # There should be only one block with sign -1, which is the last block
+            labr = labr.reshape(-1, nao, nao)
+            if sign == 1:
+                blk1 = blk0 + labr.shape[0]
+                yield np.s_[blk0:blk1], labr
+                blk0 = blk1
+            elif sign == -1:
+                has_neg = True
+                yield None, labr
+        return
+    # No PBC:
+    blk0 = 0
+    for lab in df.loop(blksize=blksize):
+        blk1 = blk0 + lab.shape[0]
+        yield np.s_[blk0:blk1], pyscf.lib.unpack_tril(lab)
+        blk0 = blk1
+
+
 def get_cderi_df(mf, mo_coeff, compact=False, blksize=None):
     """Get density-fitted three-center integrals in MO basis."""
     if compact:
@@ -28,41 +82,14 @@ def get_cderi_df(mf, mo_coeff, compact=False, blksize=None):
     if np.ndim(mo_coeff[0]) == 1:
         mo_coeff = (mo_coeff, mo_coeff)
 
-    nao = mf.mol.nao
-    df = mf.with_df
-    try:
-        naux = df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
-    except AttributeError:
-        naux = df.get_naoaux()
-
-    cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
+    cderi = np.zeros((get_naux(mf.with_df), mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
     cderi_neg = None
-    if blksize is None:
-        blksize = int(1e9 / naux * nao * nao * 8)
-    # PBC:
-    if hasattr(df, "sr_loop"):
-        blk0 = 0
-        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
-            assert np.allclose(labi, 0)
-            assert cderi_neg is None  # There should be only one block with sign -1
-            labr = labr.reshape(-1, nao, nao)
-            if sign == 1:
-                blk1 = blk0 + labr.shape[0]
-                blk = np.s_[blk0:blk1]
-                blk0 = blk1
-                cderi[blk] = einsum("Lab,ai,bj->Lij", labr, mo_coeff[0], mo_coeff[1])
-            elif sign == -1:
-                cderi_neg = einsum("Lab,ai,bj->Lij", labr, mo_coeff[0], mo_coeff[1])
-        return cderi, cderi_neg
-    # No PBC:
-    blk0 = 0
-    for lab in df.loop(blksize=blksize):
-        blk1 = blk0 + lab.shape[0]
-        blk = np.s_[blk0:blk1]
-        blk0 = blk1
-        lab = pyscf.lib.unpack_tril(lab)
-        cderi[blk] = einsum("Lab,ai,bj->Lij", lab, mo_coeff[0], mo_coeff[1])
-    return cderi, None
+    for blk, lab in loop_cderi_ao(mf, blksize=blksize):
+        if blk is not None:
+            cderi[blk] = einsum("Lab,ai,bj->Lij", lab, mo_coeff[0], mo_coeff[1])
+        else:
+            cderi_neg = einsum("Lab,ai,bj->Lij", lab, mo_coeff[0], mo_coeff[1])
+    return cderi, cderi_neg
 
 
 def get_cderi_exspace(emb, ex_coeff, compact=False, blksize=None):
@@ -79,41 +106,14 @@ def get_cderi_df_exspace(mf, ex_coeff, compact=False, blksize=None):
     if compact:
         raise NotImplementedError()
 
-    nao = mf.mol.nao
-    df = mf.with_df
-    try:
-        naux = df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
-    except AttributeError:
-        naux = df.get_naoaux()
-
-    cderi = np.zeros((naux, ex_coeff.shape[0]))
+    cderi = np.zeros((get_naux(mf.with_df), ex_coeff.shape[0]))
     cderi_neg = None
-    if blksize is None:
-        blksize = int(1e9 / naux * nao * nao * 8)
-    # PBC:
-    if hasattr(df, "sr_loop"):
-        blk0 = 0
-        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
-            assert np.allclose(labi, 0)
-            assert cderi_neg is None  # There should be only one block with sign -1
-            labr = labr.reshape(-1, nao, nao)
-            if sign == 1:
-                blk1 = blk0 + labr.shape[0]
-                blk = np.s_[blk0:blk1]
-                blk0 = blk1
-                cderi[blk] = einsum("Lab,nab->Ln", labr, ex_coeff)
-            elif sign == -1:
-                cderi_neg = einsum("Lab,nab->Ln", labr, ex_coeff)
-        return cderi, cderi_neg
-    # No PBC:
-    blk0 = 0
-    for lab in df.loop(blksize=blksize):
-        blk1 = blk0 + lab.shape[0]
-        blk = np.s_[blk0:blk1]
-        blk0 = blk1
-        lab = pyscf.lib.unpack_tril(lab)
-        cderi[blk] = einsum("Lab,nab->Ln", lab, ex_coeff)
-    return cderi, None
+    for blk, lab in loop_cderi_ao(mf, blksize=blksize):
+        if blk is not None:
+            cderi[blk] = einsum("Lab,nab->Ln", lab, ex_coeff)
+        else:
+            cderi_neg = einsum("Lab,nab->Ln", lab, ex_coeff)
+    return cderi, cderi_neg
 
 
 @log_method()
