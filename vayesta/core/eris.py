@@ -3,12 +3,16 @@ from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 
+from collections.abc import Iterator
+from typing import Any
+
 import numpy as np
 from vayesta.core.util import einsum, log_method
 import pyscf.cc
 import pyscf.ci
 import pyscf.lib
 import pyscf.mp
+import pyscf.scf
 
 
 def get_cderi(emb, mo_coeff, compact=False, blksize=None):
@@ -20,15 +24,15 @@ def get_cderi(emb, mo_coeff, compact=False, blksize=None):
         return get_cderi_df(emb.mf, mo_coeff, compact=compact, blksize=blksize)
 
 
-def get_naux(df):
-    """Number of auxiliary functions of a density-fitting object."""
+def get_naux(df: Any) -> int:
+    """Number of auxiliary functions of a density-fitting object (molecular or periodic PySCF DF, or HubbardDF)."""
     try:
         return df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
     except AttributeError:
         return df.get_naoaux()
 
 
-def loop_cderi_ao(mf, blksize=None):
+def loop_cderi_ao(mf: pyscf.scf.hf.SCF, blksize: int | None = None) -> Iterator[tuple[slice | None, np.ndarray]]:
     """Loop over blocks of the density-fitted three-center integrals (L|ab) in the AO basis.
 
     Parameters
