@@ -592,15 +592,27 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
                 govoo_x = (eri_generator("ovoo"), eri_generator("ovOO"), eri_generator("OVOO"))
 
     # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
+    # and energy denominators of fragment x (CCSD), which convert external correction residuals into amplitudes.
+    # Note that the denominators will not be correct if a level shift is used.
     if emb.spinsym == "restricted":
         dt1 = np.zeros((nocc, nvir))
         dt2 = np.zeros((nocc, nocc, nvir, nvir))
+        eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
+        eijab = pyscf.lib.direct_sum("ia,jb->ijab", eia, eia)
     elif emb.spinsym == "unrestricted":
         dt1 = (np.zeros((nocc[0], nvir[0])), np.zeros((nocc[1], nvir[1])))
         dt2 = (
             np.zeros((nocc[0], nocc[0], nvir[0], nvir[0])),
             np.zeros((nocc[0], nocc[1], nvir[0], nvir[1])),
             np.zeros((nocc[1], nocc[1], nvir[1], nvir[1])),
+        )
+        eia_a = mo_energy[0][: nocc[0], None] - mo_energy[0][None, nocc[0] :]
+        eia_b = mo_energy[1][: nocc[1], None] - mo_energy[1][None, nocc[1] :]
+        eia = (eia_a, eia_b)
+        eijab = (
+            pyscf.lib.direct_sum("ia,jb->ijab", eia_a, eia_a),
+            pyscf.lib.direct_sum("ia,jb->ijab", eia_a, eia_b),
+            pyscf.lib.direct_sum("ia,jb->ijab", eia_b, eia_b),
         )
 
     frag_dir = {f.id: f for f in emb.fragments}
@@ -632,8 +644,6 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
         rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_active_vir)
         dt1y = transform_amplitude(dt1y, rxy_occ, rxy_vir, inverse=True)
         dt2y = transform_amplitude(dt2y, rxy_occ, rxy_vir, inverse=True)
-        dt1 = spinalg.add(dt1, dt1y)
-        dt2 = spinalg.add(dt2, dt2y)
 
         if low_level_coul and corrtype == "external":
             # Include the t3v term, contracting with the integrals from the x cluster
@@ -642,7 +652,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             dt2y_t3v = _get_delta_t2_from_t3v(
                 govvv_x, gvvov_x, gooov_x, govoo_x, fy, rxy_occ, rxy_vir, cxs_occ, projectors
             )
-            dt2 = spinalg.add(dt2, dt2y_t3v)
+            dt2y = spinalg.add(dt2y, dt2y_t3v)
 
         solver.log.info(
             "External correction residuals from fragment %3d (%s via %s):  dT1= %.3e  dT2= %.3e",
@@ -652,19 +662,25 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             *get_amplitude_norm(dt1y, dt2y),
         )
 
-    if emb.spinsym == "restricted":
         if corrtype == "external":
-            # Contract with fragment x (CCSD) energy denominators
-            # Note that this will not work correctly if a level shift used
-            eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
-            eijab = pyscf.lib.direct_sum("ia,jb->ijab", eia, eia)
-            dt1 /= eia
-            dt2 /= eijab
+            # The external correction is a residual, which has to be contracted with the energy denominators of
+            # fragment x to give the amplitude correction. The (delta-)tailor corrections are amplitudes already.
+            if emb.spinsym == "restricted":
+                dt1y = dt1y / eia
+                dt2y = dt2y / eijab
+            else:
+                dt1y = tuple(t / e for t, e in zip(dt1y, eia))
+                dt2y = tuple(t / e for t, e in zip(dt2y, eijab))
 
-        solver.log.info(
-            "Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e",
-            *get_amplitude_norm(dt1, dt2),
-        )
+        dt1 = spinalg.add(dt1, dt1y)
+        dt2 = spinalg.add(dt2, dt2y)
+
+    solver.log.info(
+        "Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e",
+        *get_amplitude_norm(dt1, dt2),
+    )
+
+    if emb.spinsym == "restricted":
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
@@ -673,20 +689,6 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             t2[:] += dt2
 
     elif emb.spinsym == "unrestricted":
-        if corrtype == "external":
-            eia_a = mo_energy[0][: nocc[0], None] - mo_energy[0][None, nocc[0] :]
-            eia_b = mo_energy[1][: nocc[1], None] - mo_energy[1][None, nocc[1] :]
-            eijab_aa = pyscf.lib.direct_sum("ia,jb->ijab", eia_a, eia_a)
-            eijab_ab = pyscf.lib.direct_sum("ia,jb->ijab", eia_a, eia_b)
-            eijab_bb = pyscf.lib.direct_sum("ia,jb->ijab", eia_b, eia_b)
-
-            dt1 = (dt1[0] / eia_a, dt1[1] / eia_b)
-            dt2 = (dt2[0] / eijab_aa, dt2[1] / eijab_ab, dt2[2] / eijab_bb)
-
-        solver.log.info(
-            "Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e",
-            *get_amplitude_norm(dt1, dt2),
-        )
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
