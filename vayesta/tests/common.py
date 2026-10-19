@@ -15,8 +15,11 @@ class temporary_seed:
 
 
 class TestCase(unittest.TestCase):
-    allclose_atol = 1e-8
-    allclose_rtol = 1e-7
+    # Default tolerances of assertAllclose. The absolute tolerance has to cover the convergence thresholds of the
+    # solvers (typically 1e-8) and the precision of the stored reference values; a tighter value makes many tests
+    # platform dependent. Subclasses can override these attributes.
+    allclose_atol = 1e-7
+    allclose_rtol = 1e-8
 
     def assertAllclose(self, actual, desired, rtol=None, atol=None, **kwargs):
         # Resolve the defaults at call time, such that subclasses can override the class attributes:
