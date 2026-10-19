@@ -1,4 +1,5 @@
 import dataclasses
+from collections.abc import Callable
 from timeit import default_timer as timer
 
 import numpy as np
@@ -176,7 +177,14 @@ class DMET(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-    def solve_chempot(self, electron_err, cpt, nelec_target, err=None, maxtry=10):
+    def solve_chempot(
+        self,
+        electron_err: Callable[[float], float],
+        cpt: float,
+        nelec_target: float,
+        err: float | None = None,
+        maxtry: int = 10,
+    ) -> float:
         """Optimize the global chemical potential, such that the high-level electron number matches the target.
 
         Parameters
@@ -205,8 +213,8 @@ class DMET(Embedding):
             self.log.info("Previous chemical potential still suitable")
             return cpt
 
-        def try_electron_err(new_cpt):
-            """Returns the chemical potential and the error, or a reduced chemical potential step and None on a solver failure."""
+        def try_electron_err(new_cpt: float) -> tuple[float, float | None]:
+            """Returns the chemical potential and the error, or a reduced chemical potential and None on a solver failure."""
             try:
                 return new_cpt, electron_err(new_cpt)
             except np.linalg.LinAlgError:
@@ -224,7 +232,6 @@ class DMET(Embedding):
         ntry = 0
         while new_err is None or err * new_err > 0:  # No bracket, if errors have same sign.
             if ntry == maxtry:
-                self.log.fatal("Could not find chemical potential bracket.")
                 raise RuntimeError("Could not find chemical potential bracket in %d attempts." % maxtry)
             new_cpt, new_err = try_electron_err(cpt + (new_cpt - cpt) * 2)
             ntry += 1
