@@ -1,0 +1,69 @@
+vayesta.dmet
+============
+
+Submodules
+----------
+
+vayesta.dmet.dmet
+-----------------
+
+.. automodule:: vayesta.dmet.dmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.fragment
+---------------------
+
+.. automodule:: vayesta.dmet.fragment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.pdmet
+------------------
+
+.. automodule:: vayesta.dmet.pdmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.sdp\_sc
+--------------------
+
+.. automodule:: vayesta.dmet.sdp_sc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.udmet
+------------------
+
+.. automodule:: vayesta.dmet.udmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.ufragment
+----------------------
+
+.. automodule:: vayesta.dmet.ufragment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.dmet.updates
+--------------------
+
+.. automodule:: vayesta.dmet.updates
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.dmet
+   :members:
+   :show-inheritance:
+   :undoc-members:

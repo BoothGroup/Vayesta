@@ -1,0 +1,45 @@
+vayesta.core.scmf
+=================
+
+Submodules
+----------
+
+vayesta.core.scmf.brueckner
+---------------------------
+
+.. automodule:: vayesta.core.scmf.brueckner
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.scmf.pdmet
+-----------------------
+
+.. automodule:: vayesta.core.scmf.pdmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.scmf.qpewdmet
+--------------------------
+
+.. automodule:: vayesta.core.scmf.qpewdmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.scmf.scmf
+----------------------
+
+.. automodule:: vayesta.core.scmf.scmf
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.scmf
+   :members:
+   :show-inheritance:
+   :undoc-members:

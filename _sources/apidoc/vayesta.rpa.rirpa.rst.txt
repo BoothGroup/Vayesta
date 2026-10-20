@@ -1,0 +1,61 @@
+vayesta.rpa.rirpa
+=================
+
+Submodules
+----------
+
+vayesta.rpa.rirpa.NI\_eval
+--------------------------
+
+.. automodule:: vayesta.rpa.rirpa.NI_eval
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.rirpa.RIRPA
+-----------------------
+
+.. automodule:: vayesta.rpa.rirpa.RIRPA
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.rirpa.RIURPA
+------------------------
+
+.. automodule:: vayesta.rpa.rirpa.RIURPA
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.rirpa.RIdRRPA
+-------------------------
+
+.. automodule:: vayesta.rpa.rirpa.RIdRRPA
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.rirpa.energy\_NI
+----------------------------
+
+.. automodule:: vayesta.rpa.rirpa.energy_NI
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.rpa.rirpa.momzero\_NI
+-----------------------------
+
+.. automodule:: vayesta.rpa.rirpa.momzero_NI
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.rpa.rirpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
