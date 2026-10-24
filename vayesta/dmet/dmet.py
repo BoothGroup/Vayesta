@@ -1,4 +1,5 @@
 import dataclasses
+from collections.abc import Callable
 from timeit import default_timer as timer
 
 import numpy as np
@@ -143,52 +144,7 @@ class DMET(Embedding):
                 return err
 
             err = electron_err(cpt, construct_bath=not self.opts.screening)
-
-            if abs(err) > self.opts.max_elec_err * nelec_mf:
-                # Need to find chemical potential bracket.
-                # Error is positive if excess electrons at high-level, and negative if too few electrons at high-level.
-                # Changing chemical potential should introduces similar change in high-level electron number, so we want
-                # our new chemical potential to be shifted in the opposite direction as electron error.
-                new_cpt = cpt - np.sign(err) * 0.1
-                # Set this in case of errors later on.
-                new_err = err
-                try:
-                    new_err = electron_err(new_cpt)
-                except np.linalg.LinAlgError as e:
-                    if self.solver == "CCSD":
-                        self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
-                        # Want to end up with 3/4 of current value after multiplied by two.
-                        new_cpt = cpt - (new_cpt - cpt) * 3 / 8
-                    else:
-                        raise e
-                if err * new_err > 0:  # Check if errors have same sign.
-                    for ntry in range(10):
-                        new_cpt = cpt + (new_cpt - cpt) * 2
-                        try:
-                            new_err = electron_err(new_cpt)
-                        except np.linalg.LinAlgError as e:
-                            if self.solver == "CCSD":
-                                self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
-                                # Want to end up with 3/4 of current value after multiplied by two.
-                                new_cpt = cpt - (new_cpt - cpt) * 3 / 8
-                            else:
-                                raise e
-                        if err * new_err < 0:
-                            break
-                    else:
-                        self.log.fatal("Could not find chemical potential bracket.")
-                        break
-                # If we've got to here we've found a bracket.
-                [lo, hi] = sorted([cpt, new_cpt])
-                cpt, res = scipy.optimize.brentq(
-                    electron_err, a=lo, b=hi, full_output=True, xtol=self.opts.max_elec_err * nelec_mf
-                )  # self.opts.max_elec_err * nelec_mf)
-                self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
-                # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
-                # calculation at the end...
-                electron_err(cpt)
-            else:
-                self.log.info("Previous chemical potential still suitable")
+            cpt = self.solve_chempot(electron_err, cpt, nelec_mf, err=err)
 
             e1, e2, emf = 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
@@ -220,6 +176,73 @@ class DMET(Embedding):
 
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
+
+    def solve_chempot(
+        self,
+        electron_err: Callable[[float], float],
+        cpt: float,
+        nelec_target: float,
+        err: float | None = None,
+        maxtry: int = 10,
+    ) -> float:
+        """Optimize the global chemical potential, such that the high-level electron number matches the target.
+
+        Parameters
+        ----------
+        electron_err : callable
+            Returns the deviation of the high-level electron number from the target for a given chemical potential
+            (positive if there are excess electrons at the high level, negative if there are too few).
+        cpt : float
+            Initial chemical potential.
+        nelec_target : float
+            Target number of electrons.
+        err : float, optional
+            Electron number error at the initial chemical potential, if already known.
+        maxtry : int, optional
+            Maximum number of doublings of the chemical potential step when searching for a bracket of the root.
+
+        Returns
+        -------
+        cpt : float
+            Optimized chemical potential.
+        """
+        tol = self.opts.max_elec_err * nelec_target
+        if err is None:
+            err = electron_err(cpt)
+        if abs(err) <= tol:
+            self.log.info("Previous chemical potential still suitable")
+            return cpt
+
+        def try_electron_err(new_cpt: float) -> tuple[float, float | None]:
+            """Returns the chemical potential and the error, or a reduced chemical potential and None on a solver failure."""
+            try:
+                return new_cpt, electron_err(new_cpt)
+            except np.linalg.LinAlgError:
+                if "CCSD" not in str(self.solver).upper():
+                    raise
+                self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
+                # Want to end up with 3/4 of the current step after it is multiplied by two in the next attempt.
+                return cpt + (new_cpt - cpt) * 3 / 8, None
+
+        # Need to find chemical potential bracket.
+        # Error is positive if excess electrons at high-level, and negative if too few electrons at high-level.
+        # Changing chemical potential should introduce a similar change in high-level electron number, so we want
+        # our new chemical potential to be shifted in the opposite direction as electron error.
+        new_cpt, new_err = try_electron_err(cpt - np.sign(err) * 0.1)
+        ntry = 0
+        while new_err is None or err * new_err > 0:  # No bracket, if errors have same sign.
+            if ntry == maxtry:
+                raise RuntimeError("Could not find chemical potential bracket in %d attempts." % maxtry)
+            new_cpt, new_err = try_electron_err(cpt + (new_cpt - cpt) * 2)
+            ntry += 1
+        # If we've got to here we've found a bracket.
+        lo, hi = sorted([cpt, new_cpt])
+        cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True, xtol=tol)
+        self.log.info("Converged chemical potential: %6.4e", cpt)
+        # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
+        # calculation at the end...
+        electron_err(cpt)
+        return cpt
 
     def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
