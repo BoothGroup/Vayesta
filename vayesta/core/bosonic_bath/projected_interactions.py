@@ -1,7 +1,7 @@
 import numpy as np
+from vayesta.core.eris import get_naux, loop_cderi_ao
 from vayesta.core.util import einsum, dot
 from vayesta.core.vlog import NoLogger
-import pyscf.lib
 
 
 class BosonicHamiltonianProjector:
@@ -55,11 +55,7 @@ class BosonicHamiltonianProjector:
 
     @property
     def naux(self):
-        df = self.mf.with_df
-        try:
-            return df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
-        except AttributeError:
-            return df.get_naoaux()
+        return get_naux(self.mf.with_df)
 
     @property
     def fock_a(self):
@@ -215,30 +211,5 @@ class BosonicHamiltonianProjector:
         return (poa, pob), (pva, pvb)
 
     def _loop_df(self, blksize=None):
-        nao = self.mf.mol.nao
-        df = self.mf.with_df
-        naux = self.naux
-        if blksize is None:
-            blksize = int(1e9 / naux * nao * nao * 8)
-        # PBC:
-        if hasattr(df, "sr_loop"):
-            blk0 = 0
-            for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
-                assert np.allclose(labi, 0)
-                assert np.allclose(labi, 0)
-                labr = labr.reshape(-1, nao, nao)
-                if sign == 1:
-                    blk1 = blk0 + labr.shape[0]
-                    blk = np.s_[blk0:blk1]
-                    blk0 = blk1
-                    yield blk, labr
-                elif sign == -1:
-                    yield None, labr
-        # No PBC:
-        blk0 = 0
-        for lab in df.loop(blksize=blksize):
-            blk1 = blk0 + lab.shape[0]
-            blk = np.s_[blk0:blk1]
-            blk0 = blk1
-            lab = pyscf.lib.unpack_tril(lab)
-            yield blk, lab
+        """Loop over blocks of the three-center integrals (L|ab); the negative part is yielded with `blk=None`."""
+        return loop_cderi_ao(self.mf, blksize=blksize)
