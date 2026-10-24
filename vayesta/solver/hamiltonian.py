@@ -353,18 +353,20 @@ class RClusterHamiltonian:
             heff = self.get_fock(with_vext=True, use_seris=False) - clusmf.get_veff()
         else:
             # Just set up heff using standard bare eris.
-            bare_eris = self.get_eris_bare()
             if force_bare_eris:
-                clusmf._eri = pad_to_match(bare_eris, 0.0)
+                eris = self.get_eris_bare()
+                clusmf._eri = pad_to_match(eris, 0.0)
             else:
-                clusmf._eri = pad_to_match(self.get_eris_screened())
+                eris = self.get_eris_screened()
+                clusmf._eri = pad_to_match(eris)
 
-            heff = pad_to_match(self.get_heff(with_vext=True), dummy_energy)
+            heff = pad_to_match(self.get_heff(eris=eris, with_vext=True), dummy_energy)
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
+            # This is the Fock matrix which would result from heff and the cluster ERIs (see get_heff)
             clusmf.get_fock = lambda *args, **kwargs: np.asarray(
-                pad_to_match(self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
+                pad_to_match(self.get_fock(with_vext=True), dummy_energy)
             )
             clusmf.get_veff = lambda *args, **kwargs: (
                 np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
@@ -609,7 +611,11 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     # Integrals for the cluster calculations.
 
-    def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
+    def get_fock(self, with_vext=True, use_seris=None, with_exxdiv=False):
+        if use_seris is None:
+            # Actual default depends on self.opts.match_fock; to reproduce fock we will effectively modify heff
+            use_seris = not self.opts.match_fock
+
         ca, cb = self.cluster.c_active
         fa, fb = self._fragment.base.get_fock(with_exxdiv=with_exxdiv)
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
@@ -648,9 +654,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def get_heff(self, eris=None, fock=None, with_vext=True, with_exxdiv=False):
         if eris is None:
-            eris = self.get_eris_bare()
+            eris = self.get_eris_screened()
         if fock is None:
-            fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
+            fock = self.get_fock(with_vext=False, with_exxdiv=with_exxdiv)
 
         oa = np.s_[: self.cluster.nocc_active[0]]
         ob = np.s_[: self.cluster.nocc_active[1]]
