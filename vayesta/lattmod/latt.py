@@ -256,13 +256,21 @@ class Hubbard2D(Hubbard):
         self.h1e = h1e
 
     def get_index(self, i, j):
+        """Site index and boundary phase factor of the site at position (i, j).
+
+        The first dimension is the fast index, consistent with `atom_coords` and `get_tiles_order`:
+
+        6 7 8
+        3 4 5
+        0 1 2
+        """
         bfac = self.bfac
         fac = 1
         if i % self.nsites[0] != i:
             fac *= bfac[0]
         if j % self.nsites[1] != j:
             fac *= bfac[1]
-        idx = (i % self.nsites[0]) * self.nsites[1] + (j % self.nsites[1])
+        idx = (j % self.nsites[1]) * self.nsites[0] + (i % self.nsites[0])
         return idx, fac
 
     def get_eri(self, hubbard_u=None, v_nn=None):
