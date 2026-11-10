@@ -1,0 +1,489 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[colorlinks=true,linkcolor=MidnightBlue,urlcolor=MidnightBlue,citecolor=MidnightBlue]{hyperref}
+\usepackage{microtype}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\renewcommand{\arraystretch}{1.25}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\Naux}{N_{\mathrm{aux}}}
+\newcommand{\nt}{n_{t}}
+\newcommand{\Np}{N_{p}}
+\newcommand{\Nfrag}{N_{\mathrm{frag}}}
+\newcommand{\ov}{ov}
+\newcommand{\Mt}{\tilde{M}}
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\diag}{\operatorname{diag}}
+
+\title{RIRPA in Vayesta\\[2pt]
+\large Current state, cost, and a plan for HHT/CDERI improvements}
+\author{}
+\date{10 November 2026}
+
+\begin{document}
+\maketitle
+
+\noindent
+Nothing in this note was run. All scaling statements are operation counts. The measured
+numbers in Section~\ref{sec:established} are quoted from the \code{monomial\_GW} and
+\code{Davidson-gw} records, and the source is named each time.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{0.9\textwidth}{@{}lL@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$o$, $v$ & occupied / virtual orbitals of the full system \\
+$\ov$ & number of spatial particle--hole pairs, $o\,v$ (spin-orbital codes use $2\ov$) \\
+$\Naux$ & number of auxiliary (density-fitting) functions; $\mathcal{O}(N)$ \\
+$L$ & occupied--virtual CDERIs, shape $(\Naux, \ov)$ \\
+$D$ & diagonal of orbital-energy differences $\epsilon_a-\epsilon_i$, length $\ov$ \\
+$\nt$ & number of rows of \code{target\_rot}, the space the moment is projected onto \\
+$\Np$ & number of quadrature points (Clenshaw--Curtis) or poles (HHT) \\
+$\Nfrag$ & number of fragments in an embedding calculation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%==========================================================================
+\section{Vayesta as a whole}
+
+Vayesta is a Python quantum-embedding package built on PySCF. It partitions a molecule or
+solid into fragments, builds a cluster for each fragment (fragment orbitals plus a bath),
+solves each cluster with a correlated solver (CCSD, FCI, MP2, EBFCI, \dots), and assembles
+global properties from the fragment results. The main subpackages are:
+\begin{itemize}
+  \item \code{core/}: fragmentation, bath construction (\code{core/bath/}: DMET, MP2 and RPA
+        bath natural orbitals, bosonic baths), integrals (\code{core/eris.py}, where
+        \code{get\_cderi} lives), screening (\code{core/screening/}), and the generic embedding
+        driver \code{core/qemb/}.
+  \item \code{ewf/}, \code{dmet/}, \code{edmet/}: the embedding methods themselves
+        (wave-function embedding, DMET, and extended/bosonic DMET).
+  \item \code{solver/}: cluster solvers, including the electron--boson ones that EDMET needs.
+  \item \code{rpa/}: full-system RPA. \code{rpa.py}, \code{ssrpa.py} and \code{ssurpa.py} are
+        dense $\mathcal{O}(N^6)$ reference implementations. \code{rirpa/} is the
+        density-fitted, moment-based code that the embedding layers use in production.
+\end{itemize}
+
+RIRPA matters because it supplies \emph{global long-range information to local clusters}.
+It is called from four places:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.2cm}LL@{}}
+\toprule
+Caller & What it asks RIRPA for & \code{target\_rot} \\
+\midrule
+\code{core/screening/ screening\_moment.py} (\code{mrpa} screening, cRPA)
+  & zeroth dd moment, then only $T_f\,\eta_0\,T_f^{\mathsf T}$ per fragment
+  & stacked cluster ph spaces, spin-orbital, $\nt=\sum_f \ov_f^{\mathrm{clus}}$ \\
+\code{core/bath/rpa.py} (RPA bath NOs)
+  & zeroth moment, then $m_0 T^{\mathsf T}$
+  & $R_o\otimes R_v$: $o\,v_{\mathrm{clus}}$ or $o_{\mathrm{clus}}\,v$ rows; \textbf{one RIRPA object per fragment} \\
+\code{core/qemb/qemb.py} (bosonic bath; external dRPA correction)
+  & zeroth moment / total energy
+  & bosonic targets; or $L$ itself (cumulant energy) \\
+\code{edmet/edmet.py}
+  & zeroth moment and energy \textbf{with an xc kernel} (\code{rixc})
+  & cluster ph and bosonic spaces \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+%==========================================================================
+\section{How \texttt{vayesta/rpa/rirpa} is implemented}
+
+\subsection{Files and classes}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}L@{}}
+\toprule
+File & Contents \\
+\midrule
+\code{\_\_init\_\_.py} & \code{ssRIRPA(mf, ...)} factory: UHF goes to \code{ssRIURPA}, a non-\code{None}
+  \code{rixc} goes to \code{ssRIRRPA}, and everything else goes to \code{ssRIdRRPA}. \\
+\code{RIRPA.py} & \code{ssRIRRPA}: the general (xc-kernel-capable) restricted class, which works in the
+  \textbf{spin-orbital} $2\ov$ space; also \code{construct\_product\_RI},
+  \code{construct\_inverse\_RI} and \code{compress\_low\_rank}. \\
+\code{RIdRRPA.py} & \code{ssRIdRRPA}: specialised direct-RPA RHF path in \textbf{spatial} $\ov$
+  with explicit spin factors (the path most embedding calls take). \\
+\code{RIURPA.py} & \code{ssRIURPA}: unrestricted variant; overrides only the integral/xc construction. \\
+\code{NI\_eval.py} & Numerical-integration framework: Clenshaw--Curtis on infinite and
+  semi-infinite ranges with a nested error estimate, Gauss--Laguerre, and the optimisation
+  of the grid scale $a$. \\
+\code{momzero\_NI.py} & Integrands for the zeroth moment (\code{MomzeroDeductNone/D/HigherOrder},
+  plus the \code{\_dRHF} variant) and the analytic-offset integrand (\code{MomzeroOffsetCalcGaussLag}). \\
+\code{energy\_NI.py} & Integrand for $\Tr (MP)^{1/2}$ (\code{NITrRootMP}, plus \code{\_dRHF}). \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{The mathematics as coded}
+
+This follows Furche (PRB \textbf{64}, 195120) and arXiv:2301.09107. For restricted dRPA in
+spatial orbitals,
+\begin{align}
+  A-B &= D \quad\text{(diagonal)}, &
+  A+B &= D + 4L^{\mathsf T}L, \\
+  MP &\equiv (A-B)(A+B) = D^2 + S_L^{\mathsf T}S_R \quad(\text{rank }\Naux), &
+  \eta_0 &= (MP)^{1/2}(A+B)^{-1}.
+\end{align}
+Vayesta stores $A+B$ as $(\sqrt2 L)^{\mathsf T}(\sqrt2 L)$ with a further factor of 2 for
+spin. The square root is evaluated as a frequency integral,
+\begin{equation}
+  (MP)^{1/2} = \frac{1}{\pi}\int_{-\infty}^{\infty}
+     \Big[\,I - \omega^2 (MP+\omega^2)^{-1}\Big]\,d\omega ,
+\end{equation}
+and Woodbury reduces the resolvent to auxiliary space. At each frequency,
+\begin{align}
+  F(\omega) &= (D^2+\omega^2)^{-1} \quad\text{(diagonal)},\\
+  Q(\omega) &= S_R\,F(\omega)\,S_L^{\mathsf T} \quad(\Naux\times\Naux)
+     \qquad\leftarrow\ \text{the } \Naux^2\ov \text{ step},\\
+  \text{term}(\omega) &= (TF)\,S_L^{\mathsf T}\big[(I+Q)^{-1}-I\big]\,S_R F
+     \quad(\nt\times\ov).
+\end{align}
+The default \code{"HO"} scheme subtracts the diagonal and the first-order term $-I$ inside the
+integrand and adds them back analytically. The first-order offset,
+\begin{equation}
+  T\!\int_0^\infty e^{-\omega D}\,S_L^{\mathsf T}S_R\,e^{-\omega D}\,d\omega,
+  \qquad\text{exactly}\quad \frac{(S_L^{\mathsf T}S_R)_{pq}}{D_p+D_q},
+\end{equation}
+would cost $\mathcal{O}(\nt\,\ov^2)$ if done exactly. Vayesta therefore evaluates it with a
+\textbf{second, separate 48-point Gauss--Laguerre integral}, whose scale is also optimised.
+
+The remaining steps of the zeroth moment are as follows.
+\begin{enumerate}
+  \item Fit the grid scale $a$ for each integral (\code{opt\_quadrature\_diag}). The fit uses an
+        exponential search over 14 decades, then Newton or bounded minimisation, so that the rule
+        integrates a diagonal approximation exactly. Each probe costs $\mathcal{O}(\Np\,\ov)$.
+  \item Integrate with Clenshaw--Curtis (\code{npoints=48}, rounded up to a multiple of 4). The
+        $\tfrac12$- and $\tfrac14$-grids are nested inside it, and they give the error estimate.
+  \item Form the explicit inverse \code{np.linalg.inv(I + Q)} at every point.
+  \item Multiply by $(A+B)^{-1}$, itself built as an RI correction (\code{construct\_inverse\_RI}:
+        an $\Naux\times\Naux$ inverse plus an SVD; or, in the dRPA path, an explicit
+        $\big(I+2LD^{-1}L^{\mathsf T}\big)^{-1}$).
+  \item Optionally compress (\code{compress > 0}) by a non-symmetric \code{eig} of
+        $S_LS_R^{\mathsf T}$ with an absolute $10^{-12}$ cut. This is off by default.
+\end{enumerate}
+
+\paragraph{Higher moments} use the exact recurrence
+$\eta_{n+2} = \eta_n D^2 + (\eta_n S_R^{\mathsf T})S_L$. Each order is two GEMMs of
+$\mathcal{O}(\nt\Naux\ov)$, which is already optimal.
+
+\paragraph{The energy} (\code{kernel\_energy}) is
+$E_c = \tfrac12\big[\Tr(MP)^{1/2} - \Tr A\big]$. The trace is another optimised
+Clenshaw--Curtis integral (\code{NITrRootMP}), and its diagonal and first-order parts are
+added analytically.
+
+\paragraph{The xc-kernel path} (\code{ssRIRRPA} with \code{rixc}, used by EDMET) differs in
+two ways. First, $A-B$ is no longer diagonal, so \code{construct\_product\_RI} builds the
+non-symmetric product with rank $\Naux(A{+}B)+\Naux(A{-}B)$, which is up to 2--3$\times$ the
+CDERI rank. Second, the whole calculation runs in the $2\ov$ spin-orbital space.
+
+\paragraph{\code{get\_gap}} runs a \textbf{non-symmetric} Davidson
+(\code{pyscf.lib.eig}, left and right vectors) on $MP$.
+
+\subsection{Current cost}
+
+Per call of \code{kernel\_moms(0, target\_rot)} on the dRPA RHF path (\code{ssRIdRRPA}),
+with $\Np=48$:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{5.0cm}>{\raggedright\arraybackslash}p{4.4cm}L@{}}
+\toprule
+Step & Cost & Notes \\
+\midrule
+CDERI transform \code{get\_cderi} (if \code{lov} not passed) & $\mathcal{O}(\Naux\,n_{\mathrm{ao}}^2\,o)$
+  & $N^4$; repeated by every caller that does not pass \code{lov} \\
+Build $S_L,S_R$ & $\mathcal{O}(\Naux\ov)$ & two to three $\Naux\times\ov$ arrays held at once \\
+Grid fit, both integrals & $\mathcal{O}(N_{\mathrm{it}}\Np\ov)$ & cheap, but runs every call \\
+Main integral: $Q(\omega)$ & $\Np\,\Naux^2\ov$ & \textbf{dominant for small $\nt$} \\
+Main integral: $\mathrm{inv}(I+Q)$ & $\Np\,\Naux^3$ & explicit inverse \\
+Main integral: target contractions & $\Np(2\nt\Naux\ov + \nt\Naux^2)$ & \textbf{dominant for large $\nt$} \\
+Offset integral (Gauss--Laguerre) & $\Np\cdot 2\nt\Naux\ov$
+  & a second pass, as expensive as the target part of the main integral \\
+$(A+B)^{-1}$ & $\Naux^2\ov + \Naux^3 + 2\nt\Naux\ov$
+  & needed only because of the $(MP)^{1/2}(A+B)^{-1}$ form \\
+Spin stacking (spin-orbital targets) & $\mathcal{O}(\nt^2\ov + \nt^3)$
+  & \code{compress\_target\_rot} forms an $\nt\times\nt$ Gram \\
+Higher moments & $2\nt\Naux\ov$ per order & fine \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\noindent The leading terms are therefore
+\begin{equation}
+  \text{cost}(\eta_0) \approx 48\,\Naux^2\ov + {\sim}190\,\nt\Naux\ov + 48\,\Naux^3,
+  \qquad
+  \text{memory} \approx (2\text{--}3)\,\Naux\ov + (2+n_{\mathrm{mom}})\,\nt\ov .
+\end{equation}
+This is $\mathcal{O}(N^4)$ when $\nt=\mathcal{O}(N)$, and $\mathcal{O}(N^5)$ for the full
+moment ($\nt=\ov$, which the code warns about). The energy costs ${\sim}96\,\Naux^2\ov$
+($Q$ plus the back contraction at every point). For the xc-kernel path, replace $\Naux$ by
+the 2--3$\times$ larger product rank and $\ov$ by $2\ov$.
+
+\paragraph{How the call pattern turns this into total cost.}
+\begin{itemize}
+  \item \textbf{RPA bath:} a new \code{ssRIdRRPA} is built for every fragment. So the
+        fragment-independent $48\,\Naux^2\ov$ work (the $Q(\omega)$ matrices and inverses) and
+        the grid fit are repeated $\Nfrag$ times. With a dense Kronecker target of
+        $\nt\sim o\,v_{\mathrm{clus}}$ rows, each fragment is $\mathcal{O}(N^4)$, and the
+        calculation is $\mathcal{O}(N^5)$ overall.
+  \item \textbf{Screening:} one call with all fragments stacked. It forms the full
+        $\nt\times2\ov$ result and then keeps only the diagonal fragment blocks
+        $T_f\eta_0T_f^{\mathsf T}$, so most of the $\nt\times\ov$ back-contraction is thrown away.
+  \item \textbf{Accuracy:} the error is controlled only by the nested-Clenshaw--Curtis
+        estimate and a warning above \code{err\_tol}$=10^{-6}$ per element. It is not
+        certified. Section~\ref{sec:established} gives \code{momentGW}'s measurement of this same
+        route at about $10^{-9}$ relative error on a small-gap system, and an unfitted 48-point
+        Clenshaw--Curtis rule measured $5\times10^{-7}$ on a larger one.
+\end{itemize}
+
+%==========================================================================
+\section{Bringing in the monomial / Davidson improvements}
+
+\subsection{What those projects established}\label{sec:established}
+
+Both \code{monomial\_GW} (a momentGW fork whose legacy Clenshaw--Curtis $\eta_0$ route \emph{is}
+this Vayesta route, Gauss--Laguerre offset included) and \code{Davidson-gw} (\code{gwfast})
+replaced the frequency integral with the \textbf{Hale--Higham--Trefethen (HHT) / Zolotarev
+rational approximation of the inverse square root}. They write it in the symmetric,
+$(A+B)^{-1}$-free form
+\begin{equation}
+  \eta_0 = D^{1/2}\,\Mt^{-1/2}\,D^{1/2},\qquad
+  \Mt = D^2 + 4WW^{\mathsf T},\qquad W = D^{1/2}L^{\mathsf T}
+  \quad(\text{symmetric positive definite}),
+\end{equation}
+\begin{equation}
+  x^{-1/2} \approx \sum_{j=1}^{\Np}\frac{w_j}{x+s_j}
+  \qquad\text{on a certified } [\lambda_{\min},\lambda_{\max}] \supseteq \operatorname{spec}(\Mt).
+\end{equation}
+Each pole is one resolvent, reduced exactly to auxiliary space by Woodbury:
+\begin{align}
+  F_j &= D\,(D^2+s_j)^{-1} \quad\text{(diagonal)},\\
+  C_j &= I + 4\,L F_j L^{\mathsf T} \quad(\Naux\times\Naux,\ \text{SPD})
+       \qquad\leftarrow\ \text{one Gram, } \Naux^2\ov,\\
+  \eta_0 &\approx \sum_j w_j\Big[F_j - 4\,F_jL^{\mathsf T}C_j^{-1}LF_j\Big].
+\end{align}
+
+\noindent The components, all implemented and tested in at least one of the two repositories:
+\begin{enumerate}
+  \item \textbf{Certified spectral interval.}
+        \[\lambda_{\min}=\min(D)^2,\qquad
+          \lambda_{\max}=\max(D^2)+4\min\big(\|W\|_F^2,\ \|W\|_1\|W\|_\infty\big).\]
+        \code{gwfast} also has a tighter \code{"spectral"} option, which uses the top
+        eigenvalue of one $\Naux\times\Naux$ Gram. Both ends are padded outwards.
+  \item \textbf{Pole count from a measured scalar error.} The rule is the smallest $\Np$ for
+        which $\max_x|1-\sqrt{x}\,r(x)|\le\mathrm{tol}$ over the interval. $\Np$ grows only like
+        $\log\kappa\,\log(1/\mathrm{tol})$. The coefficients come from AGM and
+        descending-Landen elliptic functions in extended precision, so $1-k^2$ is never formed
+        (\code{momentGW/eta0.py}, \code{gwfast/quadrature.py}).
+  \item \textbf{No grid fit and no offset integral.} The rational sum absorbs the bare and
+        first-order terms: at zero coupling each solve is the identity. This removes Vayesta's
+        \code{"HO"}/Gauss--Laguerre second pass and its $a$-optimisation.
+  \item \textbf{Cholesky solves with residual checks instead of \code{inv}.} \code{momentGW}
+        measured that this is an accuracy rule rather than a speed rule, because both are
+        dominated by the $\Naux^2\ov$ apply.
+  \item \textbf{No $\ov\times\ov$ intermediate.} The code records intermediate shapes and a test
+        asserts that none is formed.
+  \item \textbf{Natural auxiliary functions} (\code{gwfast.integral.natural\_auxiliary\_functions}).
+        These rotate the CDERIs to the eigenvectors of $LL^{\mathsf T}$ above a threshold. The
+        rotation is symmetric (\code{eigh}) and does not change the result above that threshold.
+        Compare Vayesta's off-by-default, non-symmetric \code{eig} compression.
+  \item \textbf{Square root and inverse square root together}
+        (\code{gwfast.rpa.get\_root\_operators}). The expansion
+        \[\Mt^{1/2}\approx\sum_j w_j\big[I - s_j(\Mt+s_j)^{-1}\big]\]
+        reuses the same $C_j$, so one pass over the poles gives both.
+\end{enumerate}
+
+\noindent Measured results, quoted from those projects:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{4.6cm}L@{}}
+\toprule
+Source & Comparison & Result \\
+\midrule
+\code{monomial\_GW/ROADMAP.md}, Milestone 2
+  & ozone/PBE (condition $6.7\times10^4$) $\eta_0$ vs a dense oracle
+  & Clenshaw--Curtis-48: $1.15\times10^{-9}$; HHT-26: $2.1\times10^{-13}$ \\
+same & benzene/cc-pVDZ $\eta_0$ stage & 20 poles vs 48 points, \textbf{1.82$\times$} faster \\
+\code{Davidson-gw/docs/ hht-quadrature- benchmark-2026-09-22.md}
+  & C$_8$H$_{18}$/def2-TZVPP ($\ov=15411$, $\Naux=1148$)
+  & unfitted Clenshaw--Curtis-48: $5\times10^{-7}$; HHT-20: $3\times10^{-14}$;
+    \textbf{1.95$\times$} faster at 20 poles, 2.72$\times$ at 16; peak memory roughly halved \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Applying it to Vayesta's projected moments}
+
+Vayesta needs $T\eta_0$ for a general target $T$ ($\nt\times\ov$), not just
+$\eta_0L^{\mathsf T}$ as in GW. The Woodbury form still applies:
+\begin{equation}
+  T\eta_0 \approx \underbrace{T\,\diag\Big(\sum_j w_jF_j\Big)}_{\approx T}
+  \;-\; 4\sum_j w_j\,
+  \underbrace{(TF_jL^{\mathsf T})}_{\nt\Naux\ov}\;
+  \underbrace{C_j^{-1}}_{\text{solve}}\;
+  \underbrace{(LF_j)}_{\nt\Naux\ov}.
+\end{equation}
+Per pole this costs $\Naux^2\ov$ (Gram) $+\ \Naux^3/3$ (Cholesky)
+$+\ 2\nt\Naux\ov + \nt\Naux^2$. The scaling class is the same as today. The gain comes from
+having fewer passes and dropping the redundant ones:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}LLc@{}}
+\toprule
+& Current (CC-48, \code{"HO"}) & HHT, $\Np\approx20$ & Ratio \\
+\midrule
+$\Naux^2\ov$ work & 48 & 20 & 2.4$\times$ \\
+$\nt\Naux\ov$ work & ${\sim}96$ (main) $+ {\sim}96$ (offset) $+ 2$ & ${\sim}40$ & ${\sim}4.8\times$ \\
+$\Naux^3$ & 48 explicit inverses + SVD & 20 Cholesky factorisations & ${\sim}7\times$ \\
+Grid fitting, $(A+B)^{-1}$ & yes & not needed & -- \\
+Error control & heuristic, about $10^{-7}$ to $10^{-9}$ & certified to tol ($10^{-14}$ default in \code{momentGW}) & -- \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The expected $\eta_0$ speed-up is therefore about \textbf{2.4$\times$ when $\nt\ll\Naux$,
+about 4$\times$ when $\nt\sim\Naux$, and about 4.8$\times$ when $\nt\gg\Naux$}, with accuracy
+improving by 5 to 7 orders of magnitude. These are operation-count estimates and must be
+measured. The one directly comparable measurement is 1.82$\times$ on the GW $\eta_0$ stage,
+where $\nt=\Naux$.
+
+\noindent The same pole factors give further savings that depend on what each caller actually needs:
+\begin{enumerate}
+  \item \textbf{Cache the per-pole factors across targets and fragments.} $F_j$, $C_j$ and its
+        Cholesky factor depend only on the mean field, not on $T$. Build them once per
+        calculation, at $\Np\Naux^2\ov$ and $\Np\Naux^2$ memory, and pass them to every caller.
+        For the \textbf{RPA bath} this changes the fragment-independent part from
+        $\Nfrag\cdot48\,\Naux^2\ov$ to $20\,\Naux^2\ov$ once. That is a reduction of
+        ${\sim}2.4\,\Nfrag\times$ on that term, and it changes the overall scaling from
+        $\mathcal{O}(N^5)$ to $\mathcal{O}(N^4)$ plus a per-fragment target term.
+  \item \textbf{Two-sided projections.} Screening keeps only $T_f\eta_0T_f^{\mathsf T}$, and the
+        RPA bath uses $m_0T^{\mathsf T}$. Both are given by
+        \begin{equation}
+          T\eta_0T^{\mathsf T} \approx TT^{\mathsf T} - 4\sum_j w_j\,B_jC_j^{-1}B_j^{\mathsf T},
+          \qquad B_j = TF_jL^{\mathsf T}\quad(\nt\times\Naux).
+        \end{equation}
+        This never forms the $\nt\times\ov$ result. Per pole and fragment the cost is
+        $n_f\Naux\ov + n_f\Naux^2 + n_f^2\Naux$, instead of $2\nt\Naux\ov$ for the stacked
+        target followed by the projection. For screening it also stops computing the
+        off-diagonal fragment blocks, which are discarded today.
+  \item \textbf{Kronecker-structured targets.} The bath target is $R_o\otimes R_v$, but it is
+        stored densely, and \code{screening\_moment} does the same per spin. Applying it in
+        factored form,
+        $B_j[I,A,Q]=\sum_{ia}R_o[I,i]\,R_v[A,a]\,(F_jL^{\mathsf T})[ia,Q]$ done as two small
+        GEMMs, saves a factor of about $o$ (or $v$) per contraction. With item 1, the bath then
+        costs about $\mathcal{O}(o\,v\,v_{\mathrm{clus}}\Naux)$ per fragment and pole, which is
+        $\mathcal{O}(N^3)$ per fragment and $\mathcal{O}(N^4)$ overall.
+  \item \textbf{Targets inside the RI span.} For the cumulant energy in \code{qemb} the target is
+        $L$ itself, and $TF_jL^{\mathsf T}$ \emph{is} the Gram, $(C_j-I)/4$. This is exactly the
+        \code{momentGW} kernel, at ${\sim}2\Naux^2\ov$ per pole and no $\nt$ term.
+  \item \textbf{Energy from the same poles.} Applying the rule to $\sqrt{x}=x\cdot x^{-1/2}$ for
+        both $\Mt$ and $D^2$, and differencing so that the leading terms cancel identically, gives
+        \begin{equation}
+          \Tr\big(\Mt^{1/2}\big) - \Tr(D) \approx
+          4\sum_j w_j s_j\,\Tr\!\Big[C_j^{-1}\big(L\,D\,(D^2+s_j)^{-2}L^{\mathsf T}\big)\Big].
+        \end{equation}
+        This costs ${\sim}2\Naux^2\ov$ per pole, against ${\sim}96\,\Naux^2\ov$ for
+        \code{NITrRootMP} today: about 2.4$\times$ faster and certified. One caveat: the bound is
+        relative per eigenvalue, so the absolute energy error is at most about
+        $2\,\mathrm{tol}\,\Tr(D)$. Choose tol against the required $E_c$ accuracy. At
+        $10^{-14}$ this is well under a microhartree for any system Vayesta handles.
+  \item \textbf{Natural auxiliary functions.} Rotating $L$ once to $\Naux'\le\Naux$ NAFs saves
+        $(\Naux/\Naux')^2$ on every Gram and $\Naux/\Naux'$ on every target contraction. The
+        saving depends on the system and threshold and has not been measured here. The rotation
+        must use a scale-aware PSD criterion and report the rank and discarded norm, which is
+        \code{monomial\_GW} Milestone 4's open item. The current absolute $10^{-12}$ cut does
+        neither.
+  \item \textbf{Symmetric gap and eigenvectors.} $\Mt$ is symmetric with eigenvalues $\Omega^2$.
+        \code{get\_gap} can therefore use the symmetric \code{pyscf.lib.davidson} on
+        $x\mapsto D^2x + 4W(W^{\mathsf T}x)$ ($\mathcal{O}(\Naux\ov)$ per matvec) instead of the
+        left/right non-symmetric \code{eig} on $MP$ followed by re-biorthogonalisation.
+\end{enumerate}
+
+\noindent Rough projected totals for the two main embedding uses (operation counts, before NAF):
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.4cm}LL>{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+Use & Today & With the changes & Gain \\
+\midrule
+RPA bath, $\Nfrag$ fragments
+  & $\Nfrag\big(48\Naux^2\ov + {\sim}190\,o\,v_c\Naux\ov\big)\sim\mathcal{O}(N^5)$
+  & $20\Naux^2\ov + \Nfrag\cdot20\big(o\,v\,v_c\Naux + \dots\big)\sim\mathcal{O}(N^4)$
+  & grows with system size; already about $\Nfrag\times o$ on the target term \\
+\code{mrpa} screening
+  & $48\Naux^2\ov + {\sim}190\,\nt\Naux\ov$, \ $\nt=\sum_f2\ov_f$
+  & $20\Naux^2\ov + 20\sum_f\big(2n_f\Naux\ov/k + n_f\Naux^2\big)$, where $k$ is the Kronecker saving
+  & about 5$\times$, and more with Kronecker targets \\
+Total dRPA energy & ${\sim}96\Naux^2\ov$ & ${\sim}40\Naux^2\ov$ & about 2.4$\times$, certified \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Proposed sequence}
+
+This mirrors \code{monomial\_GW}'s ordering: restricted dRPA first, measured before it becomes
+the default, and the old route kept as an independent reference.
+\begin{enumerate}
+  \item \textbf{Baseline.} Record $\eta_0$, the projected moments, energies, screened
+        interactions and bath occupations for a small set (H$_2$O, a small-gap molecule, one
+        Hubbard case, one solid), using the existing \code{vayesta/tests/rpa/test\_rirpa\_*}
+        systems plus a dense \code{ssRPA} oracle.
+  \item \textbf{HHT kernel for \code{ssRIdRRPA}.} Port \code{momentGW/eta0.py} (interval, poles,
+        scalar certificate) and a projected apply that accepts $T$ in one-sided, two-sided and
+        in-RI-span forms. Add an \code{eta0\_method=\{"clencur","hht"\}} option. Keep
+        Clenshaw--Curtis as the default until the baseline agrees within the certified error,
+        then switch.
+  \item \textbf{Pole-factor cache and caller changes.} Build the factors once per embedding
+        object. Move \code{bath/rpa.py} and \code{screening\_moment.py} to the two-sided,
+        Kronecker-factored apply, and stop recomputing CDERIs per fragment by passing
+        \code{lov} everywhere.
+  \item \textbf{Energy and gap} from the same poles (items 5 and 7 above).
+  \item \textbf{NAF/scale-aware compression} behind an option, reporting rank, discarded norm
+        and the observed effect on $\eta_0$ and energy.
+  \item \textbf{Deferred: the UHF and xc-kernel paths.} \code{ssRIURPA} should follow with the
+        stacked-spin convention that \code{gwfast} already validated (spin factor 1 over
+        $2\ov$). EDMET's \code{rixc} path cannot use the symmetric
+        $D^{1/2}\Mt^{-1/2}D^{1/2}$ form, because $A-B$ is not diagonal. It needs either a
+        non-symmetric Woodbury rational apply (LU solves) on $MP$, whose interval is not
+        theorem-backed, or $(A-B)^{1/2}$ as a diagonal-plus-low-rank function. Keep it on
+        Clenshaw--Curtis until that is designed. Periodic \code{kdf} cases also wait, for the
+        reasons \code{monomial\_GW} Milestone 6 records.
+\end{enumerate}
+
+\subsection{Points to settle before implementation}
+
+\begin{itemize}
+  \item \textbf{Spin conventions.} \code{ssRIdRRPA} mixes spatial integrals with spin-orbital
+        outputs (\code{stack\_spin}, \code{return\_spatial}). The factor 4 in $\Mt$ and the split
+        of the spin-diagonal identity term must be checked against the dense \code{ssRPA} before
+        anything else.
+  \item \textbf{Negative CDERIs} (\code{lov\_neg}, from non-PSD metrics in some periodic setups).
+        $A+B$ then takes an indefinite low-rank part, $C_j$ is no longer SPD, and the certified
+        interval argument fails. The HHT path should refuse them at first.
+  \item \textbf{Memory for the cache.} Storing the factors costs $\Np\Naux^2$ (about 0.2\,GB at
+        $\Naux=1000$, $\Np=20$). For very large $\Naux$, rebuild per pole; \code{gwfast}'s
+        \code{PRECOMPUTE\_S} switch is exactly this trade.
+  \item \textbf{Higher moments} are already exact recurrences at $\mathcal{O}(\nt\Naux\ov)$ per
+        order. \code{monomial\_GW} Milestone 3 found that its high-order instabilities were in
+        the downstream realisation, not in this recurrence, so no change is proposed there.
+\end{itemize}
+
+\end{document}
