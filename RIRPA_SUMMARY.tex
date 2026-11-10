@@ -373,16 +373,61 @@ where $\nt=\Naux$.
         $\Nfrag\cdot48\,\Naux^2\ov$ to $20\,\Naux^2\ov$ once. That is a reduction of
         ${\sim}2.4\,\Nfrag\times$ on that term, and it changes the overall scaling from
         $\mathcal{O}(N^5)$ to $\mathcal{O}(N^4)$ plus a per-fragment target term.
-  \item \textbf{Two-sided projections.} Screening keeps only $T_f\eta_0T_f^{\mathsf T}$, and the
-        RPA bath uses $m_0T^{\mathsf T}$. Both are given by
+  \item \textbf{Two-sided projections.} Several callers contract the $\ov$ index of $\eta_0$
+        on both sides, and the left and right targets need not be the same, or even have the
+        same number of rows. With a left target $X$ ($n_X\times\ov$) and a right target $Y$
+        ($n_Y\times\ov$), $\eta_0$ is symmetric, so
         \begin{equation}
-          T\eta_0T^{\mathsf T} \approx TT^{\mathsf T} - 4\sum_j w_j\,B_jC_j^{-1}B_j^{\mathsf T},
-          \qquad B_j = TF_jL^{\mathsf T}\quad(\nt\times\Naux).
+          \begin{aligned}
+          X\eta_0Y^{\mathsf T} &\approx X\,\diag\Big(\sum_j w_jF_j\Big)Y^{\mathsf T}
+            - 4\sum_j w_j\,B_j^X C_j^{-1}\big(B_j^Y\big)^{\mathsf T},\\
+          B_j^X &= XF_jL^{\mathsf T}\ (n_X\times\Naux),\qquad B_j^Y = YF_jL^{\mathsf T}\ (n_Y\times\Naux).
+          \end{aligned}
         \end{equation}
-        This never forms the $\nt\times\ov$ result. Per pole and fragment the cost is
-        $n_f\Naux\ov + n_f\Naux^2 + n_f^2\Naux$, instead of $2\nt\Naux\ov$ for the stacked
-        target followed by the projection. For screening it also stops computing the
-        off-diagonal fragment blocks, which are discarded today.
+        The result carries only target labels ($n_X\times n_Y$), with no particle--hole index
+        left. When the two target labels are contracted against each other it is a single
+        number, labelled only by the pair $(X,Y)$. That is a trace in auxiliary space:
+        \begin{equation}
+          \Tr\big[X\eta_0Y^{\mathsf T}\big] \approx
+            \Tr\Big[X\,\diag\Big(\sum_j w_jF_j\Big)Y^{\mathsf T}\Big]
+            - 4\sum_j w_j\,\Tr\Big[C_j^{-1}\big(B_j^Y\big)^{\mathsf T}B_j^X\Big].
+        \end{equation}
+        Neither form ever builds the $n_X\times\ov$ intermediate $X\eta_0$. Per pole the cost
+        is $(n_X+n_Y)\Naux\ov$ for the two $B$ matrices, which drops to $n_X\Naux\ov$ when
+        $Y=X$. Then the open form costs $n_X\Naux^2 + n_Xn_Y\Naux$, and the trace costs
+        $\min(n_X,n_Y)\Naux^2+\Naux^3$ instead. Today the cost is $2n_X\Naux\ov$ (main
+        integral) plus $2n_X\Naux\ov$ (offset) per point, and then a further $n_Xn_Y\ov$ for
+        the projection.
+
+        Where this applies in Vayesta:
+        \begin{center}
+        \footnotesize
+        \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.9cm}>{\raggedright\arraybackslash}p{2.0cm}L>{\raggedright\arraybackslash}p{1.6cm}@{}}
+        \toprule
+        Caller & $X$ & $Y$ & Form \\
+        \midrule
+        \code{screening\_moment.py} (\code{dot(momzero[..], rot.T)}) & $T_f$ & $T_f$
+          & open, diagonal blocks only \\
+        \code{bath/rpa.py} (\code{dot(m0, target\_rot.T)}) & $R_o\otimes R_v$ & the same & open \\
+        \code{qemb.py} cumulant energy (\code{m0 - l\_} against \code{l\_2})
+          & \code{l\_} & \code{l\_2}, which differs from \code{l\_} by the sign of the negative-CDERI rows & trace \\
+        \code{RIRPA.kernel\_energy}, \code{"linear"} xc correction
+          & \code{ri\_b\_xc[0]} & \code{ri\_b\_xc[1]} & trace \\
+        \code{RIRPA.} \code{direct\_AC\_integration} & \code{lrot} & \code{rrot} & trace \\
+        \bottomrule
+        \end{tabularx}
+        \end{center}
+
+        When either side lies in the RI span the matching $B$ is already known. For $Y=L$,
+        $B_j^Y = LF_jL^{\mathsf T} = (C_j-I)/4$. The cumulant energy without negative CDERIs
+        has $X=Y=L$, and its trace reduces to
+        $-\tfrac14\sum_j w_j\Tr\big[C_j - 2I + C_j^{-1}\big]$ plus the diagonal term. That is
+        one Gram and one Cholesky factorisation per pole, with no target contraction at all.
+
+        Keep the rational diagonal $\sum_j w_jF_j$ rather than replacing it by $I$. The callers
+        subtract the bare target (\code{m0 - l\_}, \code{eta0 - lrot}), and the consistent
+        diagonal makes that difference come out of the low-rank term alone instead of from a
+        cancellation of two large numbers.
   \item \textbf{Kronecker-structured targets.} The bath target is $R_o\otimes R_v$, but it is
         stored densely, and \code{screening\_moment} does the same per spin. Applying it in
         factored form,
@@ -485,5 +530,242 @@ the default, and the old route kept as an independent reference.
         order. \code{monomial\_GW} Milestone 3 found that its high-order instabilities were in
         the downstream realisation, not in this recurrence, so no change is proposed there.
 \end{itemize}
+
+%==========================================================================
+\section{Local and complementary projections (draft)}\label{sec:local}
+
+\noindent\textbf{Status: first draft for discussion.} All costs are operation counts. Nothing
+here has been implemented or measured. It builds on the pole form of
+Section~\ref{sec:established} and on the discussion of local spaces labelled by $x$.
+
+\subsection{Setup}
+
+Each label $x$ defines a local occupied and a local virtual space through orthonormal rows of
+$C^x$:
+\begin{equation}
+\begin{aligned}
+  &c_o\ (o_x\times o),\quad c_v\ (v_x\times v), && c_oc_o^{\mathsf T}=I,\quad c_vc_v^{\mathsf T}=I,\\
+  &P_o=c_o^{\mathsf T}c_o,\quad P_v=c_v^{\mathsf T}c_v, && Q_o=I-P_o,\quad Q_v=I-P_v,\\
+  &e_o,\ e_v\ \text{complement rows}, && e_o^{\mathsf T}e_o=Q_o,\quad e_v^{\mathsf T}e_v=Q_v,\\
+  &X=c_o\otimes c_v && \text{local ph target, } n_x=o_xv_x \text{ rows}.
+\end{aligned}
+\end{equation}
+$n_x$ is $\mathcal{O}(1)$ in system size. There are $\mathcal{O}(N)$ labels for molecules and
+$\mathcal{O}(1)$ for solids.
+
+The right-hand side of the quantities discussed is a \textbf{complement} of the local space.
+Two complements have come up, and they are different quantities, not two representations of
+one:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{3.0cm}L>{\raggedright\arraybackslash}p{3.3cm}@{}}
+\toprule
+Name & Projector on the right & Blocks kept & Example \\
+\midrule
+ph complement & $\bar\Pi = I - P_o\otimes P_v$
+  & everything except local--local, including the mixed local-occ/env-vir and env-occ/local-vir blocks
+  & $\tilde\eta^x_{\bar i\bar a,kc}$ (full MO indices on the right) \\
+strict environment & $Q_o\otimes Q_v$ & env--env only
+  & $\eta^x_{\bar i\bar a,\bar k\bar c}$ (complement barred indices) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Either can be \textbf{represented} in the full MO basis (apply the projector) or in the
+complement basis (rotate with $e_o\otimes e_v$). As George notes, the basis is a choice.
+Section~\ref{sec:kernelA} shows that the MO-basis representation is the cheaper one to
+compute.
+
+\noindent\emph{To decide:} which complement each use needs.
+
+\subsection{Shared and per-label factors}
+
+Shared factors, built once per mean field, as in Section~\ref{sec:established}:
+\begin{equation}
+  F_j = D(D^2+s_j)^{-1},\qquad C_j = I+4LF_jL^{\mathsf T}\ \to\ \mathrm{chol}(C_j),\qquad
+  \eta_0 \approx \sum_j w_j\big[F_j - 4F_jL^{\mathsf T}C_j^{-1}LF_j\big].
+\end{equation}
+They cost $\Np(\Naux^2\ov+\Naux^3/3)$ and need $\Np\Naux^2$ memory.
+
+Per-label left factors, built for each $x$ and each pole:
+\begin{align}
+  B_j^x &= XF_jL^{\mathsf T}\ \ (n_x\times\Naux), &&\text{Kronecker: } (o_x\,o\,v + o_xv_x\,v)\,\Naux,\\
+  G_j^x &= w_j\,B_j^xC_j^{-1}\ \ (n_x\times\Naux), &&\text{one Cholesky solve: } n_x\Naux^2 .
+\end{align}
+$B_j^x$ is applied in factored form: reshape $F_jL^{\mathsf T}$ to $(o,v,\Naux)$ and contract
+$c_o$, then $c_v$. It is never formed as a dense $n_x\times\ov$ target.
+
+Every quantity below is built from these factors, through one of three kernels.
+
+\subsection{Kernel A: one-sided, with a projector on the right}\label{sec:kernelA}
+
+\begin{equation}
+  X\eta_0R,\qquad R\in\{\,I,\ \bar\Pi,\ Q_o\otimes Q_v\,\}.
+\end{equation}
+
+\paragraph{Bare term.} It is $XD_rR$ with $D_r=\diag(\sum_jw_jF_j)\approx I$. For $R=I$ it is
+about $X$. For either complement $XR=0$ exactly, so the bare term is $X(D_r-I)R$, which is
+$\mathcal{O}(\mathrm{tol})$. It can be dropped, leaving only the correlated part, with no large
+cancellation.
+
+\paragraph{Low-rank term.} Sum over the poles \emph{before} projecting:
+\begin{equation}
+  S^x = -4\sum_j G_j^x\,(LF_j)\quad(n_x\times\ov,\ \ \Np\,n_x\Naux\ov),\qquad
+  X\eta_0R \approx S^xR .
+\end{equation}
+The projector has to come after the pole sum. $F_j$ is diagonal in the MO basis and does not
+commute with $R$, so applying $R$ inside the sum would cost one application per pole.
+Here $R$ is applied once per label:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}L>{\raggedright\arraybackslash}p{4.4cm}@{}}
+\toprule
+$R$ & How & Cost per label \\
+\midrule
+$\bar\Pi$ & $S-(SX^{\mathsf T})X$, where $SX^{\mathsf T}=-4\sum_jG_j^x(B_j^x)^{\mathsf T}$ is the two-sided
+  block (kernel B, case a), so it is already available
+  & $\Np n_x^2\Naux$ + ${\sim}n_x\ov\,o_x$ to expand \\
+$Q_o\otimes Q_v$, MO basis & $S - S(P_o\otimes I) - S(I\otimes P_v) + S(P_o\otimes P_v)$, each a low-rank subtraction
+  & ${\sim}2\,n_x\ov(o_x+v_x)$ \\
+$Q_o\otimes Q_v$, complement basis & rotate $S$ by $e_o^{\mathsf T}$, $e_v^{\mathsf T}$
+  & $n_x(o_{\mathrm{env}}ov + o_{\mathrm{env}}v_{\mathrm{env}}v)$; larger, so use only if that basis is needed downstream \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Cost per label.}
+\begin{equation}
+  \Np\Big[(o_x\,o\,v+o_xv_x\,v)\Naux + n_x\Naux^2 + \underbrace{n_x\Naux\ov}_{\text{dominant, output-bound}}\Big]
+  + \mathcal{O}\big(n_x\ov(o_x+v_x)\big).
+\end{equation}
+The output has $n_x\ov$ entries, so the $n_x\Naux\ov$ back-multiply per pole cannot be
+avoided while the result is kept open on the right. The only levers on it are $\Np$ and
+$\Naux$ (natural auxiliary functions).
+
+\paragraph{Batching across labels.} Stack $G_j^x$ over a batch of labels, so that each pole is
+one GEMM $(\sum_xn_x\times\Naux)\cdot(\Naux\times\ov)$. The flops are the same but the efficiency
+is better. Consume or store each $S^xR$ before the next batch, because holding all labels is
+$\mathcal{O}(N^3)$ memory for molecules.
+
+\subsection{Kernel B: two-sided, $X\eta_0Y^{\mathsf T}$ with a small $Y$}
+
+\begin{equation}
+  X\eta_0Y^{\mathsf T} \approx XD_rY^{\mathsf T} - 4\sum_j G_j^x\,(B_j^y)^{\mathsf T},
+  \qquad B_j^y = YF_jL^{\mathsf T}\ \ (n_Y\times\Naux).
+\end{equation}
+Per pole this costs forming $B_j^y$ plus $n_x\Naux n_Y$. The open $n_x\times\ov$ block is
+never built. Kernel B pays off only when $n_Y\ll\ov$, or when $B_j^y$ is known without a sweep
+over $\ov$. That is the case when the right-hand index is contracted with something small
+\emph{before} anything is stored.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{3.9cm}>{\raggedright\arraybackslash}p{3.2cm}L@{}}
+\toprule
+Case & $Y$ & $B_j^y$ & Extra cost per pole & Uses \\
+\midrule
+(a) same space & $X$ & $B_j^x$ (already built) & $n_x^2\Naux$
+  & screening $T_f\eta_0T_f^{\mathsf T}$, RPA bath $m_0T^{\mathsf T}$, the $\bar\Pi$ correction in kernel A \\
+(b) RI span & $L$ & $LF_jL^{\mathsf T}=(C_j-I)/4$, free
+  & none: $X\eta_0L^{\mathsf T}\approx XD_rL^{\mathsf T}-\sum_jw_jB_j^x(I-C_j^{-1})$
+  & GW-type $\eta_0V$; interactions built from RI vectors \\
+(c) RI span, projected & $L\bar\Pi$ & $(C_j-I)/4-(LX^{\mathsf T})B_j^x$
+  & $\Naux^2n_x$; $LX^{\mathsf T}$ once per label
+  & RHS of $\tilde\eta^x$ contracted directly with $(kc|Q)$ \\
+(c$'$) RI span, env--env & $L(Q_o\otimes Q_v)$
+  & $(C_j-I)/4$ minus the $P_o$, $P_v$ and $P_o\otimes P_v$ corrections, each a factored low-rank product
+  & ${\sim}(o_x+v_x)\ov\Naux + (o_xv+ov_x)\Naux^2$
+  & RHS of $\eta^x_{\bar i\bar a,\bar k\bar c}$ contracted with integrals \\
+(d) another label & $X'=c_o'\otimes c_v'$ & $B_j^{x'}$, already built for $x'$ & $n_x\Naux n_{x'}$
+  & cross-label couplings, if needed \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+For (c) and (c$'$) the bare term $XD_rRL^{\mathsf T}$ is again $\mathcal{O}(\mathrm{tol})$ and
+can be dropped.
+
+Whether kernel B beats kernel A for (c$'$) depends on the sizes:
+$\Naux(o_xv+ov_x)$ against $o_xv_x\,ov$ per pole. For small local spaces in a large system,
+kernel B is expected to win, but this has to be measured.
+
+\subsection{Kernel C: fully contracted, $\Tr[X\eta_0Y^{\mathsf T}]$}
+
+\begin{equation}
+  \Tr\big[X\eta_0Y^{\mathsf T}\big] \approx \Tr\big[XD_rY^{\mathsf T}\big]
+   - 4\sum_jw_j\Tr\big[C_j^{-1}(B_j^y)^{\mathsf T}B_j^x\big].
+\end{equation}
+This costs $\min(n_X,n_Y)\Naux^2+\Naux^3$ per pole once the $B$ matrices are built. When
+$X=Y=L$, it is $-\tfrac14\sum_jw_j\Tr[C_j-2I+C_j^{-1}]$ plus the diagonal term: one Gram and
+one Cholesky factorisation per pole, with no target contraction. The uses are the cumulant
+energy, the \code{"linear"} xc energy correction and \code{direct\_AC\_integration}
+(Section~3.2, item~2).
+
+\subsection{Summary by use}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.9cm}L@{}}
+\toprule
+Use & Right side & Output & Kernel & Dominant cost per label \\
+\midrule
+$\tilde\eta^x_{\bar i\bar a,kc}$ & $\bar\Pi$, MO basis & $n_x\times\ov$ & A & $\Np n_x\Naux\ov$ \\
+$\eta^x_{\bar i\bar a,\bar k\bar c}$, stored & $Q_o\otimes Q_v$ & $n_x\times n_{\mathrm{env}}$
+  & A, then rotate if the env basis is needed & $\Np n_x\Naux\ov$ \\
+either, RHS contracted with $L$ next & $L\bar\Pi$ or $L(Q_o\otimes Q_v)$ & $n_x\times\Naux$ & B (c)/(c$'$)
+  & $\Np\Naux^2(o_xv+ov_x)$; no $n_x\ov$ term \\
+screening, RPA bath & $T_f$ & $n_x\times n_x$ & B (a) & $\Np n_x\Naux^2$ + factored forward \\
+energies & various & scalar & C & $\Naux^2$ per pole \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+With the shared factors, the totals for kernel A are $\mathcal{O}(N^4)$ for molecules. For
+solids they are a shared $\mathcal{O}(N^4)$ term plus $\mathcal{O}(N^3)$ per label. Today's route
+costs about $48\Naux^2\ov + 192\sum_xn_x\Naux\ov$ for any of these, and always builds the
+$n_x\times\ov$ block. With the shared factors, kernel A costs about
+$20\Naux^2\ov + 20\sum_xn_x\Naux\ov$, about 2.4$\times$ on the shared term and about
+10$\times$ on the per-label term. Kernels B and C remove the per-label $\ov$ sweep where the
+use allows it.
+
+\subsection{Proposed kernel interface}
+
+\begin{small}
+\begin{verbatim}
+# s_j, w_j, F_j, chol(C_j); certified interval
+poles = build_pole_factors(D, L, tol)
+# B_j^x, G_j^x (Kronecker-factored)
+left = local_left_factors(poles, c_o, c_v)
+# kernel A
+one_sided(poles, left, right=None | "ph_complement" | "env", basis="mo" | "env")
+# kernel B; right = left' | "ri" | ("ri", projector)
+two_sided(poles, left, right)
+# kernel C
+trace(poles, left, right)
+\end{verbatim}
+\end{small}
+Every function also takes a batch of labels, and each records the per-pole Cholesky residuals
+and the intermediate shapes, following \code{monomial\_GW} Milestone~2.
+
+\subsection{Open questions}
+
+\begin{enumerate}
+  \item \textbf{Which complement} ($\bar\Pi$ or $Q_o\otimes Q_v$) each use needs.
+  \item \textbf{What the right-hand index is contracted with next} in each use. This decides
+        between kernel A and kernel B, and it is the main source of savings beyond the constant
+        factors.
+  \item \textbf{Whether the outputs are stored or consumed} per label. This sets the memory plan
+        for kernel A.
+  \item \textbf{Orthonormality of $C^x$ rows.} The $XR=0$ cancellation and the cheap projector
+        applications rely on it.
+  \item \textbf{Spin.} Restricted spatial forms are given here, with the factor 4 still to be
+        checked against the dense \code{ssRPA}. The spin-orbital stacking used by the existing
+        callers has to be mapped onto them.
+  \item \textbf{Dropping the $\mathcal{O}(\mathrm{tol})$ bare term.} It is consistent with the
+        certificate on $\eta_0$, but the error bound for the projected quantity should be stated
+        explicitly, for example by Cauchy--Schwarz with $\|X\|=1$.
+\end{enumerate}
 
 \end{document}

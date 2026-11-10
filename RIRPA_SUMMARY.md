@@ -265,17 +265,51 @@ The same pole factors give further savings that depend on what each caller actua
    `N_frag * 48 N_aux^2 ov` to `20 N_aux^2 ov` once. That is a reduction of
    `~2.4 N_frag`x on that term, and it changes the overall scaling from `O(N^5)` to
    `O(N^4)` plus a per-fragment target term.
-2. **Two-sided projections.** Screening keeps only `T_f eta0 T_f^T`, and the RPA bath uses
-   `m0 T^T`. Both are given by
+2. **Two-sided projections.** Several callers contract the `ov` index of `eta0` on both
+   sides, and the left and right targets need not be the same, or even have the same
+   number of rows. With a left target `X` (`n_X x ov`) and a right target `Y` (`n_Y x ov`),
+   `eta0` is symmetric, so
 
    ```text
-   T eta0 T^T ~= T T^T  -  4 sum_j w_j  B_j C_j^{-1} B_j^T,     B_j = T F_j L^T   (n_t x N_aux)
+   X eta0 Y^T ~= X diag(sum_j w_j F_j) Y^T  -  4 sum_j w_j  B_j^X C_j^{-1} (B_j^Y)^T,
+   B_j^X = X F_j L^T   (n_X x N_aux),     B_j^Y = Y F_j L^T   (n_Y x N_aux)
    ```
 
-   This never forms the `n_t x ov` result. Per pole and fragment the cost is
-   `n_f N_aux ov + n_f N_aux^2 + n_f^2 N_aux`, instead of `2 n_t N_aux ov` for the stacked
-   target followed by the projection. For screening it also stops computing the
-   off-diagonal fragment blocks, which are discarded today.
+   The result carries only target labels (`n_X x n_Y`), with no particle-hole index left.
+   When the two target labels are contracted against each other it is a single number,
+   labelled only by the pair `(X, Y)`. That is a trace in auxiliary space:
+
+   ```text
+   Tr[X eta0 Y^T] ~= Tr[X diag(sum_j w_j F_j) Y^T]  -  4 sum_j w_j Tr[ C_j^{-1} (B_j^Y)^T B_j^X ]
+   ```
+
+   Neither form ever builds the `n_X x ov` intermediate `X eta0`. Per pole the cost is
+   `(n_X + n_Y) N_aux ov` for the two `B` matrices, which drops to `n_X N_aux ov` when
+   `Y = X`. Then the open form costs `n_X N_aux^2 + n_X n_Y N_aux`, and the trace costs
+   `min(n_X, n_Y) N_aux^2 + N_aux^3` instead. Today the cost is `2 n_X N_aux ov` (main
+   integral) plus `2 n_X N_aux ov` (offset) per point, and then a further `n_X n_Y ov` for
+   the projection.
+
+   Where this applies in Vayesta:
+
+   | caller | `X` | `Y` | form |
+   | --- | --- | --- | --- |
+   | `screening_moment.py` (`dot(momzero[n:n+nov], rot.T)`) | `T_f` | `T_f` | open, diagonal fragment blocks only; the off-diagonal blocks computed today are discarded |
+   | `bath/rpa.py` (`dot(m0, target_rot.T)`) | `R_o (x) R_v` | the same | open |
+   | `qemb.py` cumulant energy (`einsum("pq,pq->", m0 - l_, l_2)`) | `l_` | `l_2`, which differs from `l_` by the sign of the negative-CDERI rows | trace |
+   | `RIRPA.kernel_energy`, `"linear"` xc correction | `ri_b_xc[0]` | `ri_b_xc[1]` | trace |
+   | `RIRPA.direct_AC_integration` | `lrot` | `rrot` | trace |
+
+   When either side lies in the RI span the matching `B` is already known. For `Y = L`,
+   `B_j^Y = L F_j L^T = (C_j - I)/4`. The cumulant energy without negative CDERIs has
+   `X = Y = L`, and its trace reduces to `-(1/4) sum_j w_j Tr[C_j - 2I + C_j^{-1}]` plus the
+   diagonal term. That is one Gram and one Cholesky factorisation per pole, with no target
+   contraction at all.
+
+   Keep the rational diagonal `sum_j w_j F_j` rather than replacing it by `I`. The callers
+   subtract the bare target (`m0 - l_`, `eta0 - lrot`), and the consistent diagonal makes
+   that difference come out of the low-rank term alone instead of from a cancellation of
+   two large numbers.
 3. **Kronecker-structured targets.** The bath target is `R_o (x) R_v`, but it is stored
    densely, and `screening_moment` does the same per spin. Applying it in factored form,
    `B_j[I,A,Q] = sum_{ia} R_o[I,i] R_v[A,a] (F_j L^T)[ia,Q]` done as two small GEMMs, saves
@@ -357,3 +391,187 @@ default, and the old route kept as an independent reference.
 - **Higher moments** are already exact recurrences at `O(n_t N_aux ov)` per order.
   `monomial_GW` Milestone 3 found that its high-order instabilities were in the downstream
   realisation, not in this recurrence, so no change is proposed there.
+
+---
+
+## 4. Local and complementary projections (draft)
+
+**Status: first draft for discussion.** All costs are operation counts. Nothing here has been
+implemented or measured. It builds on the pole form of section 3 and on the discussion of
+local spaces labelled by `x`.
+
+### 4.1 Setup
+
+Each label `x` defines a local occupied and a local virtual space through orthonormal rows of
+`C^x`:
+
+```text
+c_o  (o_x x o),   c_v  (v_x x v),        c_o c_o^T = I,  c_v c_v^T = I
+P_o = c_o^T c_o,  P_v = c_v^T c_v,        Q_o = I - P_o,  Q_v = I - P_v
+e_o, e_v          complement rows,       e_o^T e_o = Q_o,  e_v^T e_v = Q_v
+X   = c_o (x) c_v                         local ph target, n_x = o_x v_x rows
+```
+
+`n_x` is `O(1)` in system size. There are `O(N)` labels for molecules and `O(1)` for solids.
+
+The right-hand side of the quantities discussed is a **complement** of the local space. Two
+complements have come up, and they are different quantities, not two representations of one:
+
+| name | projector on the right | blocks kept | example |
+| --- | --- | --- | --- |
+| ph complement | `Pi_bar = I - P_o (x) P_v` | everything except local-local, including the mixed local-occ/env-vir and env-occ/local-vir blocks | `eta~^x_{i_bar a_bar, kc}` (full MO indices on the right) |
+| strict environment | `Q_o (x) Q_v` | env-env only | `eta^x_{i_bar a_bar, k_bar c_bar}` with complement barred indices |
+
+Either can be **represented** in the full MO basis (apply the projector) or in the complement
+basis (rotate with `e_o (x) e_v`). As George notes, the basis is a choice. Section 4.3 shows
+that the MO-basis representation is the cheaper one to compute.
+
+**To decide:** which complement each use needs.
+
+### 4.2 Shared and per-label factors
+
+Shared factors, built once per mean field, as in section 3:
+
+```text
+F_j = D (D^2 + s_j)^{-1}                  (diagonal, N_p ov)
+C_j = I + 4 L F_j L^T  ->  chol(C_j)      (N_p N_aux^2 memory)
+cost: N_p (N_aux^2 ov + N_aux^3/3)
+eta0 ~= sum_j w_j [ F_j - 4 F_j L^T C_j^{-1} L F_j ]
+```
+
+Per-label left factors, built for each `x` and each pole:
+
+```text
+B_j^x = X F_j L^T             (n_x x N_aux)   Kronecker: (o_x o v + o_x v_x v) N_aux
+G_j^x = w_j B_j^x C_j^{-1}    (n_x x N_aux)   one Cholesky solve: n_x N_aux^2
+```
+
+`B_j^x` is applied in factored form: reshape `F_j L^T` to `(o, v, N_aux)` and contract `c_o`,
+then `c_v`. It is never formed as a dense `n_x x ov` target.
+
+Every quantity below is built from these factors, through one of three kernels.
+
+### 4.3 Kernel A: one-sided, with a projector on the right
+
+```text
+X eta0 R,        R in { I,  Pi_bar,  Q_o (x) Q_v }
+```
+
+**Bare term.** It is `X D_r R` with `D_r = diag(sum_j w_j F_j) ~= I`. For `R = I` it is about
+`X`. For either complement `X R = 0` exactly, so the bare term is `X (D_r - I) R`, which is
+`O(tol)`. It can be dropped, leaving only the correlated part, with no large cancellation.
+
+**Low-rank term.** Sum over the poles *before* projecting:
+
+```text
+S^x = -4 sum_j G_j^x (L F_j)               (n_x x ov)      N_p n_x N_aux ov
+X eta0 R ~= S^x R                          (R applied once per label, not per pole)
+```
+
+The projector has to come after the pole sum. `F_j` is diagonal in the MO basis and does not
+commute with `R`, so applying `R` inside the sum would cost one application per pole.
+
+How `R` is applied once:
+
+| `R` | how | cost per label |
+| --- | --- | --- |
+| `Pi_bar` | `S - (S X^T) X`, where `S X^T = -4 sum_j G_j^x (B_j^x)^T` is the two-sided block (kernel B, case a), so it is already available | `N_p n_x^2 N_aux` + `~n_x ov o_x` to expand |
+| `Q_o (x) Q_v`, MO basis | `S - S(P_o (x) I) - S(I (x) P_v) + S(P_o (x) P_v)`, each a low-rank subtraction | `~2 n_x ov (o_x + v_x)` |
+| `Q_o (x) Q_v`, complement basis | rotate `S` by `e_o^T`, `e_v^T` | `n_x (o_env o v + o_env v_env v)`; larger, so use only if that basis is needed downstream |
+
+**Cost per label:**
+
+```text
+N_p [ (o_x o v + o_x v_x v) N_aux  +  n_x N_aux^2  +  n_x N_aux ov ]  +  O(n_x ov (o_x + v_x))
+                                                      ^^^^^^^^^^^^^ dominant, output-bound
+```
+
+The output has `n_x ov` entries, so the `n_x N_aux ov` back-multiply per pole cannot be
+avoided while the result is kept open on the right. The only levers on it are `N_p` and
+`N_aux` (natural auxiliary functions).
+
+**Batching across labels.** Stack `G_j^x` over a batch of labels, so that each pole is one GEMM
+`(sum_x n_x x N_aux) . (N_aux x ov)`. The flops are the same but the efficiency is better.
+Consume or store each `S^x R` before the next batch, because holding all labels is `O(N^3)`
+memory for molecules.
+
+### 4.4 Kernel B: two-sided, `X eta0 Y^T` with a small `Y`
+
+```text
+X eta0 Y^T ~= X D_r Y^T  -  4 sum_j G_j^x (B_j^y)^T,     B_j^y = Y F_j L^T   (n_Y x N_aux)
+```
+
+Per pole this costs forming `B_j^y` plus `n_x N_aux n_Y`. The open `n_x x ov` block is never
+built. Kernel B pays off only when `n_Y << ov`, or when `B_j^y` is known without a sweep over
+`ov`. That is the case when the right-hand index is contracted with something small *before*
+anything is stored.
+
+| case | `Y` | `B_j^y` | extra cost per pole | uses |
+| --- | --- | --- | --- | --- |
+| (a) same space | `X` | `B_j^x` (already built) | `n_x^2 N_aux` | screening `T_f eta0 T_f^T`, RPA bath `m0 T^T`, the `Pi_bar` correction in kernel A |
+| (b) RI span | `L` | `L F_j L^T = (C_j - I)/4`, free | none: `X eta0 L^T ~= X D_r L^T - sum_j w_j B_j^x (I - C_j^{-1})` | GW-type `eta0 V`, interactions built from RI vectors |
+| (c) RI span, projected | `L Pi_bar` | `(C_j - I)/4 - (L X^T) B_j^x` | `N_aux^2 n_x`; `L X^T` once per label | the RHS of `eta~^x` contracted directly with `(kc\|Q)` |
+| (c') RI span, env-env | `L (Q_o (x) Q_v)` | `(C_j - I)/4` minus the `P_o`, `P_v` and `P_o (x) P_v` corrections, each a factored low-rank product | `~(o_x + v_x) ov N_aux + (o_x v + o v_x) N_aux^2` | the RHS of `eta^x_{i_bar a_bar, k_bar c_bar}` contracted with integrals |
+| (d) another label | `X' = c_o' (x) c_v'` | `B_j^{x'}`, already built for `x'` | `n_x N_aux n_x'` | cross-label couplings, if needed |
+
+For (c) and (c') the bare term `X D_r R L^T` is again `O(tol)` and can be dropped.
+
+Whether kernel B beats kernel A for (c') depends on the sizes:
+`N_aux (o_x v + o v_x)` against `o_x v_x o v` per pole. For small local spaces in a large
+system, kernel B is expected to win, but this has to be measured.
+
+### 4.5 Kernel C: fully contracted, `Tr[X eta0 Y^T]`
+
+```text
+Tr[X eta0 Y^T] ~= Tr[X D_r Y^T]  -  4 sum_j w_j Tr[ C_j^{-1} (B_j^y)^T B_j^x ]
+```
+
+This costs `min(n_X, n_Y) N_aux^2 + N_aux^3` per pole once the `B` matrices are built. When
+`X = Y = L`, it is `-(1/4) sum_j w_j Tr[C_j - 2I + C_j^{-1}]` plus the diagonal term: one Gram
+and one Cholesky factorisation per pole, with no target contraction. The uses are the
+cumulant energy, the `"linear"` xc energy correction and `direct_AC_integration` (section 3.2,
+item 2).
+
+### 4.6 Summary by use
+
+| use | `X` | right side | output | kernel | dominant cost per label | molecules / solids |
+| --- | --- | --- | --- | --- | --- | --- |
+| `eta~^x_{i_bar a_bar, kc}` | local | `Pi_bar`, MO basis | `n_x x ov` | A | `N_p n_x N_aux ov` | `O(N^4)` / shared `O(N^4)` + `O(N^3)` per label |
+| `eta^x_{i_bar a_bar, k_bar c_bar}` stored | local | `Q_o (x) Q_v` | `n_x x n_env` | A, then rotate if the env basis is needed | `N_p n_x N_aux ov` | as above |
+| either, RHS contracted with `L` next | local | `L Pi_bar` or `L (Q_o (x) Q_v)` | `n_x x N_aux` | B (c)/(c') | `N_aux^2 (o_x v + o v_x)` | no `n_x ov` term |
+| screening, RPA bath | `T_f` | `T_f` | `n_x x n_x` | B (a) | `n_x N_aux^2` + factored forward | |
+| energies | various | various | scalar | C | `N_aux^2` per pole | |
+
+Today's route costs about `48 N_aux^2 ov + 192 sum_x n_x N_aux ov` for any of these, and
+always builds the `n_x x ov` block. With the shared factors, kernel A costs
+`20 N_aux^2 ov + 20 sum_x n_x N_aux ov`, about 2.4x on the shared term and about 10x on the
+per-label term. Kernels B and C remove the per-label `ov` sweep where the use allows it.
+
+### 4.7 Proposed kernel interface
+
+```python
+poles = build_pole_factors(D, L, tol)                   # s_j, w_j, F_j, chol(C_j); certified interval
+left  = local_left_factors(poles, c_o, c_v)             # B_j^x, G_j^x (Kronecker-factored)
+one_sided(poles, left, right=None | "ph_complement" | "env", basis="mo" | "env")   # kernel A
+two_sided(poles, left, right)                           # kernel B; right = left' | "ri" | ("ri", projector)
+trace(poles, left, right)                               # kernel C
+```
+
+Every function also takes a batch of labels, and each records the per-pole Cholesky residuals
+and the intermediate shapes, following `monomial_GW` Milestone 2.
+
+### 4.8 Open questions
+
+1. **Which complement** (`Pi_bar` or `Q_o (x) Q_v`) each use needs.
+2. **What the right-hand index is contracted with next** in each use. This decides between
+   kernel A and kernel B, and it is the main source of savings beyond the constant factors.
+3. **Whether the outputs are stored or consumed** per label. This sets the memory plan for
+   kernel A.
+4. **Orthonormality of `C^x` rows.** The `X R = 0` cancellation and the cheap projector
+   applications rely on it.
+5. **Spin.** Restricted spatial forms are given here, with the factor 4 still to be checked
+   against the dense `ssRPA`. The spin-orbital stacking used by the existing callers has to be
+   mapped onto them.
+6. **Dropping the `O(tol)` bare term.** It is consistent with the certificate on `eta0`, but
+   the error bound for the projected quantity should be stated explicitly, for example by
+   Cauchy-Schwarz with `||X|| = 1`.
