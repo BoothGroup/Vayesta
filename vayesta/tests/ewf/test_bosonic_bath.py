@@ -14,13 +14,17 @@ class BosonicBathTests(TestCase):
         except ImportError:
             pytest.skip("Requires ebcc")
 
-    def _get_emb(self, mf, solver, target_orbs, local_projection, threshold):
+    def _get_emb(self, mf, solver, target_orbs, local_projection, threshold, **options):
         emb = ewf.EWF(
             mf,
             solver=solver,
             bath_options=dict(bathtype="mp2", threshold=threshold, project_dmet_order=1, project_dmet_mode="full"),
             bosonic_bath_options=dict(
-                bathtype="rpa", target_orbitals=target_orbs, local_projection=local_projection, threshold=threshold
+                bathtype="rpa",
+                target_orbitals=target_orbs,
+                local_projection=local_projection,
+                threshold=threshold,
+                **options,
             ),
         )
         emb.kernel()
@@ -45,3 +49,12 @@ class BosonicBathTests(TestCase):
         mf = testsystems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "dmet", None, 1e-6)
         self.assertAlmostEqual(e, -76.23158153460919)
+
+    def test_water_ccpvdz_CCSDS11_full_fragment_hht_singlet(self):
+        """HHT moment, singlet target and singlet projection reproduce the reference energies."""
+        mf = testsystems.water_ccpvdz_df.rhf()
+        options = dict(eta0_method="hht", eta0_tol=1e-10, singlet_target=True, singlet_projection=True)
+        e = self._get_emb(mf, "CCSD-S-1-1", "full", "fragment", 1e-3, **options)
+        self.assertAlmostEqual(e, -76.16807860786547)
+        e = self._get_emb(mf, "CCSD-S-1-1", "full", None, 1e-5, **options)
+        self.assertAlmostEqual(e, -76.21937784813458)

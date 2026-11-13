@@ -131,6 +131,11 @@ class Options(OptionsBase):
         # bath truncation options.
         threshold=1e-6,
         truncation="occupation",
+        # RPA moment and bath evaluation (see ssRIdRRPA and RPA_QBA_Bath); None keeps the class default.
+        eta0_method=None,
+        eta0_tol=None,
+        singlet_target=None,
+        singlet_projection=None,
     )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -742,6 +747,11 @@ class Embedding:
             targets, ntarget = zip(*[x.make_bosonic_bath_target() for x in fragments])
             target_rot = np.vstack([x for x in targets if x is not None])
             rpa = ssRIRPA(self.mf)
+            for key in ("eta0_method", "eta0_tol", "singlet_target"):
+                if self.opts.bosonic_bath_options[key] is not None:
+                    setattr(rpa, key, self.opts.bosonic_bath_options[key])
+            # Row counts per fragment; used only by ssRIdRRPA's singlet-target path.
+            rpa.target_blocks = list(ntarget)
             moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]
             # Split this into individual fragment contributions.
             moments = np.vsplit(moments, np.cumsum(ntarget)[:-1])

@@ -3,13 +3,32 @@ import numpy as np
 from vayesta.rpa.rirpa.RIRPA import ssRIRRPA
 from vayesta.rpa.rirpa.momzero_NI import MomzeroOffsetCalcGaussLag, MomzeroDeductHigherOrder_dRHF
 from vayesta.rpa.rirpa.energy_NI import NITrRootMP_dRHF
+from vayesta.rpa.rirpa.hht import hht_mom0_spinindependent
 from vayesta.core.util import dot, time_string, timer, with_doc
 
 from pyscf import lib
 
 
 class ssRIdRRPA(ssRIRRPA):
-    """Class for computing direct RPA correlated quantites with a restricted reference state."""
+    """Class for computing direct RPA correlated quantites with a restricted reference state.
+
+    The zeroth moment is evaluated by the frequency integral (`eta0_method = "clencur"`, default) or by the
+    Hale-Higham-Trefethen rational approximation (`eta0_method = "hht"`, see `vayesta.rpa.rirpa.hht`), to a
+    scalar relative accuracy `eta0_tol`. The HHT route falls back to the frequency integral when it does not
+    apply (negative CDERIs, compress > 3, return_niworker, or an unreachable tolerance).
+    """
+
+    eta0_method = "clencur"
+    eta0_tol = 1e-12
+    # Spin-orbital targets with identical alpha and beta blocks (all restricted bosonic-bath targets) give the
+    # spin-orbital zeroth moment (T eta, T eta), with eta the singlet moment. With `singlet_target = True` it is
+    # computed once on the spatial rows, after reducing them to a row basis of their rank, instead of stacking the
+    # two spin blocks as 2n rows and compressing those.
+    singlet_target = False
+    singlet_target_rtol = 1e-14
+    # Optional row counts of independent blocks of the target (one per fragment, as build_bosonic_bath stacks them).
+    # If set and consistent with the target, the singlet path reduces each block to its own row basis.
+    target_blocks: list[int] | None = None
 
     @with_doc(ssRIRRPA.kernel_moms)
     def kernel_moms(self, max_moment, target_rot=None, return_spatial=False, **kwargs):
@@ -91,6 +110,27 @@ class ssRIdRRPA(ssRIRRPA):
         t_start = timer()
         if analytic_lower_bound or adaptive_quad or integral_deduct != "HO":
             raise NotImplementedError("Only core functionality is implemented in dRPA specific code.")
+        if self.eta0_method not in ("clencur", "hht"):
+            raise ValueError("Unknown eta0_method %r; use 'clencur' or 'hht'." % self.eta0_method)
+        if (
+            self.singlet_target
+            and not return_spatial
+            and not return_niworker
+            and target_rot is not None
+            and target_rot.shape[1] == self.ov_tot
+            and np.array_equal(target_rot[:, : self.ov], target_rot[:, self.ov :])
+        ):
+            return self._kernel_mom0_singlet_target(
+                target_rot[:, : self.ov],
+                npoints=npoints,
+                ainit=ainit,
+                integral_deduct=integral_deduct,
+                opt_quad=opt_quad,
+                adaptive_quad=adaptive_quad,
+                alpha=alpha,
+                ri_decomps=ri_decomps,
+                analytic_lower_bound=analytic_lower_bound,
+            )
         # If we have a rotation in the spinorbital basis we need to stack the different spin channels as additional
         # spatial rotations and then sum at the end.
         target_rot, stack_spin = self.check_target_rot(target_rot)
@@ -107,45 +147,51 @@ class ssRIdRRPA(ssRIRRPA):
             ri_mp, ri_apb, ri_amb = ri_decomps
         self.record_memory()
 
-        offset_niworker = None
-        inputs = (self.eps, ri_mp[0], ri_mp[1], target_rot, npoints, self.log)
+        mom0_spinindependent, errs = None, (None, None)
+        if self.eta0_method == "hht" and not return_niworker:
+            mom0_spinindependent, errs = self._hht_mom0_spinindependent(target_rot, ri_apb)
 
-        # We are computing our values using spatial quantities, but relating our calculations to the spinorbital
-        # resolved basis. As such, we need to be careful to ensure we know which terms are spin-diagonal and which are
-        # spin-invariant.
+        if mom0_spinindependent is None:
+            offset_niworker = None
+            inputs = (self.eps, ri_mp[0], ri_mp[1], target_rot, npoints, self.log)
 
-        niworker = MomzeroDeductHigherOrder_dRHF(*inputs)
-        offset_niworker = MomzeroOffsetCalcGaussLag(*inputs)
+            # We are computing our values using spatial quantities, but relating our calculations to the spinorbital
+            # resolved basis. As such, we need to be careful to ensure we know which terms are spin-diagonal and which
+            # are spin-invariant.
 
-        if return_niworker:
-            return niworker, offset_niworker
-        self.record_memory()
+            niworker = MomzeroDeductHigherOrder_dRHF(*inputs)
+            offset_niworker = MomzeroOffsetCalcGaussLag(*inputs)
 
-        integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)  # This contribution is spin-invariant.
-        integral += offset_niworker.kernel()[0]  # As is this one.
+            if return_niworker:
+                return niworker, offset_niworker
+            self.record_memory()
 
-        self.record_memory()
+            integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)  # This contribution is spin-invariant.
+            integral += offset_niworker.kernel()[0]  # As is this one.
 
-        # Free memory.
-        del ri_mp, inputs, niworker
-        self.record_memory()
+            self.record_memory()
 
-        # Construct A+B inverse.
-        eps = self.eps
-        epsinv = eps ** (-1)
-        # Factor of two from different spin channels.
-        u = 2 * dot(ri_apb[0] * epsinv[None], ri_apb[1].T)
-        u = np.linalg.inv(np.eye(u.shape[0]) + u)
-        self.record_memory()
+            # Free memory.
+            del ri_mp, inputs, niworker
+            self.record_memory()
 
-        # First, compute contribution which is spin-dependent (diagonal in both the integrated value, and (A+B)^-1).
-        mom0_spinindependent = integral * epsinv[None]
+            # Construct A+B inverse.
+            eps = self.eps
+            epsinv = eps ** (-1)
+            # Factor of two from different spin channels.
+            u = 2 * dot(ri_apb[0] * epsinv[None], ri_apb[1].T)
+            u = np.linalg.inv(np.eye(u.shape[0]) + u)
+            self.record_memory()
 
-        # Factor of two from sum over spin channels.
-        mom0_spinindependent -= dot(
-            dot(dot(target_rot * self.eps[None] + 2 * integral, (ri_apb[1] * epsinv[None]).T), u),
-            ri_apb[0] * epsinv[None],
-        )
+            # First, compute contribution which is spin-dependent (diagonal in both the integrated value, and
+            # (A+B)^-1).
+            mom0_spinindependent = integral * epsinv[None]
+
+            # Factor of two from sum over spin channels.
+            mom0_spinindependent -= dot(
+                dot(dot(target_rot * self.eps[None] + 2 * integral, (ri_apb[1] * epsinv[None]).T), u),
+                ri_apb[0] * epsinv[None],
+            )
 
         self.log.info("RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start))
 
@@ -174,7 +220,129 @@ class ssRIdRRPA(ssRIRRPA):
                 mom0[:, : self.ov] = target_rot + mom0_spinindependent
                 mom0[:, self.ov :] = mom0_spinindependent
 
-        return mom0, (None, None)
+        return mom0, errs
+
+    def _kernel_mom0_singlet_target(self, target_spatial: np.ndarray, **kwargs) -> tuple:
+        """Spin-orbital zeroth moment for a target with identical alpha and beta blocks.
+
+        For such a target the spin-orbital moment is (T eta, T eta), with eta the singlet zeroth moment and T the
+        spatial rows. T eta is computed once, by the spatial path, on an orthonormal row basis B of T (T = C B), and
+        mapped back as T eta = T + C (B eta - B).
+
+        Parameters
+        ----------
+        target_spatial : np.ndarray, shape (n, ov)
+            Spatial rows T (the common alpha and beta block).
+        **kwargs
+            Passed on to `_kernel_mom0`.
+
+        Returns
+        -------
+        mom0 : np.ndarray, shape (n, 2 ov)
+            Spin-orbital zeroth moment of the target.
+        errs : tuple
+            Error estimates, as returned by `_kernel_mom0`.
+        """
+        t_start = timer()
+        n = target_spatial.shape[0]
+        blocks = self.target_blocks
+        if blocks is None or sum(int(b) for b in blocks) != n or any(int(b) < 0 for b in blocks):
+            if blocks is not None:
+                self.log.warning("target_blocks %r inconsistent with %d target rows; using one block.", blocks, n)
+            blocks = [n]
+        offsets = np.cumsum([0] + [int(b) for b in blocks])
+        spans = [(i0, i1) for i0, i1 in zip(offsets[:-1], offsets[1:]) if i1 > i0]
+        parts = [self._row_basis(target_spatial[i0:i1]) for i0, i1 in spans]
+        basis = np.concatenate([b for b, _ in parts], axis=0) if parts else target_spatial[:0]
+        self.log.info(
+            "Singlet target: %d spatial rows in %d block(s) reduced to a basis of %d (no spin stacking), %s",
+            n,
+            len(parts),
+            basis.shape[0],
+            time_string(timer() - t_start),
+        )
+        mom_basis, errs = self._kernel_mom0(basis, return_spatial=True, **kwargs)
+        # T eta = T + C (B eta - B), block by block.
+        mom = target_spatial.copy()
+        r0 = 0
+        for (b, c), (i0, i1) in zip(parts, spans):
+            r1 = r0 + b.shape[0]
+            mom[i0:i1] += dot(c, mom_basis[r0:r1] - b)
+            r0 = r1
+        return np.hstack((mom, mom)), errs
+
+    def _row_basis(self, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Orthonormal basis B of the row space of `rows` and coefficients C with rows = C B.
+
+        The Gram matrix of the smaller side is diagonalised, and directions below `singlet_target_rtol` times its
+        largest eigenvalue are dropped.
+
+        Parameters
+        ----------
+        rows : np.ndarray, shape (n, ov)
+            Rows to reduce.
+
+        Returns
+        -------
+        basis : np.ndarray, shape (r, ov)
+            Orthonormal rows spanning `rows`.
+        coeff : np.ndarray, shape (n, r)
+            Coefficients of `rows` in `basis`.
+        """
+        n, ov = rows.shape
+        if n <= ov:
+            e, u = np.linalg.eigh(dot(rows, rows.T))
+            keep = e > self.singlet_target_rtol * max(e.max(), 0.0)
+            u, e = u[:, keep], e[keep]
+            return dot((u / np.sqrt(e)[None]).T, rows), u * np.sqrt(e)[None]
+        e, w = np.linalg.eigh(dot(rows.T, rows))
+        keep = e > self.singlet_target_rtol * max(e.max(), 0.0)
+        w = w[:, keep]
+        return np.ascontiguousarray(w.T), dot(rows, w)
+
+    def _hht_mom0_spinindependent(
+        self, target_rot: np.ndarray, ri_apb: list[np.ndarray]
+    ) -> tuple[np.ndarray | None, tuple]:
+        """Spin-independent zeroth-moment part by the HHT rational approximation, or None to fall back.
+
+        Parameters
+        ----------
+        target_rot : np.ndarray
+            Spatial target rows, after any spin stacking and compression.
+        ri_apb : list of np.ndarray
+            Low-rank representation of A+B; both sides equal sqrt(2 alpha) times the real CDERIs when HHT applies.
+
+        Returns
+        -------
+        mom0_spinindependent : np.ndarray or None
+            0.5 * (T eta - T), or None if the frequency integral must be used instead.
+        errs : tuple
+            (scalar relative error of the rational approximation, None).
+        """
+        t_start = timer()
+        if np.iscomplexobj(ri_apb[0]) or np.iscomplexobj(ri_apb[1]) or not np.array_equal(ri_apb[0], ri_apb[1]):
+            self.log.warning(
+                "HHT eta0 not used (A+B not given by real, symmetric CDERIs: negative CDERIs or compress > 3); "
+                "using frequency integral."
+            )
+            return None, (None, None)
+        try:
+            mom0_spinindependent, info = hht_mom0_spinindependent(
+                self.eps, ri_apb[0] / np.sqrt(2), target_rot, tol=self.eta0_tol
+            )
+        except RuntimeError as exc:
+            self.log.warning("HHT eta0 not used (%s); using frequency integral.", exc)
+            return None, (None, None)
+        self.log.info(
+            "HHT eta0: %d poles, lmax/lmin=%.2e, scalar error=%.1e, max Cholesky residual=%.1e, wall time %s",
+            info["n_poles"],
+            info["kappa"],
+            info["scalar_error"],
+            info["max_cholesky_residual"],
+            time_string(timer() - t_start),
+        )
+        self.hht_info = info
+        return mom0_spinindependent, (info["scalar_error"], None)
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
         """Evaluate Tr((MP)^(1/2))."""
