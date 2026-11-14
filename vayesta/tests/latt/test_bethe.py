@@ -19,11 +19,13 @@ class BetheTests(TestCase):
         d = bethe.hubbard1d_bethe_docc(t, u)
         self.assertAlmostEqual(d, known_values["docc"], self.PLACES_DOCC)
 
-        d1 = bethe.hubbard1d_bethe_docc_numdiff(t, u, du=1e-12, order=1)
-        self.assertAlmostEqual(d1, known_values["docc-numdiff1"], self.PLACES_DOCC)
-
-        d2 = bethe.hubbard1d_bethe_docc_numdiff(t, u, du=1e-12, order=2)
-        self.assertAlmostEqual(d2, known_values["docc-numdiff2"], self.PLACES_DOCC)
+        # Tiny steps amplify energy roundoff; compare both stencils to the analytic
+        # derivative at two resolved step sizes instead of storing cancellation errors.
+        for order in (1, 2):
+            for du in (1e-5, 1e-6):
+                with self.subTest(order=order, du=du):
+                    d_num = bethe.hubbard1d_bethe_docc_numdiff(t, u, du=du, order=order)
+                    self.assertAlmostEqual(d_num, d, self.PLACES_DOCC)
 
     def test_bethe_T1_U0(self):
         """Test the T=1, U=0 Bethe lattice."""
@@ -31,8 +33,6 @@ class BetheTests(TestCase):
         known_values = {
             "energy": -1.2732565954632262,
             "docc": 0.2499999972419595,
-            "docc-numdiff1": 0.2502442697505103,
-            "docc-numdiff2": 0.25031365868954936,
         }
 
         self._test_bethe(1.0, 0.0, known_values)
@@ -43,8 +43,6 @@ class BetheTests(TestCase):
         known_values = {
             "energy": -1.688748682251278,
             "docc": 0.17545254464835117,
-            "docc-numdiff1": 0.17530421558831222,
-            "docc-numdiff2": 0.17510992655900282,
         }
 
         self._test_bethe(2.0, 4.0, known_values)
