@@ -133,7 +133,8 @@ class Options(OptionsBase):
         truncation="occupation",
         # RPA moment and bath evaluation (see ssRIdRRPA and RPA_QBA_Bath); None keeps the class default.
         eta0_method=None,
-        # None: min(1e-6, threshold / 100) for occupation truncation, else 1e-6, which lies below the bath threshold.
+        # None: min(1e-6, threshold / 100) for positive occupation cutoffs; zero keeps the RPA class tolerance.
+        # Shared moments use the tightest participating fragment's tolerance; other truncations default to 1e-6.
         eta0_tol=None,
         singlet_target=None,
         singlet_projection=None,
@@ -749,13 +750,27 @@ class Embedding:
             target_rot = np.vstack([x for x in targets if x is not None])
             rpa = ssRIRPA(self.mf)
             bopts = self.opts.bosonic_bath_options
-            for key in ("eta0_method", "eta0_tol", "singlet_target"):
+            for key in ("eta0_method", "singlet_target"):
                 if bopts[key] is not None:
                     setattr(rpa, key, bopts[key])
-            if bopts["eta0_tol"] is None:
-                rpa.eta0_tol = 1e-6
-                if bopts["truncation"] == "occupation":
-                    rpa.eta0_tol = min(1e-6, bopts["threshold"] / 100)
+            # All target rows share one moment calculation, so honour the strictest fragment requirement.
+            default_tol = rpa.eta0_tol
+            tolerances = []
+            for fragment, target in zip(fragments, targets):
+                if target is None or len(target) == 0:
+                    continue
+                fopts = fragment.opts.bosonic_bath_options
+                tol = fopts["eta0_tol"]
+                if tol is None:
+                    tol = 1e-6
+                    if fopts["truncation"] == "occupation":
+                        threshold = fopts["threshold"]
+                        # A nonpositive cutoff retains all modes and cannot define a positive accuracy target.
+                        tol = min(1e-6, threshold / 100) if threshold > 0 else default_tol
+                if not np.isfinite(tol) or tol <= 0:
+                    raise ValueError("Bosonic-bath eta0_tol must be finite and strictly positive.")
+                tolerances.append(tol)
+            rpa.eta0_tol = min(tolerances, default=default_tol)
             # Row counts per fragment; used only by ssRIdRRPA's singlet-target path.
             rpa.target_blocks = list(ntarget)
             moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]

@@ -19,7 +19,8 @@ class ssRIdRRPA(ssRIRRPA):
     """
 
     eta0_method = "hht"
-    # Bosonic baths use min(1e-6, bath threshold / 100) by default (see Embedding.build_bosonic_bath).
+    # Bosonic baths use the tightest fragment's tolerance, normally min(1e-6, positive occupation cutoff / 100).
+    # With no occupation truncation they keep this class default (see Embedding.build_bosonic_bath).
     # Higher moments are built from the zeroth moment and amplify its error, so they need a tighter eta0_tol; tighten
     # it further if more accuracy is needed.
     eta0_tol = 1e-10

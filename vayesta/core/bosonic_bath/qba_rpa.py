@@ -93,9 +93,9 @@ class RPA_QBA_Bath(Bosonic_Bath):
     # Largest difference between the spin blocks, relative to their largest element, treated as equal. The
     # spin-stacked moment path rebuilds the two blocks with round-off differences.
     singlet_projection_rtol = 1e-10
-    # Eigenvalues of the environment Gram matrix at or below this tolerance, relative to the largest eigenvalue, are
-    # null modes (round-off, possibly negative) and are discarded instead of being normalised by occup ** (-0.5).
-    null_mode_rtol = 1e-12
+    # Relative singular-value tolerance for numerical null modes. None uses the usual machine-precision rank cutoff
+    # eps * max(environment.shape); physical bath weights are the squared singular values.
+    null_mode_rtol: float | None = None
 
     def __init__(self, fragment, target_m0, singlet_projection: bool | None = None) -> None:
         self.target_m0 = target_m0
@@ -112,9 +112,8 @@ class RPA_QBA_Bath(Bosonic_Bath):
         clus_ov = self.cluster_excitations
         # Remove any contributions within the fermionic excitation space of the fragment.
         m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov.T), clus_ov)
-        # Now we can construct the bosonic bath by diagonalising these contributions.
-        occup, w = self._diagonalise_gram(dot(m0_env, m0_env.T))
-        coeff = dot(w.T, m0_env)
+        # Construct the bath directly from the environment rows without squaring their condition number.
+        occup, coeff = self._diagonalise_environment(m0_env)
 
         self.coeff = coeff
         self.occup = occup
@@ -146,8 +145,7 @@ class RPA_QBA_Bath(Bosonic_Bath):
         m = (0.5 * (ma + mb)).reshape(-1, co.shape[1], cv.shape[1])
         proj = einsum("nia,Ii,Aa->nIA", m, co, cv)
         e = (m - einsum("nIA,Ii,Aa->nia", proj, co, cv)).reshape(-1, ov)
-        occup, w = self._diagonalise_gram(2.0 * dot(e, e.T))
-        coeff = dot(w.T, e)
+        occup, coeff = self._diagonalise_environment(e, spin_factor=2.0)
         coeff = np.hstack((coeff, coeff))
 
         self.coeff = coeff
@@ -155,34 +153,35 @@ class RPA_QBA_Bath(Bosonic_Bath):
 
         return coeff, occup
 
-    def _diagonalise_gram(self, gram: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Diagonalise the environment Gram matrix, discarding its null modes.
+    def _diagonalise_environment(self, rows: np.ndarray, spin_factor: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+        """Construct bath weights and coefficients from the environment rows using an SVD.
 
-        Eigenvalues at or below `null_mode_rtol` times the largest eigenvalue span no environment direction; they
-        are round-off (and can be negative), so normalising them would give NaN or meaningless coefficients.
+        Numerical rank is determined from singular values, before squaring them to obtain bath weights. This avoids
+        treating small positive Gram eigenvalues as null modes and avoids normalising round-off eigenvectors.
 
         Parameters
         ----------
-        gram : (n, n) array
-            Gram matrix of the environment rows.
+        rows : np.ndarray, shape (n, ov)
+            Environment rows in the spin-orbital or spatial representation.
+        spin_factor : float, optional
+            Multiplicity of the represented spin blocks: 1 for spin-orbital rows and 2 for spatial singlet rows.
 
         Returns
         -------
-        occup : (m,) array
-            Retained eigenvalues in descending order, m <= n, all positive.
-        w : (n, m) array
-            Corresponding eigenvectors scaled by occup ** (-0.5), so that ``w.T @ rows`` has orthonormal rows.
+        occup : np.ndarray, shape (m,)
+            Positive bath weights in descending order.
+        coeff : np.ndarray, shape (m, ov)
+            Bath coefficients, normalised after accounting for `spin_factor` equivalent spin blocks.
         """
-        occup, c = np.linalg.eigh(gram)
-        occup = occup[::-1]
-        c = c[:, ::-1]
-        keep = occup > self.null_mode_rtol * occup.max(initial=0.0)
+        _, singular, coeff = np.linalg.svd(rows, full_matrices=False)
+        rtol = self.null_mode_rtol
+        if rtol is None:
+            rtol = np.finfo(singular.dtype).eps * max(rows.shape)
+        keep = singular > rtol * singular.max(initial=0.0)
         if not np.all(keep):
             self.log.debug(
-                "Discarding %d null modes of %d in the environment Gram matrix (smallest eigenvalue %.2e).",
+                "Discarding %d numerical null modes of %d in the environment rows.",
                 np.count_nonzero(~keep),
-                len(occup),
-                occup.min(),
+                len(singular),
             )
-        occup = occup[keep]
-        return occup, c[:, keep] / np.sqrt(occup)[None]
+        return spin_factor * singular[keep] ** 2, coeff[keep] / np.sqrt(spin_factor)

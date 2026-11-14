@@ -1,11 +1,14 @@
 import unittest
 from unittest import mock
+import logging
+from types import SimpleNamespace
 
 import numpy as np
 
 import vayesta.ewf
 from vayesta import rpa
 from vayesta.core.bosonic_bath.qba_rpa import RPA_QBA_Bath
+from vayesta.core.bosonic_bath.bbath import Boson_Threshold
 from vayesta.core.util import dot
 from vayesta.rpa.rirpa import RIdRRPA
 from vayesta.rpa.rirpa.RIdRRPA import ssRIdRRPA
@@ -16,6 +19,31 @@ THRESHOLD = 1e-4
 TIGHT = dict(eta0_tol=1e-12)
 CLENCUR = dict(eta0_method="clencur")
 ALL_ON = dict(eta0_method="hht", singlet_target=True, singlet_projection=True, **TIGHT)
+
+
+class BathModeTest(TestCase):
+    def test_weak_positive_mode_retained(self) -> None:
+        """Retain a finite positive mode above the requested occupation cutoff."""
+        co = np.ones((1, 1))
+        cv = np.array([[1.0, 0.0, 0.0]])
+
+        def get_overlap(key: str) -> np.ndarray:
+            """Return the occupied or virtual cluster overlap."""
+            return co if "occ" in key else cv
+
+        fragment = SimpleNamespace(log=logging.getLogger(__name__), get_overlap=get_overlap)
+        spatial = np.array([[0.0, np.sqrt(0.1 / 2), 0.0], [0.0, 0.0, np.sqrt(1e-14 / 2)]])
+        for singlet_projection in (False, True):
+            with self.subTest(singlet_projection=singlet_projection):
+                bath = object.__new__(RPA_QBA_Bath)
+                bath.fragment = fragment
+                bath.target_m0 = np.hstack((spatial, spatial))
+                bath.singlet_projection = singlet_projection
+                bath.coeff, bath.occup = bath.make_boson_coeff()
+                coeff, _ = bath.get_bath(boson_threshold=Boson_Threshold("occupation", 1e-15), verbose=False)
+                self.assertEqual(coeff.shape, (2, 6))
+                self.assertAllclose(bath.occup, [0.1, 1e-14], atol=0, rtol=1e-12)
+                self.assertAllclose(coeff @ coeff.T, np.eye(2), atol=1e-12, rtol=0)
 
 
 class RPABosonicBathHHTTest(TestCase):
@@ -35,7 +63,9 @@ class RPABosonicBathHHTTest(TestCase):
     def tearDownClass(cls):
         del cls.mf, cls.m0_exact
 
-    def _baths(self, target_orbitals, local_projection, exact=False, **options):
+    def _baths(
+        self, target_orbitals, local_projection, exact=False, threshold=THRESHOLD, fragment_options=None, **options
+    ):
         emb = vayesta.ewf.EWF(
             self.mf,
             bath_options=dict(bathtype="mp2", threshold=1e-4),
@@ -43,12 +73,14 @@ class RPABosonicBathHHTTest(TestCase):
                 bathtype="rpa",
                 target_orbitals=target_orbitals,
                 local_projection=local_projection,
-                threshold=THRESHOLD,
+                threshold=threshold,
                 **options,
             ),
         )
         with emb.iao_fragmentation() as f:
             f.add_all_atomic_fragments()
+        if fragment_options is not None:
+            emb.fragments[0].opts.bosonic_bath_options.update(fragment_options)
         for x in emb.fragments:
             x.make_bath()
             x.make_cluster()
@@ -128,6 +160,28 @@ class RPABosonicBathHHTTest(TestCase):
         ):
             self._baths("full", "fragment", eta0_method="hht")
         self.assertEqual(hht.call_count, 1)
+
+    def test_zero_threshold(self) -> None:
+        """A zero bath cutoff keeps a positive HHT tolerance and finite bath coefficients."""
+        with mock.patch.object(RIdRRPA, "hht_mom0_spinindependent", wraps=RIdRRPA.hht_mom0_spinindependent) as hht:
+            baths = self._baths("dmet", None, threshold=0.0)
+        self.assertEqual(hht.call_count, 1)
+        self.assertEqual(hht.call_args.kwargs["tol"], ssRIdRRPA.eta0_tol)
+        for bath in baths:
+            self.assertTrue(np.all(np.isfinite(bath.coeff)))
+            self.assertTrue(np.all(bath.occup > 0))
+            self.assertAllclose(bath.coeff @ bath.coeff.T, np.eye(len(bath.occup)), atol=1e-10, rtol=0)
+
+    def test_fragment_tolerance(self) -> None:
+        """Use the tightest fragment accuracy, including explicit fragment overrides."""
+        for options, expected in ((dict(threshold=1e-8), 1e-10), (dict(eta0_tol=1e-12), 1e-12)):
+            with self.subTest(**options):
+                with mock.patch.object(
+                    RIdRRPA, "hht_mom0_spinindependent", wraps=RIdRRPA.hht_mom0_spinindependent
+                ) as hht:
+                    self._baths("dmet", None, fragment_options=options)
+                self.assertEqual(hht.call_count, 1)
+                self.assertEqual(hht.call_args.kwargs["tol"], expected)
 
     def test_rank_deficient_target(self):
         """Null modes of a rank-deficient environment Gram matrix are discarded instead of giving NaN coefficients.
