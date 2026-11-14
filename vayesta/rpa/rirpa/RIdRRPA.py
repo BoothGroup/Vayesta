@@ -12,14 +12,16 @@ from pyscf import lib
 class ssRIdRRPA(ssRIRRPA):
     """Class for computing direct RPA correlated quantites with a restricted reference state.
 
-    The zeroth moment is evaluated by the frequency integral (`eta0_method = "clencur"`, default) or by the
-    Hale-Higham-Trefethen rational approximation (`eta0_method = "hht"`, see `vayesta.rpa.rirpa.hht`), to a
-    scalar relative accuracy `eta0_tol`. The HHT route falls back to the frequency integral when it does not
-    apply (negative CDERIs, compress > 3, return_niworker, or an unreachable tolerance).
+    The zeroth moment is evaluated by the Hale-Higham-Trefethen rational approximation (`eta0_method = "hht"`,
+    default, see `vayesta.rpa.rirpa.hht`), to a scalar relative accuracy `eta0_tol`, or by the frequency integral
+    (`eta0_method = "clencur"`). The HHT route falls back to the frequency integral when it does not apply
+    (negative CDERIs, compress > 3, return_niworker, or an unreachable tolerance).
     """
 
-    eta0_method = "clencur"
-    eta0_tol = 1e-12
+    eta0_method = "hht"
+    # 1e-8 or 1e-6 is often sufficient if just being used to form a bath with this threshold typically below
+    # other thresholds within the calculation. Set here higher for higher moment cases.
+    eta0_tol = 1e-10
     # Spin-orbital targets with identical alpha and beta blocks (all restricted bosonic-bath targets) give the
     # spin-orbital zeroth moment (T eta, T eta), with eta the singlet moment. With `singlet_target = True` it is
     # computed once on the spatial rows, after reducing them to a row basis of their rank, instead of stacking the

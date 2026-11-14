@@ -78,15 +78,17 @@ class MoleculeHHTTest(TestCase):
     def tearDownClass(cls):
         del cls.mf, cls.moms_exact
 
-    def _rirpa(self, method="hht", singlet=False, **kwargs):
+    def _rirpa(self, method="hht", singlet=False, tol=1e-12, **kwargs):
         rirpa = rpa.rirpa.ssRIdRRPA(self.mf, **kwargs)
         rirpa.eta0_method = method
+        rirpa.eta0_tol = tol
         rirpa.singlet_target = singlet
         return rirpa
 
     def test_defaults(self):
-        """Default behaviour is the frequency integral with spin stacking."""
-        self.assertEqual(rpa.rirpa.ssRIdRRPA.eta0_method, "clencur")
+        """Default behaviour is HHT at a relative tolerance of 1e-10, with spin stacking."""
+        self.assertEqual(rpa.rirpa.ssRIdRRPA.eta0_method, "hht")
+        self.assertEqual(rpa.rirpa.ssRIdRRPA.eta0_tol, 1e-10)
         self.assertFalse(rpa.rirpa.ssRIdRRPA.singlet_target)
         self.assertIsNone(rpa.rirpa.ssRIdRRPA.target_blocks)
 

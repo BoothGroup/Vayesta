@@ -12,7 +12,9 @@ from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
 THRESHOLD = 1e-4
-ALL_ON = dict(eta0_method="hht", singlet_target=True, singlet_projection=True)
+TIGHT = dict(eta0_tol=1e-12)
+CLENCUR = dict(eta0_method="clencur")
+ALL_ON = dict(eta0_method="hht", singlet_target=True, singlet_projection=True, **TIGHT)
 
 
 class RPABosonicBathHHTTest(TestCase):
@@ -57,25 +59,28 @@ class RPABosonicBathHHTTest(TestCase):
             emb.build_bosonic_bath()
         return [x._boson_bath_factory for x in emb.fragments]
 
-    def _assert_same_bath(self, baths, refs):
+    def _assert_same_bath(self, baths, refs, tol=1e-8):
         for bath, ref in zip(baths, refs):
             k = int(np.sum(ref.occup >= THRESHOLD))
             self.assertEqual(int(np.sum(bath.occup >= THRESHOLD)), k)
             if k == 0:
                 continue
-            self.assertAllclose(bath.occup[:k], ref.occup[:k], rtol=1e-8, atol=0)
+            self.assertAllclose(bath.occup[:k], ref.occup[:k], rtol=tol, atol=0)
             # Largest sine of the angles between the retained bath subspaces.
             qa = np.linalg.qr(ref.coeff[:k].T)[0]
             qb = np.linalg.qr(bath.coeff[:k].T)[0]
-            self.assertLess(np.linalg.norm(qb - qa @ (qa.T @ qb), 2), 1e-8)
+            self.assertLess(np.linalg.norm(qb - qa @ (qa.T @ qb), 2), tol)
 
     def test_vs_exact(self):
         for target_orbitals in ("full", "dmet"):
             for local_projection in (None, "fragment", "fragment-occ", "fragment-ov"):
                 refs = self._baths(target_orbitals, local_projection, exact=True)
-                for options in ({}, ALL_ON, dict(singlet_projection=True)):
+                for options in (CLENCUR, TIGHT, ALL_ON, dict(singlet_projection=True, **TIGHT)):
                     with self.subTest(target=target_orbitals, projection=local_projection, **options):
                         self._assert_same_bath(self._baths(target_orbitals, local_projection, **options), refs)
+                with self.subTest(target=target_orbitals, projection=local_projection, defaults=True):
+                    # Default eta0_tol = 1e-10 gives bath weights and subspaces within about 2e-9 here.
+                    self._assert_same_bath(self._baths(target_orbitals, local_projection), refs)
 
     def test_paths_used(self):
         """With the options on, each new path is taken; the singlet bath also when the target moment is stacked."""
@@ -86,7 +91,7 @@ class RPABosonicBathHHTTest(TestCase):
             results.append(singlet_bath(bath))
             return results[-1]
 
-        for options in (ALL_ON, dict(singlet_projection=True)):
+        for options in (ALL_ON, dict(singlet_projection=True, **CLENCUR)):
             results.clear()
             with (
                 mock.patch.object(RPA_QBA_Bath, "_make_boson_coeff_singlet", spy),
@@ -112,16 +117,16 @@ class RPABosonicBathHHTTest(TestCase):
 
     def test_class_defaults_used(self):
         """Options left as None keep the class attributes, which external codes may set."""
+        with mock.patch.object(ssRIdRRPA, "eta0_method", "clencur"):
+            with mock.patch.object(RIdRRPA, "hht_mom0_spinindependent") as hht:
+                self._baths("full", "fragment")
+        hht.assert_not_called()
         with (
-            mock.patch.object(ssRIdRRPA, "eta0_method", "hht"),
+            mock.patch.object(ssRIdRRPA, "eta0_method", "clencur"),
             mock.patch.object(RIdRRPA, "hht_mom0_spinindependent", wraps=RIdRRPA.hht_mom0_spinindependent) as hht,
         ):
-            self._baths("full", "fragment")
+            self._baths("full", "fragment", eta0_method="hht")
         self.assertEqual(hht.call_count, 1)
-        with mock.patch.object(ssRIdRRPA, "eta0_method", "hht"):
-            with mock.patch.object(RIdRRPA, "hht_mom0_spinindependent") as hht:
-                self._baths("full", "fragment", eta0_method="clencur")
-        hht.assert_not_called()
 
     def test_singlet_projection_spin_blocks_differ(self):
         """A target moment with different spin blocks uses the spin-orbital construction."""
