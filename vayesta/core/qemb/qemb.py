@@ -133,6 +133,7 @@ class Options(OptionsBase):
         truncation="occupation",
         # RPA moment and bath evaluation (see ssRIdRRPA and RPA_QBA_Bath); None keeps the class default.
         eta0_method=None,
+        # None: min(1e-6, threshold / 100) for occupation truncation, else 1e-6, which lies below the bath threshold.
         eta0_tol=None,
         singlet_target=None,
         singlet_projection=None,
@@ -747,9 +748,14 @@ class Embedding:
             targets, ntarget = zip(*[x.make_bosonic_bath_target() for x in fragments])
             target_rot = np.vstack([x for x in targets if x is not None])
             rpa = ssRIRPA(self.mf)
+            bopts = self.opts.bosonic_bath_options
             for key in ("eta0_method", "eta0_tol", "singlet_target"):
-                if self.opts.bosonic_bath_options[key] is not None:
-                    setattr(rpa, key, self.opts.bosonic_bath_options[key])
+                if bopts[key] is not None:
+                    setattr(rpa, key, bopts[key])
+            if bopts["eta0_tol"] is None:
+                rpa.eta0_tol = 1e-6
+                if bopts["truncation"] == "occupation":
+                    rpa.eta0_tol = min(1e-6, bopts["threshold"] / 100)
             # Row counts per fragment; used only by ssRIdRRPA's singlet-target path.
             rpa.target_blocks = list(ntarget)
             moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]

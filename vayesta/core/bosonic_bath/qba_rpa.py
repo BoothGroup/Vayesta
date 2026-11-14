@@ -93,6 +93,9 @@ class RPA_QBA_Bath(Bosonic_Bath):
     # Largest difference between the spin blocks, relative to their largest element, treated as equal. The
     # spin-stacked moment path rebuilds the two blocks with round-off differences.
     singlet_projection_rtol = 1e-10
+    # Eigenvalues of the environment Gram matrix at or below this tolerance, relative to the largest eigenvalue, are
+    # null modes (round-off, possibly negative) and are discarded instead of being normalised by occup ** (-0.5).
+    null_mode_rtol = 1e-12
 
     def __init__(self, fragment, target_m0, singlet_projection: bool | None = None) -> None:
         self.target_m0 = target_m0
@@ -110,14 +113,8 @@ class RPA_QBA_Bath(Bosonic_Bath):
         # Remove any contributions within the fermionic excitation space of the fragment.
         m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov.T), clus_ov)
         # Now we can construct the bosonic bath by diagonalising these contributions.
-        contribs = dot(m0_env, m0_env.T)
-        sort = np.s_[::-1]
-        occup, c = np.linalg.eigh(contribs)
-        occup = occup[sort]
-        c = c[:, sort]
-
-        occuprtinv = occup ** (-0.5)
-        coeff = dot((c * occuprtinv[None]).T, m0_env)
+        occup, w = self._diagonalise_gram(dot(m0_env, m0_env.T))
+        coeff = dot(w.T, m0_env)
 
         self.coeff = coeff
         self.occup = occup
@@ -149,17 +146,43 @@ class RPA_QBA_Bath(Bosonic_Bath):
         m = (0.5 * (ma + mb)).reshape(-1, co.shape[1], cv.shape[1])
         proj = einsum("nia,Ii,Aa->nIA", m, co, cv)
         e = (m - einsum("nIA,Ii,Aa->nia", proj, co, cv)).reshape(-1, ov)
-        contribs = 2.0 * dot(e, e.T)
-        sort = np.s_[::-1]
-        occup, c = np.linalg.eigh(contribs)
-        occup = occup[sort]
-        c = c[:, sort]
-
-        occuprtinv = occup ** (-0.5)
-        coeff = dot((c * occuprtinv[None]).T, e)
+        occup, w = self._diagonalise_gram(2.0 * dot(e, e.T))
+        coeff = dot(w.T, e)
         coeff = np.hstack((coeff, coeff))
 
         self.coeff = coeff
         self.occup = occup
 
         return coeff, occup
+
+    def _diagonalise_gram(self, gram: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Diagonalise the environment Gram matrix, discarding its null modes.
+
+        Eigenvalues at or below `null_mode_rtol` times the largest eigenvalue span no environment direction; they
+        are round-off (and can be negative), so normalising them would give NaN or meaningless coefficients.
+
+        Parameters
+        ----------
+        gram : (n, n) array
+            Gram matrix of the environment rows.
+
+        Returns
+        -------
+        occup : (m,) array
+            Retained eigenvalues in descending order, m <= n, all positive.
+        w : (n, m) array
+            Corresponding eigenvectors scaled by occup ** (-0.5), so that ``w.T @ rows`` has orthonormal rows.
+        """
+        occup, c = np.linalg.eigh(gram)
+        occup = occup[::-1]
+        c = c[:, ::-1]
+        keep = occup > self.null_mode_rtol * occup.max(initial=0.0)
+        if not np.all(keep):
+            self.log.debug(
+                "Discarding %d null modes of %d in the environment Gram matrix (smallest eigenvalue %.2e).",
+                np.count_nonzero(~keep),
+                len(occup),
+                occup.min(),
+            )
+        occup = occup[keep]
+        return occup, c[:, keep] / np.sqrt(occup)[None]

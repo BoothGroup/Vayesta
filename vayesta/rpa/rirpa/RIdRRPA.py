@@ -19,8 +19,9 @@ class ssRIdRRPA(ssRIRRPA):
     """
 
     eta0_method = "hht"
-    # 1e-8 or 1e-6 is often sufficient if just being used to form a bath with this threshold typically below
-    # other thresholds within the calculation. Set here higher for higher moment cases.
+    # Bosonic baths use min(1e-6, bath threshold / 100) by default (see Embedding.build_bosonic_bath).
+    # Higher moments are built from the zeroth moment and amplify its error, so they need a tighter eta0_tol; tighten
+    # it further if more accuracy is needed.
     eta0_tol = 1e-10
     # Spin-orbital targets with identical alpha and beta blocks (all restricted bosonic-bath targets) give the
     # spin-orbital zeroth moment (T eta, T eta), with eta the singlet moment. With `singlet_target = True` it is

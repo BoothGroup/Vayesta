@@ -31,8 +31,11 @@ class QBA_RPA_Bath_Test(TestCase):
 
     def test_target_full_project_fragment(self):
         occ = self._get_occupation("full", "fragment")
-        values = np.array([np.amin(occ), np.amax(occ), np.mean(occ)])
-        known_values = np.array([-1.23436133e-19, 3.65521662e-03, 5.97968938e-05])
+        # The environment Gram matrix is rank-deficient here; its null modes are discarded, so only the largest and
+        # the total coupling weight are compared, and all retained weights must be positive.
+        self.assertTrue(np.all(occ > 0))
+        values = np.array([np.amax(occ), np.sum(occ)])
+        known_values = np.array([3.65521662e-03, 6.27867385e-03])
         self.assertAllclose(values, known_values)
 
     def test_target_dmet_project_fragment(self):
@@ -43,8 +46,9 @@ class QBA_RPA_Bath_Test(TestCase):
 
     def test_target_full_no_project(self):
         occ = self._get_occupation("full", None)
-        values = np.array([np.amin(occ), np.amax(occ), np.mean(occ)])
-        known_values = np.array([5.23868995e-17, 3.12442358e-02, 5.99949472e-04])
+        self.assertTrue(np.all(occ > 0))
+        values = np.array([np.amax(occ), np.sum(occ)])
+        known_values = np.array([3.12442358e-02, 6.29946946e-02])
         self.assertAllclose(values, known_values)
 
     def test_target_dmet_no_project(self):
