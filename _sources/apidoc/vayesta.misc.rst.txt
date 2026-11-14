@@ -1,0 +1,79 @@
+vayesta.misc
+============
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   vayesta.misc.molecules
+   vayesta.misc.solids
+   vayesta.misc.variational_embedding
+
+Submodules
+----------
+
+vayesta.misc.brueckner
+----------------------
+
+.. automodule:: vayesta.misc.brueckner
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.corrfunc
+---------------------
+
+.. automodule:: vayesta.misc.corrfunc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.counterpoise
+-------------------------
+
+.. automodule:: vayesta.misc.counterpoise
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.cptbisect
+----------------------
+
+.. automodule:: vayesta.misc.cptbisect
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.cubefile
+---------------------
+
+.. automodule:: vayesta.misc.cubefile
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.gto\_helper
+------------------------
+
+.. automodule:: vayesta.misc.gto_helper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.misc.pcdiis
+-------------------
+
+.. automodule:: vayesta.misc.pcdiis
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.misc
+   :members:
+   :show-inheritance:
+   :undoc-members:

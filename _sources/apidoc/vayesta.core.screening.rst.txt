@@ -1,0 +1,29 @@
+vayesta.core.screening
+======================
+
+Submodules
+----------
+
+vayesta.core.screening.screening\_crpa
+--------------------------------------
+
+.. automodule:: vayesta.core.screening.screening_crpa
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.core.screening.screening\_moment
+----------------------------------------
+
+.. automodule:: vayesta.core.screening.screening_moment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.core.screening
+   :members:
+   :show-inheritance:
+   :undoc-members:
