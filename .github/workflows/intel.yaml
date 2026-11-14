@@ -45,7 +45,7 @@ jobs:
       LD_LIBRARY_PATH: /opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64:/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/mkl/latest/lib/
       CMAKE_POLICY_VERSION_MINIMUM: 3.5
       PKG_CONFIG_PATH: /opt/intel/oneapi/mkl/latest/lib/pkgconfig
-      # Used by the CMake builds of PySCF and Vayesta
+      # Used by the CMake builds of PySCF and (as CMAKE_ARGS) Vayesta
       CMAKE_CONFIGURE_ARGS: -DBLAS_LIBRARIES=/opt/intel/oneapi/mkl/latest/lib/intel64/libmkl_rt.so
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
         run: |
           pip install wheelhouse/*.whl
           pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          pip install .[dmet,ebcc] pytest pytest-cov pytest-xdist
+          CMAKE_ARGS="$CMAKE_CONFIGURE_ARGS" pip install .[dmet,ebcc] pytest pytest-cov pytest-xdist
           python -c 'import numpy as np; np.__config__.show()'
           python -c 'import scipy as sp; sp.show_config()'
       - name: Run unit tests
