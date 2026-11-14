@@ -110,7 +110,8 @@ def get_git_hash(dir):
     cmd = ["git", "--git-dir=%s" % git_dir, "rev-parse", "--short", "HEAD"]
     try:
         githash = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT).rstrip()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
+        # OSError: git is not installed
         githash = "<Not Found>"
     return githash
 

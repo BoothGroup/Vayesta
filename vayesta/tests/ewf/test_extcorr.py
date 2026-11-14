@@ -610,6 +610,46 @@ class TestRegEC_CCSD(TestCase):
         self.assertAlmostEqual(e_tot, -76.24017093290053)
 
 
+class TestMixedCorrections(TestCase):
+    """Corrections of different types from different fragments have to be combined independently of their order."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.n2_sto_150pm.rhf()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+
+    def _get_e_corr(self, corrections):
+        solver_opts = dict(conv_tol=1e-12, conv_tol_normt=1e-8, solve_lambda=False)
+        emb = vayesta.ewf.EWF(self.mf, bath_options=dict(threshold=1e-4), solver_options=solver_opts)
+        with emb.iao_fragmentation() as f:
+            fci = [
+                f.add_atomic_fragment(
+                    atom, solver="FCI", bath_options=dict(bathtype="dmet"), store_wf_type="CCSDTQ", auxiliary=True
+                )
+                for atom in (0, 1)
+            ]
+            ccsd = [f.add_atomic_fragment(atom, solver="extCCSD") for atom in (0, 1)]
+        for index, correction_type in corrections:
+            for frag in ccsd:
+                frag.add_external_corrections([fci[index]], correction_type=correction_type, projectors=1)
+        emb.kernel()
+        return emb.e_corr
+
+    def test_mixed_external_delta_tailor(self):
+        e_corr1 = self._get_e_corr([(0, "delta-tailor"), (1, "external")])
+        e_corr2 = self._get_e_corr([(1, "external"), (0, "delta-tailor")])
+        self.assertAllclose(e_corr1, e_corr2)
+
+
+class TestMixedCorrectionsUHF(TestMixedCorrections):
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.n2_sto_150pm.rhf().to_uhf()
+
+
 if __name__ == "__main__":
     print("Running %s" % __file__)
     unittest.main()

@@ -353,18 +353,20 @@ class RClusterHamiltonian:
             heff = self.get_fock(with_vext=True, use_seris=False) - clusmf.get_veff()
         else:
             # Just set up heff using standard bare eris.
-            bare_eris = self.get_eris_bare()
             if force_bare_eris:
-                clusmf._eri = pad_to_match(bare_eris, 0.0)
+                eris = self.get_eris_bare()
+                clusmf._eri = pad_to_match(eris, 0.0)
             else:
-                clusmf._eri = pad_to_match(self.get_eris_screened())
+                eris = self.get_eris_screened()
+                clusmf._eri = pad_to_match(eris)
 
-            heff = pad_to_match(self.get_heff(with_vext=True), dummy_energy)
+            heff = pad_to_match(self.get_heff(eris=eris, with_vext=True), dummy_energy)
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
+            # This is the Fock matrix which would result from heff and the cluster ERIs (see get_heff)
             clusmf.get_fock = lambda *args, **kwargs: np.asarray(
-                pad_to_match(self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
+                pad_to_match(self.get_fock(with_vext=True), dummy_energy)
             )
             clusmf.get_veff = lambda *args, **kwargs: (
                 np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
@@ -609,7 +611,11 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     # Integrals for the cluster calculations.
 
-    def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
+    def get_fock(self, with_vext=True, use_seris=None, with_exxdiv=False):
+        if use_seris is None:
+            # Actual default depends on self.opts.match_fock; to reproduce fock we will effectively modify heff
+            use_seris = not self.opts.match_fock
+
         ca, cb = self.cluster.c_active
         fa, fb = self._fragment.base.get_fock(with_exxdiv=with_exxdiv)
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
@@ -648,9 +654,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def get_heff(self, eris=None, fock=None, with_vext=True, with_exxdiv=False):
         if eris is None:
-            eris = self.get_eris_bare()
+            eris = self.get_eris_screened()
         if fock is None:
-            fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
+            fock = self.get_fock(with_vext=False, with_exxdiv=with_exxdiv)
 
         oa = np.s_[: self.cluster.nocc_active[0]]
         ob = np.s_[: self.cluster.nocc_active[1]]
@@ -727,18 +733,28 @@ class UClusterHamiltonian(RClusterHamiltonian):
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
             # provided the following approach has a lower scaling than this.
-            def compress_cderi(cd):
-                naux, n1, n2 = cd.shape
-                u, s, v = np.linalg.svd(cd.reshape(naux, n1 * n2), full_matrices=False)
+            # The two spin channels have to be compressed together, such that they share the same compressed
+            # auxiliary basis: the opposite-spin integrals (ia|JB) = sum_L (L|ia)(L|JB) contract the alpha and beta
+            # CDERIs over the auxiliary index.
+            def compress_cderi(cd_a, cd_b):
+                naux = cd_a.shape[0]
+                if cd_b.shape[0] != naux:
+                    raise ValueError(
+                        "Alpha and beta CDERIs have different auxiliary dimensions: %d != %d" % (naux, cd_b.shape[0])
+                    )
+                size_a = cd_a[0].size
+                cd = np.hstack((cd_a.reshape(naux, size_a), cd_b.reshape(naux, -1)))
+                u, s, v = np.linalg.svd(cd, full_matrices=False)
                 want = s > svd_threshold
                 self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
-                return einsum("n,nq->nq", s[want], v[want]).reshape(-1, n1, n2)
+                cd = einsum("n,nq->nq", s[want], v[want])
+                return cd[:, :size_a].reshape(-1, *cd_a.shape[1:]), cd[:, size_a:].reshape(-1, *cd_b.shape[1:])
 
-            cderi = (compress_cderi(cderi[0]), compress_cderi(cderi[0]))
+            cderi = compress_cderi(*cderi)
+            if (cderi_neg[0] is None) != (cderi_neg[1] is None):
+                raise ValueError("Negative CDERI contribution is present in only one spin channel.")
             if cderi_neg[0] is not None:
-                cderi_neg = (compress_cderi(cderi_neg[0]), cderi_neg[1])
-            if cderi_neg[1] is not None:
-                cderi_neg = (cderi_neg[0], compress_cderi(cderi_neg[1]))
+                cderi_neg = compress_cderi(*cderi_neg)
 
         return cderi, cderi_neg
 

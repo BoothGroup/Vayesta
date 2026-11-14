@@ -1,6 +1,7 @@
 import sys
 import pytest
 import unittest
+import numpy as np
 from vayesta import dmet
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
@@ -116,6 +117,43 @@ class MoleculeTest(TestCase):
         known_values = {"e_tot": -3.2536357694705185}
 
         self._test_energy(emb, known_values)
+
+    def test_chempot_bracket_after_solver_failure(self):
+        """The chemical potential bracket search has to continue in the same direction after a solver failure."""
+
+        def get_emb():
+            emb = dmet.DMET(
+                testsystems.water_sto3g.rhf(),
+                solver="CCSD",
+                charge_consistent=False,
+                bath_options=dict(bathtype="dmet"),
+                oneshot=True,
+                # The chemical potential is only converged to within max_elec_err * nelectron:
+                max_elec_err=1e-7,
+            )
+            with emb.iao_fragmentation() as f:
+                f.add_all_atomic_fragments()
+            return emb
+
+        emb_ref = get_emb()
+        emb_ref.kernel()
+
+        emb = get_emb()
+        calc_electron_number_defect = emb.calc_electron_number_defect
+        failures = []
+
+        def calc_electron_number_defect_with_failure(chempot, *args, **kwargs):
+            # Simulate a solver failure at the first trial chemical potential of the bracket search:
+            if chempot != 0 and not failures:
+                failures.append(chempot)
+                raise np.linalg.LinAlgError("Simulated DIIS failure")
+            return calc_electron_number_defect(chempot, *args, **kwargs)
+
+        emb.calc_electron_number_defect = calc_electron_number_defect_with_failure
+        emb.kernel()
+        # Make sure that the bracket search was exercised:
+        self.assertEqual(len(failures), 1)
+        self.assertAlmostEqual(emb.e_tot, emb_ref.e_tot, self.PLACES_ENERGY)
 
     def test_full_bath(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath."""

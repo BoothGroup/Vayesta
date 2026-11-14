@@ -11,10 +11,10 @@ from vayesta.tests import testsystems
 
 @pytest.mark.fast
 class TestSolvers(unittest.TestCase):
-    def _test(self, key):
+    def _test(self, key, **solver_options):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
-        emb = vayesta.ewf.EWF(mf, solver="MP2", bath_options=dict(bathtype="full"))
+        emb = vayesta.ewf.EWF(mf, solver="MP2", bath_options=dict(bathtype="full"), solver_options=solver_options)
         emb.kernel()
 
         mp2 = pyscf.mp.MP2(mf)
@@ -34,6 +34,12 @@ class TestSolvers(unittest.TestCase):
 
     def test_ump2_h2o_df(self):
         return self._test(("water_cation_631g_df", "uhf"))
+
+    def test_rmp2_h2o_df_compressed(self):
+        return self._test(("water_ccpvdz_df", "rhf"), compress_cderi=True)
+
+    def test_ump2_h2o_df_compressed(self):
+        return self._test(("water_cation_631g_df", "uhf"), compress_cderi=True)
 
 
 if __name__ == "__main__":
