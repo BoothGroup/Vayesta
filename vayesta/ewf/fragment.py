@@ -16,6 +16,7 @@ from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_re
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import (
+    RCISD_WaveFunction,
     RFCI_WaveFunction,
     RCCSDTQ_WaveFunction,
     UCCSDTQ_WaveFunction,
@@ -263,9 +264,12 @@ class Fragment(BaseFragment):
             wf = getattr(wf, "as_%s" % self.opts.store_wf_type.lower())()
         # ---Make T-projected WF
         pwf = wf
-        # Projection of FCI wave function is not implemented - convert to CISD
-        if isinstance(wf, RFCI_WaveFunction):
-            pwf = wf.as_cisd()
+        # CISD and FCI wave functions are stored as CCSD-type amplitudes before projection:
+        # the conversion C -> T is non-linear (T2 = C2/C0 - T1 T1) and does not commute with the
+        # fragment projection, so a projected CISD wave function cannot be converted correctly
+        # afterwards (see issue #222).
+        if isinstance(wf, (RCISD_WaveFunction, RFCI_WaveFunction)):
+            pwf = wf.as_ccsd()
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()

@@ -46,6 +46,15 @@ class RCISD_WaveFunction(wf_types.WaveFunction):
         wf.c2 = symmetrize_c2(wf.c2)
         return wf
 
+    def _check_not_projected(self, method):
+        if self.projector is None:
+            return
+        raise NotImplementedError(
+            "%s is not supported for a projected CISD wave function: the conversion of CI- to CC-amplitudes "
+            "(T2 = C2/C0 - T1 T1) does not commute with the fragment projection. "
+            "Convert the unprojected wave function first and project the result." % method
+        )
+
     def copy(self):
         c0 = self.c0
         c1 = spinalg.copy(self.c1)
@@ -64,16 +73,11 @@ class RCISD_WaveFunction(wf_types.WaveFunction):
         return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
-        proj = self.projector
-        if proj is not None:
-            self = self.restore()
+        self._check_not_projected("as_ccsd")
         t1 = self.c1 / self.c0
         t2 = self.c2 / self.c0 - einsum("ia,jb->ijab", t1, t1)
         l1, l2 = t1, t2
-        wf = wf_types.RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
-        if proj is not None:
-            wf = wf.project(proj)
-        return wf
+        return wf_types.RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
 
     def get_cisdvec(self):
         if self.projector is not None:
@@ -149,9 +153,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         return wf_types.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
-        proj = self.projector
-        if proj is not None:
-            self = self.restore()
+        self._check_not_projected("as_ccsd")
         t1a = self.c1a / self.c0
         t1b = self.c1b / self.c0
         t1 = (t1a, t1b)
@@ -161,13 +163,10 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         if len(self.c2) == 3:
             t2 = (t2aa, t2ab, t2bb)
         elif len(self.c2) == 4:
-            t2ba = self.c2ab / self.c0 - einsum("ia,jb->ijab", t1b, t1a)
+            t2ba = self.c2ba / self.c0 - einsum("ia,jb->ijab", t1b, t1a)
             t2 = (t2aa, t2ab, t2ba, t2bb)
         l1, l2 = t1, t2
-        wf = wf_types.UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
-        if proj is not None:
-            wf = wf.project(proj)
-        return wf
+        return wf_types.UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
 
     def get_cisdvec(self):
         if self.projector is not None:
