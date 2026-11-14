@@ -995,7 +995,9 @@ class Fragment:
         if self.opts.bosonic_bath_options["bathtype"] != "rpa":
             return
 
-        self._boson_bath_factory = RPA_QBA_Bath(self, target_m0=m0_target)
+        self._boson_bath_factory = RPA_QBA_Bath(
+            self, target_m0=m0_target, singlet_projection=self.opts.bosonic_bath_options["singlet_projection"]
+        )
 
         boson_threshold = Boson_Threshold(
             self.opts.bosonic_bath_options["truncation"], self.opts.bosonic_bath_options["threshold"]
