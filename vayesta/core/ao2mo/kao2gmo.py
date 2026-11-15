@@ -6,12 +6,15 @@ Email:  max.nusspickel@gmail.com
 
 # Standard
 import ctypes
+from collections.abc import Iterator
+from contextlib import contextmanager
 from vayesta.core import vlog
 
 # External
 import numpy as np
 import pyscf.pbc
 import pyscf.pbc.tools
+from threadpoolctl import ThreadpoolController
 
 # Package
 from vayesta.core.util import call_once, einsum, timer
@@ -20,6 +23,36 @@ from vayesta.core.ao2mo import helper
 
 
 log = vlog.getLogger(__name__)
+
+
+@contextmanager
+def _ao2mo_blas_threads(parallel: bool) -> Iterator[None]:
+    """Limit inner BLAS pools while the native AO-to-MO loop uses OpenMP.
+
+    Parameters
+    ----------
+    parallel : bool
+        Whether to limit BLAS for a parallel native transformation.
+
+    Yields
+    ------
+    None
+        The original BLAS settings are restored on exit.
+    """
+    if not parallel:
+        yield
+        return
+
+    controller = ThreadpoolController().select(user_api="blas")
+    # OpenMP-backed OpenBLAS follows the OpenMP nesting policy. Changing
+    # its thread count can also change the outer OpenMP team's size.
+    paths = [
+        library["filepath"]
+        for library in controller.info()
+        if (library["internal_api"], library.get("threading_layer")) != ("openblas", "openmp")
+    ]
+    with controller.select(filepath=paths).limit(limits=1):
+        yield
 
 
 def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver=None):
@@ -53,6 +86,11 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
     cderi_mo_neg: array or None
         Negative part of density-fitted supercell three-center integrals in MO basis.
         None for 3D systems.
+
+    Notes
+    -----
+    The parallel C driver limits inner BLAS pools during the AO-to-MO loop
+    and restores the caller's settings before the auxiliary Fourier transform.
     """
 
     if np.ndim(mo_coeffs[0]) == 1:
@@ -82,9 +120,17 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         else:
             driver = "c"
     log.debugv("Driver for kao2gmo_cderi= %s", driver)
+    parallel = False
     if driver == "python":
         transform = lambda cderi_kij, mo1_ki, mo2_kj: einsum("Lab,ai,bj->Lij", cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == "c":
+        if libcore is None:
+            raise RuntimeError("The native library is required for the C AO-to-MO driver.")
+        # Older native libraries do not export the query. Assume OpenMP in
+        # that case so an existing installation still avoids oversubscription.
+        omp_threads = getattr(libcore, "ao2mo_cderi_omp_threads", None)
+        parallel = omp_threads is None or omp_threads() > 1
+        native_transform = libcore.ao2mo_cderi
 
         def transform(cderi_kij, mo1_ki, mo2_kj):
             naux = cderi_kij.shape[0]
@@ -95,7 +141,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
             cderi_kij = np.asarray(cderi_kij, order="C")
             mo1_ki = np.asarray(mo1_ki.conj(), order="C")
             mo2_kj = np.asarray(mo2_kj, order="C")
-            ierr = libcore.ao2mo_cderi(
+            ierr = native_transform(
                 # In
                 ctypes.c_int64(nao),
                 ctypes.c_int64(nmo1),
@@ -128,31 +174,32 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
             cderi_mo_neg = cderi_mo_neg.real
         return cderi_mo, cderi_mo_neg
 
-    for ki in range(nk):
-        kjmax = (ki + 1) if tril_kij else nk
-        for kj in range(kjmax):
-            kk = kconserv[ki, kj]
-            # Load entire 3c-integrals at k-point pair (ki, kj) into memory:
-            kpts_ij = (kpts[ki], kpts[kj])
-            blk0 = 0
-            for labr, labi, sign in gdf.sr_loop(kpts_ij, compact=False, blksize=blksize):
-                blk1 = blk0 + labr.shape[0]
-                blk = np.s_[blk0:blk1]
-                blk0 = blk1
-                lab = (labr + 1j * labi).reshape(-1, nao, nao)
-                if sign == 1:
-                    lij = transform(lab, mo1[ki], mo2[kj])
-                    cderi_mo[kk, blk] += lij
-                    if tril_kij and (ki > kj):
-                        kk = kconserv[kj, ki]
-                        lij = transform(lab.transpose(0, 2, 1).conj(), mo1[kj], mo2[ki])
+    with _ao2mo_blas_threads(parallel):
+        for ki in range(nk):
+            kjmax = (ki + 1) if tril_kij else nk
+            for kj in range(kjmax):
+                kk = kconserv[ki, kj]
+                # Load entire 3c-integrals at k-point pair (ki, kj) into memory:
+                kpts_ij = (kpts[ki], kpts[kj])
+                blk0 = 0
+                for labr, labi, sign in gdf.sr_loop(kpts_ij, compact=False, blksize=blksize):
+                    blk1 = blk0 + labr.shape[0]
+                    blk = np.s_[blk0:blk1]
+                    blk0 = blk1
+                    lab = (labr + 1j * labi).reshape(-1, nao, nao)
+                    if sign == 1:
+                        lij = transform(lab, mo1[ki], mo2[kj])
                         cderi_mo[kk, blk] += lij
-                # For 2D systems:
-                elif sign == -1:
-                    assert (ki == kj) and (sign == -1) and (lab.shape[0] == 1)
-                    cderi_mo_neg += einsum("Lab,ai,bj->Lij", lab, mo1[ki].conj(), mo2[kj])
-                else:
-                    raise ValueError("Sign = %f" % sign)
+                        if tril_kij and (ki > kj):
+                            kk = kconserv[kj, ki]
+                            lij = transform(lab.transpose(0, 2, 1).conj(), mo1[kj], mo2[ki])
+                            cderi_mo[kk, blk] += lij
+                    # For 2D systems:
+                    elif sign == -1:
+                        assert (ki == kj) and (sign == -1) and (lab.shape[0] == 1)
+                        cderi_mo_neg += einsum("Lab,ai,bj->Lij", lab, mo1[ki].conj(), mo2[kj])
+                    else:
+                        raise ValueError("Sign = %f" % sign)
 
     cderi_mo /= np.sqrt(nk)
     if cderi_mo_neg is not None:
