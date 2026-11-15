@@ -86,26 +86,102 @@ class RPA_Boson_Target_Space(Bath):
 
 
 class RPA_QBA_Bath(Bosonic_Bath):
-    def __init__(self, fragment, target_m0):
+    # With equal alpha and beta blocks in target_m0 (all restricted targets), the projection, Gram matrix and
+    # coefficients are formed on the spatial half, with the cluster projection applied in occupied-virtual product
+    # form, and the result duplicated into both spin blocks. Mathematically identical to the spin-orbital path.
+    singlet_projection = False
+    # Largest difference between the spin blocks, relative to their largest element, treated as equal. The
+    # spin-stacked moment path rebuilds the two blocks with round-off differences.
+    singlet_projection_rtol = 1e-10
+    # Relative singular-value tolerance for numerical null modes. None uses the usual machine-precision rank cutoff
+    # eps * max(environment.shape); physical bath weights are the squared singular values.
+    null_mode_rtol: float | None = None
+
+    def __init__(self, fragment, target_m0, singlet_projection: bool | None = None) -> None:
         self.target_m0 = target_m0
+        if singlet_projection is not None:
+            self.singlet_projection = singlet_projection
         super().__init__(fragment)
 
     def make_boson_coeff(self):
+        if self.singlet_projection:
+            out = self._make_boson_coeff_singlet()
+            if out is not None:
+                return out
         # Generate full local fermionic excitation space.
         clus_ov = self.cluster_excitations
         # Remove any contributions within the fermionic excitation space of the fragment.
         m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov.T), clus_ov)
-        # Now we can construct the bosonic bath by diagonalising these contributions.
-        contribs = dot(m0_env, m0_env.T)
-        sort = np.s_[::-1]
-        occup, c = np.linalg.eigh(contribs)
-        occup = occup[sort]
-        c = c[:, sort]
-
-        occuprtinv = occup ** (-0.5)
-        coeff = dot((c * occuprtinv[None]).T, m0_env)
+        # Construct the bath directly from the environment rows without squaring their condition number.
+        occup, coeff = self._diagonalise_environment(m0_env)
 
         self.coeff = coeff
         self.occup = occup
 
         return coeff, occup
+
+    def _make_boson_coeff_singlet(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Spatial version of `make_boson_coeff` for targets with equal alpha and beta blocks (Restricted).
+
+        With target_m0 = (M, M) and cluster excitations (C, C) / sqrt(2), the environment rows are (E, E) with
+        E = M - M C^T C, the Gram matrix is 2 E E^T, and the coefficients are (W^T E, W^T E). C = C_o (x) C_v is
+        applied in product form.
+
+        Returns
+        -------
+        (coeff, occup) or None
+            Bath coefficients and coupling weights, or None if the target's spin blocks differ.
+        """
+        m0 = self.target_m0
+        ov = m0.shape[1] // 2
+        ma, mb = m0[:, :ov], m0[:, ov:]
+        if m0.shape[1] != 2 * ov or np.abs(ma - mb).max(initial=0.0) > self.singlet_projection_rtol * np.abs(m0).max(
+            initial=0.0
+        ):
+            self.log.debug("Spin blocks of the target moment differ; using the spin-orbital bath construction.")
+            return None
+        co = self.fragment.get_overlap("cluster[occ]|mo[occ]")  # (o_c, o), orthonormal rows
+        cv = self.fragment.get_overlap("cluster[vir]|mo[vir]")  # (v_c, v), orthonormal rows
+        m = (0.5 * (ma + mb)).reshape(-1, co.shape[1], cv.shape[1])
+        proj = einsum("nia,Ii,Aa->nIA", m, co, cv)
+        e = (m - einsum("nIA,Ii,Aa->nia", proj, co, cv)).reshape(-1, ov)
+        occup, coeff = self._diagonalise_environment(e, spin_factor=2.0)
+        coeff = np.hstack((coeff, coeff))
+
+        self.coeff = coeff
+        self.occup = occup
+
+        return coeff, occup
+
+    def _diagonalise_environment(self, rows: np.ndarray, spin_factor: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+        """Construct bath weights and coefficients from the environment rows using an SVD.
+
+        Numerical rank is determined from singular values, before squaring them to obtain bath weights. This avoids
+        treating small positive Gram eigenvalues as null modes and avoids normalising round-off eigenvectors.
+
+        Parameters
+        ----------
+        rows : np.ndarray, shape (n, ov)
+            Environment rows in the spin-orbital or spatial representation.
+        spin_factor : float, optional
+            Multiplicity of the represented spin blocks: 1 for spin-orbital rows and 2 for spatial singlet rows.
+
+        Returns
+        -------
+        occup : np.ndarray, shape (m,)
+            Positive bath weights in descending order.
+        coeff : np.ndarray, shape (m, ov)
+            Bath coefficients, normalised after accounting for `spin_factor` equivalent spin blocks.
+        """
+        _, singular, coeff = np.linalg.svd(rows, full_matrices=False)
+        rtol = self.null_mode_rtol
+        if rtol is None:
+            rtol = np.finfo(singular.dtype).eps * max(rows.shape)
+        keep = singular > rtol * singular.max(initial=0.0)
+        if not np.all(keep):
+            self.log.debug(
+                "Discarding %d numerical null modes of %d in the environment rows.",
+                np.count_nonzero(~keep),
+                len(singular),
+            )
+        return spin_factor * singular[keep] ** 2, coeff[keep] / np.sqrt(spin_factor)

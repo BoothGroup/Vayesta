@@ -131,6 +131,15 @@ class Options(OptionsBase):
         # bath truncation options.
         threshold=1e-6,
         truncation="occupation",
+        # RPA moment evaluation: None keeps the ssRIdRRPA class method.
+        eta0_method=None,
+        # None: min(1e-6, threshold / 100) for positive occupation cutoffs; zero keeps the RPA class tolerance.
+        # Shared moments use the tightest participating fragment's tolerance; other truncations default to 1e-6.
+        eta0_tol=None,
+        # None enables spatial singlet paths automatically for real, paired, restricted spin-zero references.
+        # Explicit True/False overrides the automatic choice; target/moment symmetry checks still apply.
+        singlet_target=None,
+        singlet_projection=None,
     )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -725,6 +734,16 @@ class Embedding:
         if have_dynamic_screening:
             self.build_bosonic_bath(*args, **kwargs)
 
+    @property
+    def _default_singlet_bath(self) -> bool:
+        """Whether the reference permits automatic spatial singlet bath construction."""
+        return (
+            self.spinsym == "restricted"
+            and self.mol.spin == 0
+            and not np.iscomplexobj(self.mo_coeff)
+            and bool(np.all((self.mo_occ == 0) | (self.mo_occ == 2)))
+        )
+
     def build_bosonic_bath(self):
         if self.spinsym != "restricted":
             raise NotImplementedError("Bosonic baths are currently only compatible with a restricted formalism.")
@@ -742,6 +761,33 @@ class Embedding:
             targets, ntarget = zip(*[x.make_bosonic_bath_target() for x in fragments])
             target_rot = np.vstack([x for x in targets if x is not None])
             rpa = ssRIRPA(self.mf)
+            bopts = self.opts.bosonic_bath_options
+            for key in ("eta0_method", "singlet_target"):
+                value = bopts[key]
+                if key == "singlet_target" and value is None:
+                    value = self._default_singlet_bath
+                if value is not None:
+                    setattr(rpa, key, value)
+            # All target rows share one moment calculation, so honour the strictest fragment requirement.
+            default_tol = rpa.eta0_tol
+            tolerances = []
+            for fragment, target in zip(fragments, targets):
+                if target is None or len(target) == 0:
+                    continue
+                fopts = fragment.opts.bosonic_bath_options
+                tol = fopts["eta0_tol"]
+                if tol is None:
+                    tol = 1e-6
+                    if fopts["truncation"] == "occupation":
+                        threshold = fopts["threshold"]
+                        # A nonpositive cutoff retains all modes and cannot define a positive accuracy target.
+                        tol = min(1e-6, threshold / 100) if threshold > 0 else default_tol
+                if not np.isfinite(tol) or tol <= 0:
+                    raise ValueError("Bosonic-bath eta0_tol must be finite and strictly positive.")
+                tolerances.append(tol)
+            rpa.eta0_tol = min(tolerances, default=default_tol)
+            # Row counts per fragment; used only by ssRIdRRPA's singlet-target path.
+            rpa.target_blocks = list(ntarget)
             moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]
             # Split this into individual fragment contributions.
             moments = np.vsplit(moments, np.cumsum(ntarget)[:-1])

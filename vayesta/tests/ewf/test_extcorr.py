@@ -625,9 +625,15 @@ class TestMixedCorrections(TestCase):
         solver_opts = dict(conv_tol=1e-12, conv_tol_normt=1e-8, solve_lambda=False)
         emb = vayesta.ewf.EWF(self.mf, bath_options=dict(threshold=1e-4), solver_options=solver_opts)
         with emb.iao_fragmentation() as f:
+            # External corrections need accurate auxiliary amplitudes for a stable comparison of correction orders.
             fci = [
                 f.add_atomic_fragment(
-                    atom, solver="FCI", bath_options=dict(bathtype="dmet"), store_wf_type="CCSDTQ", auxiliary=True
+                    atom,
+                    solver="FCI",
+                    solver_options=dict(conv_tol=1e-14, lindep=1e-20),
+                    bath_options=dict(bathtype="dmet"),
+                    store_wf_type="CCSDTQ",
+                    auxiliary=True,
                 )
                 for atom in (0, 1)
             ]
