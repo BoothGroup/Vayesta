@@ -1,0 +1,45 @@
+vayesta.edmet
+=============
+
+Submodules
+----------
+
+vayesta.edmet.edmet
+-------------------
+
+.. automodule:: vayesta.edmet.edmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.edmet.fragment
+----------------------
+
+.. automodule:: vayesta.edmet.fragment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.edmet.uedmet
+--------------------
+
+.. automodule:: vayesta.edmet.uedmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+vayesta.edmet.ufragment
+-----------------------
+
+.. automodule:: vayesta.edmet.ufragment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: vayesta.edmet
+   :members:
+   :show-inheritance:
+   :undoc-members:
