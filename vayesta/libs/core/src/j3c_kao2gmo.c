@@ -339,6 +339,16 @@ EXIT:
     return ierr;
 }
 
+/* Maximum outer team size used by ao2mo_cderi. */
+int ao2mo_cderi_omp_threads(void)
+{
+#if defined _OPENMP
+    return omp_get_max_threads();
+#else
+    return 1;
+#endif
+}
+
 /* AO->MO Transform 3c integrals */
 int64_t ao2mo_cderi(
         /* In */
