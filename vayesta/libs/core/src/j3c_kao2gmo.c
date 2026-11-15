@@ -349,6 +349,33 @@ int ao2mo_cderi_omp_threads(void)
 #endif
 }
 
+/* target[L,p,q] += conj(source[L,q,p]) for contiguous square blocks. */
+void ao2mo_cderi_add_conjugate_transpose(
+        int64_t naux, int64_t nmo,
+        const double complex *source, double complex *target)
+{
+    const size_t m = nmo;
+    const size_t pairs = m*m;
+    const size_t tile = 32;
+
+    #pragma omp parallel for
+    for (int64_t l = 0; l < naux; l++) {
+        const double complex *src = source + l*pairs;
+        double complex *dst = target + l*pairs;
+        for (size_t i0 = 0; i0 < m; i0 += tile) {
+            for (size_t j0 = 0; j0 < m; j0 += tile) {
+                const size_t i1 = MIN(i0+tile, m);
+                const size_t j1 = MIN(j0+tile, m);
+                for (size_t i = i0; i < i1; i++) {
+                    for (size_t j = j0; j < j1; j++) {
+                        dst[i*m+j] += conj(src[j*m+i]);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /* AO->MO Transform 3c integrals */
 int64_t ao2mo_cderi(
         /* In */

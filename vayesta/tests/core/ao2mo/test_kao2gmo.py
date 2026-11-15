@@ -1,6 +1,7 @@
 import pytest
 import unittest
 import itertools
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -9,12 +10,71 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
+from pyscf.pbc.lib.kpts_helper import group_by_conj_pairs
 from threadpoolctl import ThreadpoolController
 
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.libs import libcore
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
+
+
+class ReverseKPairTests(TestCase):
+    def test_reuse_matches_full_loop_with_multiple_auxiliary_blocks(self) -> None:
+        """Check reuse and momentum routing with distinct forward/reverse sectors."""
+        gdf = testsystems.he_k321.rhf().with_df
+        nk = len(gdf.kpts)
+        coeff = np.random.default_rng(29).standard_normal((nk * gdf.cell.nao, 3))
+        reference, _ = kao2gmo_cderi(gdf, coeff, driver="python", tril_kij=False, blksize=2)
+        result, negative = kao2gmo_cderi(gdf, coeff, driver="python", blksize=2)
+        self.assertIsNone(negative)
+        self.assertAllclose(result, reference)
+
+        if libcore is None:
+            self.skipTest("Requires the Vayesta native library to check the kernel calls")
+        with patch.object(libcore, "ao2mo_cderi", wraps=libcore.ao2mo_cderi) as transform:
+            result, _ = kao2gmo_cderi(gdf, (coeff, coeff.copy()), driver="c", blksize=2)
+        nblocks = (gdf.auxcell.nao_nr() + 1) // 2
+        self.assertEqual(transform.call_count, nblocks * nk * (nk + 1) // 2)
+        self.assertAllclose(result, reference)
+
+    def test_distinct_orbital_spaces_use_both_contractions(self) -> None:
+        """Equal dimensions do not imply equal orbital coefficient matrices."""
+        if libcore is None:
+            self.skipTest("Requires the Vayesta native library to check the kernel calls")
+        gdf = testsystems.he_k321.rhf().with_df
+        nk = len(gdf.kpts)
+        rng = np.random.default_rng(39)
+        coeff = tuple(rng.standard_normal((nk * gdf.cell.nao, 3)) for _ in range(2))
+        reference, _ = kao2gmo_cderi(gdf, coeff, driver="python", tril_kij=False)
+        with patch.object(libcore, "ao2mo_cderi", wraps=libcore.ao2mo_cderi) as transform:
+            result, _ = kao2gmo_cderi(gdf, coeff, driver="c")
+        self.assertEqual(transform.call_count, nk**2)
+        self.assertAllclose(result, reference)
+
+    def test_kpoints_without_partners_use_reverse_contraction(self) -> None:
+        """Reuse only pairs whose k-points both have their conjugate partners."""
+        if libcore is None:
+            self.skipTest("Requires the Vayesta native library to check the kernel calls")
+        gdf = testsystems.he_k321.rhf().with_df
+        full_kpts = gdf.kpts
+        pairs = group_by_conj_pairs(gdf.cell, full_kpts, return_kpts_pairs=False)
+        missing = next(j for i, j in pairs if j is not None and i != j)
+        keep = np.arange(len(full_kpts)) != missing
+        kpts = full_kpts[keep]
+        nk = len(kpts)
+        coeff = np.random.default_rng(49).standard_normal((nk * gdf.cell.nao, 3))
+        subset = SimpleNamespace(cell=gdf.cell, auxcell=gdf.auxcell, kpts=kpts, sr_loop=gdf.sr_loop)
+        scell, phase = pyscf.pbc.tools.k2gamma.get_phase(gdf.cell, full_kpts)
+        # Isolate the k-pair loop on an incomplete grid. Use the matching
+        # submatrix of phases and compare the k-space factors before unfolding.
+        with patch.object(pyscf.pbc.tools.k2gamma, "get_phase", return_value=(scell, phase[:nk, keep])):
+            reference, _ = kao2gmo_cderi(subset, coeff, driver="python", tril_kij=False, make_real=False)
+            with patch.object(libcore, "ao2mo_cderi", wraps=libcore.ao2mo_cderi) as transform:
+                result, _ = kao2gmo_cderi(subset, coeff, driver="c", make_real=False)
+        paired = nk - 1
+        self.assertEqual(transform.call_count, nk**2 - paired * (paired - 1) // 2)
+        self.assertAllclose(result, reference)
 
 
 class NativeDFThreadingTests(TestCase):

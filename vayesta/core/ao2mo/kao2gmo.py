@@ -14,6 +14,7 @@ from vayesta.core import vlog
 import numpy as np
 import pyscf.pbc
 import pyscf.pbc.tools
+from pyscf.pbc.lib.kpts_helper import group_by_conj_pairs
 from threadpoolctl import ThreadpoolController
 
 # Package
@@ -91,6 +92,9 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
     -----
     The parallel C driver limits inner BLAS pools during the AO-to-MO loop
     and restores the caller's settings before the auxiliary Fourier transform.
+    For equal left and right orbitals, the triangular k-pair loop can obtain
+    the reverse block by conjugate transposition. Reuse is enabled for pairs
+    whose two k-points have conjugate partners in the sampled mesh.
     """
 
     if np.ndim(mo_coeffs[0]) == 1:
@@ -104,6 +108,11 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
     kpts = gdf.kpts
     nk = len(kpts)
     kconserv = helper.get_kconserv(cell, kpts, nk=2)
+    has_conjugate = np.zeros(nk, dtype=bool)
+    if tril_kij and (mo_coeffs[0] is mo_coeffs[1] or np.array_equal(mo_coeffs[0], mo_coeffs[1])):
+        for ki, partner in group_by_conj_pairs(cell, kpts, return_kpts_pairs=False):
+            if partner is not None:
+                has_conjugate[ki] = has_conjugate[partner] = True
     # Fourier transform MOs from supercell Gamma point to primitive cell k-points
     phase = (pyscf.pbc.tools.k2gamma.get_phase(cell, kpts)[1]).T
 
@@ -121,6 +130,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
             driver = "c"
     log.debugv("Driver for kao2gmo_cderi= %s", driver)
     parallel = False
+    add_conjugate_transpose = None
     if driver == "python":
         transform = lambda cderi_kij, mo1_ki, mo2_kj: einsum("Lab,ai,bj->Lij", cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == "c":
@@ -131,6 +141,9 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         omp_threads = getattr(libcore, "ao2mo_cderi_omp_threads", None)
         parallel = omp_threads is None or omp_threads() > 1
         native_transform = libcore.ao2mo_cderi
+        add_conjugate_transpose = getattr(libcore, "ao2mo_cderi_add_conjugate_transpose", None)
+        if add_conjugate_transpose is not None:
+            add_conjugate_transpose.restype = None
 
         def transform(cderi_kij, mo1_ki, mo2_kj):
             naux = cderi_kij.shape[0]
@@ -179,6 +192,8 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
             kjmax = (ki + 1) if tril_kij else nk
             for kj in range(kjmax):
                 kk = kconserv[ki, kj]
+                reverse_sector = kconserv[kj, ki] if tril_kij and ki > kj else None
+                reuse_reverse = has_conjugate[ki] and has_conjugate[kj]
                 # Load entire 3c-integrals at k-point pair (ki, kj) into memory:
                 kpts_ij = (kpts[ki], kpts[kj])
                 blk0 = 0
@@ -190,10 +205,22 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
                     if sign == 1:
                         lij = transform(lab, mo1[ki], mo2[kj])
                         cderi_mo[kk, blk] += lij
-                        if tril_kij and (ki > kj):
-                            kk = kconserv[kj, ki]
-                            lij = transform(lab.transpose(0, 2, 1).conj(), mo1[kj], mo2[ki])
-                            cderi_mo[kk, blk] += lij
+                        if reverse_sector is not None:
+                            reverse = cderi_mo[reverse_sector, blk]
+                            if not reuse_reverse:
+                                reverse += transform(lab.transpose(0, 2, 1).conj(), mo1[kj], mo2[ki])
+                            elif add_conjugate_transpose is not None:
+                                # Both blocks are contiguous here. Fuse
+                                # conjugation, transposition and addition.
+                                add_conjugate_transpose(
+                                    ctypes.c_int64(lij.shape[0]),
+                                    ctypes.c_int64(nmo1),
+                                    ctypes.c_void_p(lij.ctypes.data),
+                                    ctypes.c_void_p(reverse.ctypes.data),
+                                )
+                            else:
+                                reverse.real += lij.real.swapaxes(-1, -2)
+                                reverse.imag -= lij.imag.swapaxes(-1, -2)
                     # For 2D systems:
                     elif sign == -1:
                         assert (ki == kj) and (sign == -1) and (lab.shape[0] == 1)
