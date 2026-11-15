@@ -7,7 +7,7 @@ Email:  max.nusspickel@gmail.com
 # Standard
 import ctypes
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from vayesta.core import vlog
 
 # External
@@ -24,6 +24,52 @@ from vayesta.core.ao2mo import helper
 
 
 log = vlog.getLogger(__name__)
+
+_FOURIER_TILE_BYTES = 32 * 1024**2
+_FOURIER_SMALL_MESH_BLAS_THREADS = 4
+
+
+def _auxiliary_fourier_real(phase: np.ndarray, factors: np.ndarray) -> tuple[np.ndarray, float]:
+    """Fourier-transform the auxiliary factors into contiguous real storage.
+
+    Parameters
+    ----------
+    phase : array (ncell, nk)
+        Auxiliary Fourier phases.
+    factors : array (nk, naux, nmo1, nmo2)
+        Contiguous complex k-space factors.
+
+    Returns
+    -------
+    real_factors : array (ncell, naux, nmo1, nmo2)
+        The real part of the transformed factors, stored without a complex base.
+    max_imaginary : float
+        Maximum absolute imaginary entry over all tiles.
+    """
+    ncell = phase.shape[0]
+    flat = factors.reshape(factors.shape[0], -1)
+    dtype = np.result_type(phase, factors)
+    width = min(flat.shape[1], max(1, _FOURIER_TILE_BYTES // (ncell * dtype.itemsize)))
+    scratch = np.empty((ncell, width), dtype=dtype)
+    real = np.empty((ncell, flat.shape[1]), dtype=scratch.real.dtype)
+    max_imaginary = 0.0
+    limits = nullcontext()
+    if width < flat.shape[1] and min(phase.shape) <= 32:
+        # A large BLAS team repeatedly synchronizing on these short inner
+        # dimensions wastes CPU time. Keep the cap local to this phase.
+        blas = ThreadpoolController().select(user_api="blas")
+        budget = _FOURIER_SMALL_MESH_BLAS_THREADS
+        paths = [pool["filepath"] for pool in blas.info() if (pool["num_threads"] or 0) > budget]
+        if paths:
+            limits = blas.select(filepath=paths).limit(limits=budget)
+    with limits:
+        for start in range(0, flat.shape[1], width):
+            stop = min(start + width, flat.shape[1])
+            tile = scratch[:, : stop - start]
+            np.matmul(phase, flat[:, start:stop], out=tile)
+            real[:, start:stop] = tile.real
+            max_imaginary = np.maximum(max_imaginary, np.max(np.abs(tile.imag)))
+    return real.reshape((ncell, *factors.shape[1:])), float(max_imaginary)
 
 
 @contextmanager
@@ -233,16 +279,13 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         cderi_mo_neg /= np.sqrt(nk)
 
     if make_real:
-        # kR,kLij->RLij
-        cderi_mo = np.tensordot(phase, cderi_mo, axes=1)
-        im = abs(cderi_mo.imag).max()
+        cderi_mo, im = _auxiliary_fourier_real(phase, cderi_mo)
         if im > 1e-3:
             log.error("Imaginary part of (L|ij)= %.2e !!!", im)
         elif im > 1e-8:
             log.error("Imaginary part of (L|ij)= %.2e !", im)
         else:
             log.debugv("Imaginary part of (L|ij)= %.2e", im)
-        cderi_mo = cderi_mo.real
         if cderi_mo_neg is not None:
             assert abs(cderi_mo_neg.imag).max() < 1e-10
             cderi_mo_neg = cderi_mo_neg.real

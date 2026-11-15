@@ -1,6 +1,7 @@
 import pytest
 import unittest
 import itertools
+from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -17,6 +18,53 @@ from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.libs import libcore
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
+
+kao2gmo = import_module("vayesta.core.ao2mo.kao2gmo")
+
+
+class AuxiliaryFourierTests(TestCase):
+    def test_tiled_fourier_matches_dense_and_checks_every_tile(self) -> None:
+        """Check tile boundaries, real storage, and the largest imaginary value."""
+        rng = np.random.default_rng(17)
+        phase = rng.normal(size=(5, 3)) + 1j * rng.normal(size=(5, 3))
+        factors = rng.normal(size=(3, 3, 4, 7)) + 1j * rng.normal(size=(3, 3, 4, 7))
+        factors[..., -1, -1] *= 100
+        reference = np.tensordot(phase, factors, axes=1)
+        with patch.object(kao2gmo, "_FOURIER_TILE_BYTES", 5 * 16 * 5):
+            result, im = kao2gmo._auxiliary_fourier_real(phase, factors)
+        self.assertAllclose(result, reference.real, atol=1e-12)
+        self.assertAlmostEqual(im, np.max(np.abs(reference.imag)), places=11)
+        self.assertTrue(result.flags.c_contiguous)
+        self.assertFalse(np.iscomplexobj(result.base))
+
+    def test_tiled_fourier_scopes_blas_limit(self) -> None:
+        """Check that the tile loop limits BLAS and restores the caller's setting."""
+        blas = ThreadpoolController().select(user_api="blas")
+        if not blas.info():
+            self.skipTest("Requires a controllable BLAS thread pool")
+        phase = np.eye(3, dtype=complex)
+        factors = np.ones((3, 2, 3, 4), dtype=complex)
+        matmul = np.matmul
+        tile_thread_counts = []
+
+        def observe_matmul(*args: object, **kwargs: object) -> np.ndarray:
+            """Record the active BLAS thread counts at each matrix product."""
+            tile_thread_counts.append(tuple(pool["num_threads"] for pool in blas.info()))
+            return matmul(*args, **kwargs)
+
+        with blas.limit(limits=2):
+            before = blas.info()
+            if not any((pool["num_threads"] or 0) > 1 for pool in before):
+                self.skipTest("Requires a BLAS pool that can use more than one thread")
+            with (
+                patch.object(kao2gmo, "_FOURIER_TILE_BYTES", 3 * 16 * 5),
+                patch.object(kao2gmo, "_FOURIER_SMALL_MESH_BLAS_THREADS", 1),
+                patch.object(np, "matmul", observe_matmul),
+            ):
+                kao2gmo._auxiliary_fourier_real(phase, factors)
+            self.assertGreater(len(tile_thread_counts), 1)
+            self.assertTrue(all((count or 0) <= 1 for counts in tile_thread_counts for count in counts))
+            self.assertEqual(blas.info(), before)
 
 
 class ReverseKPairTests(TestCase):
@@ -91,7 +139,7 @@ class NativeDFThreadingTests(TestCase):
         coeff = np.random.default_rng(738).standard_normal((len(gdf.kpts) * gdf.cell.nao, 3))
         reference, _ = kao2gmo_cderi(gdf, coeff, driver="python")
         native = libcore.ao2mo_cderi
-        fourier = np.tensordot
+        fourier = kao2gmo._auxiliary_fourier_real
         omp_threads = libcore.ao2mo_cderi_omp_threads
         native_counts = []
         fourier_counts = []
@@ -105,7 +153,7 @@ class NativeDFThreadingTests(TestCase):
             native_counts.append((omp_threads(), blas_counts()))
             return native(*args)
 
-        def observe_fourier(*args: object, **kwargs: object) -> np.ndarray:
+        def observe_fourier(*args: object, **kwargs: object) -> tuple[np.ndarray, float]:
             """Record the restored BLAS limits at the Fourier transform."""
             fourier_counts.append(blas_counts())
             return fourier(*args, **kwargs)
@@ -124,7 +172,7 @@ class NativeDFThreadingTests(TestCase):
                     with (
                         controller.limit(limits=outer_threads, user_api="openmp"),
                         patch.object(libcore, "ao2mo_cderi", observe_native),
-                        patch.object(np, "tensordot", observe_fourier),
+                        patch.object(kao2gmo, "_auxiliary_fourier_real", observe_fourier),
                     ):
                         result, negative = kao2gmo_cderi(gdf, coeff, driver="c")
                     inner_counts = caller_counts if outer_threads == 1 else (1,) * len(caller_counts)
