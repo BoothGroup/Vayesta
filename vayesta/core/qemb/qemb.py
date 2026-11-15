@@ -131,11 +131,13 @@ class Options(OptionsBase):
         # bath truncation options.
         threshold=1e-6,
         truncation="occupation",
-        # RPA moment and bath evaluation (see ssRIdRRPA and RPA_QBA_Bath); None keeps the class default.
+        # RPA moment evaluation: None keeps the ssRIdRRPA class method.
         eta0_method=None,
         # None: min(1e-6, threshold / 100) for positive occupation cutoffs; zero keeps the RPA class tolerance.
         # Shared moments use the tightest participating fragment's tolerance; other truncations default to 1e-6.
         eta0_tol=None,
+        # None enables spatial singlet paths automatically for real, paired, restricted spin-zero references.
+        # Explicit True/False overrides the automatic choice; target/moment symmetry checks still apply.
         singlet_target=None,
         singlet_projection=None,
     )
@@ -732,6 +734,16 @@ class Embedding:
         if have_dynamic_screening:
             self.build_bosonic_bath(*args, **kwargs)
 
+    @property
+    def _default_singlet_bath(self) -> bool:
+        """Whether the reference permits automatic spatial singlet bath construction."""
+        return (
+            self.spinsym == "restricted"
+            and self.mol.spin == 0
+            and not np.iscomplexobj(self.mo_coeff)
+            and bool(np.all((self.mo_occ == 0) | (self.mo_occ == 2)))
+        )
+
     def build_bosonic_bath(self):
         if self.spinsym != "restricted":
             raise NotImplementedError("Bosonic baths are currently only compatible with a restricted formalism.")
@@ -751,8 +763,11 @@ class Embedding:
             rpa = ssRIRPA(self.mf)
             bopts = self.opts.bosonic_bath_options
             for key in ("eta0_method", "singlet_target"):
-                if bopts[key] is not None:
-                    setattr(rpa, key, bopts[key])
+                value = bopts[key]
+                if key == "singlet_target" and value is None:
+                    value = self._default_singlet_bath
+                if value is not None:
+                    setattr(rpa, key, value)
             # All target rows share one moment calculation, so honour the strictest fragment requirement.
             default_tol = rpa.eta0_tol
             tolerances = []

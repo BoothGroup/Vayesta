@@ -9,6 +9,7 @@ import vayesta.ewf
 from vayesta import rpa
 from vayesta.core.bosonic_bath.qba_rpa import RPA_QBA_Bath
 from vayesta.core.bosonic_bath.bbath import Boson_Threshold
+from vayesta.core.qemb.qemb import Embedding
 from vayesta.core.util import dot
 from vayesta.rpa.rirpa import RIdRRPA
 from vayesta.rpa.rirpa.RIdRRPA import ssRIdRRPA
@@ -22,6 +23,23 @@ ALL_ON = dict(eta0_method="hht", singlet_target=True, singlet_projection=True, *
 
 
 class BathModeTest(TestCase):
+    def test_singlet_default_eligibility(self) -> None:
+        """Automatic singlet baths require a real, paired, restricted spin-zero reference."""
+        cases = (
+            ("restricted", 0, [2.0, 0.0], np.eye(2), True),
+            ("unrestricted", 0, [2.0, 0.0], np.eye(2), False),
+            ("restricted", 2, [2.0, 0.0], np.eye(2), False),
+            ("restricted", 0, [1.0, 1.0], np.eye(2), False),
+            ("restricted", 0, [1.5, 0.5], np.eye(2), False),
+            ("restricted", 0, [2.0, 0.0], np.eye(2, dtype=complex), False),
+        )
+        for spinsym, spin, occupations, coeff, expected in cases:
+            with self.subTest(spinsym=spinsym, spin=spin, occupations=occupations, dtype=coeff.dtype):
+                emb = object.__new__(Embedding)
+                emb.spinsym = spinsym
+                emb.mf = SimpleNamespace(mol=SimpleNamespace(spin=spin), mo_occ=np.array(occupations), mo_coeff=coeff)
+                self.assertIs(emb._default_singlet_bath, expected)
+
     def test_weak_positive_mode_retained(self) -> None:
         """Retain a finite positive mode above the requested occupation cutoff."""
         co = np.ones((1, 1))
@@ -108,7 +126,13 @@ class RPABosonicBathHHTTest(TestCase):
         for target_orbitals in ("full", "dmet"):
             for local_projection in (None, "fragment", "fragment-occ", "fragment-ov"):
                 refs = self._baths(target_orbitals, local_projection, exact=True)
-                for options in (CLENCUR, TIGHT, ALL_ON, dict(singlet_projection=True, **TIGHT)):
+                for options in (
+                    CLENCUR,
+                    TIGHT,
+                    dict(singlet_target=False, singlet_projection=False, **TIGHT),
+                    dict(singlet_target=False, singlet_projection=True, **TIGHT),
+                    dict(singlet_target=True, singlet_projection=False, **TIGHT),
+                ):
                     with self.subTest(target=target_orbitals, projection=local_projection, **options):
                         self._assert_same_bath(self._baths(target_orbitals, local_projection, **options), refs)
                 with self.subTest(target=target_orbitals, projection=local_projection, defaults=True):
@@ -116,7 +140,7 @@ class RPABosonicBathHHTTest(TestCase):
                     self._assert_same_bath(self._baths(target_orbitals, local_projection), refs, tol=1e-4)
 
     def test_paths_used(self):
-        """With the options on, each new path is taken; the singlet bath also when the target moment is stacked."""
+        """Automatic defaults and all explicit overrides select the requested paths independently."""
         singlet_bath = RPA_QBA_Bath._make_boson_coeff_singlet
         results = []
 
@@ -124,7 +148,15 @@ class RPABosonicBathHHTTest(TestCase):
             results.append(singlet_bath(bath))
             return results[-1]
 
-        for options in (ALL_ON, dict(singlet_projection=True, **CLENCUR)):
+        cases = (
+            ({}, True, True, True),
+            (ALL_ON, True, True, True),
+            (dict(singlet_target=False, singlet_projection=False), True, False, False),
+            (dict(singlet_target=False, singlet_projection=True), True, False, True),
+            (dict(singlet_target=True, singlet_projection=False), True, True, False),
+            (CLENCUR, False, True, True),
+        )
+        for options, expect_hht, expect_target, expect_projection in cases:
             results.clear()
             with (
                 mock.patch.object(RPA_QBA_Bath, "_make_boson_coeff_singlet", spy),
@@ -137,19 +169,52 @@ class RPABosonicBathHHTTest(TestCase):
                 ) as singlet_target,
             ):
                 baths = self._baths("full", "fragment", **options)
-            on = options.get("eta0_method") == "hht"
             with self.subTest(**options):
-                self.assertEqual(hht.call_count, int(on))
-                self.assertEqual(singlet_target.call_count, int(on))
-                self.assertEqual(len(results), len(baths))
+                self.assertEqual(hht.call_count, int(expect_hht))
+                self.assertEqual(singlet_target.call_count, int(expect_target))
+                self.assertEqual(len(results), len(baths) if expect_projection else 0)
                 self.assertTrue(all(r is not None for r in results))
                 for bath in baths:
                     ov = bath.coeff.shape[1] // 2
                     self.assertTrue(np.all(np.isfinite(bath.coeff)))
-                    self.assertTrue(np.array_equal(bath.coeff[:, :ov], bath.coeff[:, ov:]))
+                    if expect_projection:
+                        self.assertTrue(np.array_equal(bath.coeff[:, :ov], bath.coeff[:, ov:]))
+
+    def test_ineligible_reference_defaults(self) -> None:
+        """Disable automatic paths for ineligible references while preserving explicit requests."""
+        for options, enabled in (({}, False), (ALL_ON, True)):
+            with self.subTest(enabled=enabled):
+                with (
+                    mock.patch.object(
+                        Embedding, "_default_singlet_bath", new_callable=mock.PropertyMock, return_value=False
+                    ),
+                    mock.patch.object(
+                        ssRIdRRPA,
+                        "_kernel_mom0_singlet_target",
+                        autospec=True,
+                        side_effect=ssRIdRRPA._kernel_mom0_singlet_target,
+                    ) as target,
+                    mock.patch.object(
+                        RPA_QBA_Bath,
+                        "_make_boson_coeff_singlet",
+                        autospec=True,
+                        side_effect=RPA_QBA_Bath._make_boson_coeff_singlet,
+                    ) as projection,
+                ):
+                    baths = self._baths("dmet", None, **options)
+                self.assertEqual(target.call_count, int(enabled))
+                self.assertEqual(projection.call_count, len(baths) if enabled else 0)
+
+    def test_fragment_projection_override(self) -> None:
+        """Fragment projection choices override both automatic and explicit embedding defaults."""
+        for options, fragment_value, other_value in (({}, False, True), (dict(singlet_projection=False), True, False)):
+            with self.subTest(fragment_value=fragment_value):
+                baths = self._baths("dmet", None, fragment_options=dict(singlet_projection=fragment_value), **options)
+                self.assertIs(baths[0].singlet_projection, fragment_value)
+                self.assertTrue(all(b.singlet_projection is other_value for b in baths[1:]))
 
     def test_class_defaults_used(self):
-        """Options left as None keep the class attributes, which external codes may set."""
+        """The moment method still inherits the RPA class default unless explicitly overridden."""
         with mock.patch.object(ssRIdRRPA, "eta0_method", "clencur"):
             with mock.patch.object(RIdRRPA, "hht_mom0_spinindependent") as hht:
                 self._baths("full", "fragment")

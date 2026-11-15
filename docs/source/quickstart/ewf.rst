@@ -41,6 +41,29 @@ which, in turn, is equivalent to
 Other :ref:`fragmentations schemes <fragments>` can still be used, but have to be specified manually.
 
 
+RPA Bosonic Baths
+-----------------
+
+For RPA bosonic baths, the spatial singlet paths are enabled automatically for real, restricted,
+spin-zero references with occupations of zero or two. ``singlet_target`` computes the targeted RPA moment
+using spatial rows, while ``singlet_projection`` constructs the bath using the spatial occupied/virtual
+projection. Both retain the spin-symmetry checks and fall back to the spin-orbital path when needed.
+
+The two options can be controlled independently through ``bosonic_bath_options``. Their default value,
+``None``, selects the automatic policy; explicit ``True`` or ``False`` takes precedence. For example, to
+disable both optimisations:
+
+.. code-block:: python
+
+    bosonic_bath_options = dict(
+        bathtype="rpa",
+        singlet_target=False,
+        singlet_projection=False,
+    )
+
+This automatic policy applies to bosonic-bath construction. Standalone RPA objects retain their class defaults.
+
+
 Cubic Boron Nitride (cBN)
 -------------------------
 
